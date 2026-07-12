@@ -1,0 +1,111 @@
+{
+  "version": 3,
+  "targets": {
+    "net8.0": {
+      "CosechaClima.Interface/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "dependencies": {
+          "CosechaClima.Models": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/CosechaClima.Interface.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/CosechaClima.Interface.dll": {}
+        }
+      },
+      "CosechaClima.Models/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "compile": {
+          "bin/placeholder/CosechaClima.Models.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/CosechaClima.Models.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "CosechaClima.Interface/1.0.0": {
+      "type": "project",
+      "path": "../CosechaClima.Interface/CosechaClima.Interface.csproj",
+      "msbuildProject": "../CosechaClima.Interface/CosechaClima.Interface.csproj"
+    },
+    "CosechaClima.Models/1.0.0": {
+      "type": "project",
+      "path": "../../CosechaClima.Models/CosechaClima.Models.csproj",
+      "msbuildProject": "../../CosechaClima.Models/CosechaClima.Models.csproj"
+    }
+  },
+  "projectFileDependencyGroups": {
+    "net8.0": [
+      "CosechaClima.Interface >= 1.0.0",
+      "CosechaClima.Models >= 1.0.0"
+    ]
+  },
+  "packageFolders": {
+    "/home/abemilek/.nuget/packages/": {}
+  },
+  "project": {
+    "version": "1.0.0",
+    "restore": {
+      "projectUniqueName": "/home/abemilek/Escritorio/workspace/CosechaClima/Services/CosechaClima.Implementation/CosechaClima.Implementation.csproj",
+      "projectName": "CosechaClima.Implementation",
+      "projectPath": "/home/abemilek/Escritorio/workspace/CosechaClima/Services/CosechaClima.Implementation/CosechaClima.Implementation.csproj",
+      "packagesPath": "/home/abemilek/.nuget/packages/",
+      "outputPath": "/home/abemilek/Escritorio/workspace/CosechaClima/Services/CosechaClima.Implementation/obj/",
+      "projectStyle": "PackageReference",
+      "configFilePaths": [
+        "/home/abemilek/.nuget/NuGet/NuGet.Config"
+      ],
+      "originalTargetFrameworks": [
+        "net8.0"
+      ],
+      "sources": {
+        "https://api.nuget.org/v3/index.json": {}
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "projectReferences": {
+            "/home/abemilek/Escritorio/workspace/CosechaClima/CosechaClima.Models/CosechaClima.Models.csproj": {
+              "projectPath": "/home/abemilek/Escritorio/workspace/CosechaClima/CosechaClima.Models/CosechaClima.Models.csproj"
+            },
+            "/home/abemilek/Escritorio/workspace/CosechaClima/Services/CosechaClima.Interface/CosechaClima.Interface.csproj": {
+              "projectPath": "/home/abemilek/Escritorio/workspace/CosechaClima/Services/CosechaClima.Interface/CosechaClima.Interface.csproj"
+            }
+          }
+        }
+      },
+      "warningProperties": {
+        "warnAsError": [
+          "NU1605"
+        ]
+      }
+    },
+    "frameworks": {
+      "net8.0": {
+        "targetAlias": "net8.0",
+        "imports": [
+          "net461",
+          "net462",
+          "net47",
+          "net471",
+          "net472",
+          "net48",
+          "net481"
+        ],
+        "assetTargetFallback": true,
+        "warn": true,
+        "frameworkReferences": {
+          "Microsoft.NETCore.App": {
+            "privateAssets": "all"
+          }
+        },
+        "runtimeIdentifierGraphPath": "/usr/lib/dotnet/sdk/8.0.128/PortableRuntimeIdentifierGraph.json"
+      }
+    }
+  }
+}
