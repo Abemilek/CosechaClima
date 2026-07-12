@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CosechaClima.Implementation")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+91861c2097ad71985977275a2d279dd37e11503c")]
 [assembly: System.Reflection.AssemblyProductAttribute("CosechaClima.Implementation")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CosechaClima.Implementation")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
