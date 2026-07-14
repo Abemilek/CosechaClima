@@ -65,8 +65,8 @@ CREATE TABLE Parcelas (
     Longitud DECIMAL(9,6) NULL, -- longitud gps
     FechaRegistro DATETIME DEFAULT GETDATE(),
     Activa BIT DEFAULT 1,
-    CONSTRAINT FK_Parcela_Productor FOREIGN KEY (ProductorId) REFERENCES Prductores(Id),
-    CONSTRAINT FK_Parcela_Cultivo FOREIGN KEY (CultivoId) REFERENCES CultivosId(Id),
+    CONSTRAINT FK_Parcela_Productor FOREIGN KEY (ProductorId) REFERENCES Productores(Id),
+    CONSTRAINT FK_Parcela_Cultivo FOREIGN KEY (CultivoId) REFERENCES Cultivos(Id),
     CONSTRAINT FK_Parcela_Etapa FOREIGN KEY (EtapaFenologicaId) REFERENCES EtapaFenologica(Id),
     CONSTRAINT FK_Parcela_Suelo FOREIGN kEY (TipoSueloId) REFERENCES TipoSuelo(Id)
 );
