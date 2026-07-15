@@ -1,0 +1,34 @@
+# === backend .net / asp.net core - CosechaClima.Api ===
+
+# build results
+bin/
+obj/
+out/
+
+# visual Studio / rider / vs Code
+.vs/
+.vscode/
+.idea/
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+
+# Logs
+*.log
+logs/
+
+# resultados de pruebas
+[Tt]est[Rr]esult*/
+
+# nuget
+*.nupkg
+project.lock.json
+
+# variables de entorno o secretos
+*.env
+appsettings.Local.json
+
+# base de datos local
+*.mdf
+*.ldf

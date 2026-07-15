@@ -1,0 +1,23 @@
+# normaliza los saltos de linea automaticamente
+* text=auto
+
+# fuerza lf explicito en el codigo fuente
+*.cs      text eol=lf
+*.dart    text eol=lf
+*.json    text eol=lf
+*.md      text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.sql     text eol=lf
+
+# los .bat y .ps1 
+*.bat     text eol=crlf
+*.ps1     text eol=crlf
+
+# binarios
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.ico     binary
+*.jks     binary
+*.keystore binary

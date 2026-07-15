@@ -1,0 +1,47 @@
+# === Mobile Flutter/Dart - CosechaClima App ===
+
+# Archivos y directorios generados por Dart/Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+*.g.dart
+*.freezed.dart
+
+# Android
+**/android/**/gradle-wrapper.jar
+**/android/.gradle
+**/android/captures/
+**/android/gradlew
+**/android/gradlew.bat
+**/android/local.properties
+**/android/**/GeneratedPluginRegistrant.java
+**/android/key.properties
+*.jks
+
+# iOS
+**/ios/**/*.mode1v3
+**/ios/**/*.mode2v3
+**/ios/**/*.moved-aside
+**/ios/**/*.pbxuser
+**/ios/**/*.perspectivev3
+**/ios/**/*sync/
+**/ios/**/.sconsign.dblite
+**/ios/**/.tags*
+**/ios/**/.vagrant/
+**/ios/**/Pods/
+**/ios/**/Podfile.lock
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Simbolos / coverage
+**/*.symbols
+coverage/
+
+# Variables de entorno / API keys del cliente movil
+.env
