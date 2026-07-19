@@ -68,7 +68,7 @@ CREATE TABLE Parcelas (
     CONSTRAINT FK_Parcela_Productor FOREIGN KEY (ProductorId) REFERENCES Productores(Id),
     CONSTRAINT FK_Parcela_Cultivo FOREIGN KEY (CultivoId) REFERENCES Cultivos(Id),
     CONSTRAINT FK_Parcela_Etapa FOREIGN KEY (EtapaFenologicaId) REFERENCES EtapaFenologica(Id),
-    CONSTRAINT FK_Parcela_Suelo FOREIGN kEY (TipoSueloId) REFERENCES TipoSuelo(Id)
+    CONSTRAINT FK_Parcela_Suelo FOREIGN KEY (TipoSueloId) REFERENCES TipoSuelo(Id)
 );
 
 -- cada productor tiene una configuarcion diferente
