@@ -3,15 +3,15 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CosechaClima.Models", "CosechaClima.Models\CosechaClima.Models.csproj", "{9B9C8FC8-ECE9-4FA9-97B3-301FB549126B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebApi.Models", "WebApi.Models\WebApi.Models.csproj", "{9B9C8FC8-ECE9-4FA9-97B3-301FB549126B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Services", "Services", "{07F1B43C-CE43-4534-B007-98C0BB1F56C6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CosechaClima.Interface", "Services\CosechaClima.Interface\CosechaClima.Interface.csproj", "{F9C46043-4095-4712-9DBE-14BA70549813}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebApi.Interface", "Services\WebApi.Interface\WebApi.Interface.csproj", "{F9C46043-4095-4712-9DBE-14BA70549813}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CosechaClima.Implementation", "Services\CosechaClima.Implementation\CosechaClima.Implementation.csproj", "{A3668162-FB61-4423-86FD-C4C9835596BC}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebApi.Implementation", "Services\WebApi.Implementation\WebApi.Implementation.csproj", "{A3668162-FB61-4423-86FD-C4C9835596BC}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CosechaClima.Api", "CosechaClima.Api\CosechaClima.Api.csproj", "{894EF2A4-82AD-480E-AFA1-EC99F100887D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebApi", "WebApi\WebApi.csproj", "{894EF2A4-82AD-480E-AFA1-EC99F100887D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
