@@ -130,7 +130,7 @@ CREATE TABLE ReglasDecision (
     CONSTRAINT FK_Regla_Suelo FOREIGN KEY (TipoSueloId) REFERENCES TipoSuelo(Id)
 );
 
--- Para Fase 2: reportes comunitarios
+-- para fase 2 reportes comunitarios
 CREATE TABLE ReportesComunitarios (
     Id INT PRIMARY KEY IDENTITY(1,1),
     UsuarioId INT NOT NULL,
