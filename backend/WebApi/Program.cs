@@ -1,8 +1,6 @@
 using WebApi.Implementation.Connection;
 using WebApi.Interface;
 using WebApi.Implementation;
-using WebApi.Controllers;
-using WebApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
