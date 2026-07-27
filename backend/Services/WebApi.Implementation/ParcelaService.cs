@@ -26,14 +26,14 @@ public class ParcelaService : IParcelaService
 
         command.Parameters.AddWithValue("@UsuarioId", parcela.UsuarioId);
         command.Parameters.AddWithValue("@CultivoId", parcela.CultivoId);
-        command.Parameters.AddWithValue("@EtapaFenolgicaId",(object) parcela.EtapaFenologicaId ?? DBNull.Value);
+        command.Parameters.AddWithValue("@EtapaFenolgicaId",(object?) parcela.EtapaFenologicaId ?? DBNull.Value);
         command.Parameters.AddWithValue("@TipoSueloId", parcela.TipoSueloId);
         command.Parameters.AddWithValue("@FechaSiembra", parcela.FechaSiembra.Date);
         command.Parameters.AddWithValue("@AreaMzs", parcela.AreaMzs);
-        command.Parameters.AddWithValue("@Latitud", (object) parcela.Latitud ?? DBNull.Value);
-        command.Parameters.AddWithValue("@Longitud", (object) parcela.Longitud ?? DBNull.Value);
-        command.Parameters.AddWithValue("@Municipio", (object) parcela.Municipio ?? DBNull.Value);
-        command.Parameters.AddWithValue("@Comunidad", (object) parcela.Comunidad ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Latitud", (object?) parcela.Latitud ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Longitud", (object?) parcela.Longitud ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Municipio", (object?) parcela.Municipio ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Comunidad", (object?) parcela.Comunidad ?? DBNull.Value);
         command.Parameters.AddWithValue("@Activa", parcela.Activa);
 
         await connection.OpenAsync();
