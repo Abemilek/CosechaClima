@@ -2,6 +2,7 @@ using WebApi.Implementation.Connection;
 using WebApi.Interface;
 using WebApi.Implementation;
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
@@ -15,7 +16,7 @@ builder.Services.AddScoped<ConnectionBD>();
 //builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<IParcelaService, ParcelaService>();
 //builder.Services.AddScoped<IUmbralConfiguracionService, UmbralConfiguracionService>();
-builder.Services.AddScoped<IDatosClimaticoService, DatosClimaticosService>();
+builder.Services.AddScoped<IDatosClimaticoService, DatosClimaticoService>();
 builder.Services.AddScoped<IAlertaService, AlertaService>();
 //builder.Services.AddScoped<IBitacoraService, BitacoraService>();
 builder.Services.AddScoped<IMotorDecisionesService, MotorDecisionesService>();
