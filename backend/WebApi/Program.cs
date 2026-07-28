@@ -15,7 +15,7 @@ builder.Services.AddScoped<ConnectionBD>();
 //builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<IParcelaService, ParcelaService>();
 //builder.Services.AddScoped<IUmbralConfiguracionService, UmbralConfiguracionService>();
-//builder.Services.AddScoped<IDatosClimaticoService, DatosClimaticoService>();
+builder.Services.AddScoped<IDatosClimaticoService, DatosClimaticosService>();
 builder.Services.AddScoped<IAlertaService, AlertaService>();
 //builder.Services.AddScoped<IBitacoraService, BitacoraService>();
 builder.Services.AddScoped<IMotorDecisionesService, MotorDecisionesService>();
