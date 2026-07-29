@@ -23,5 +23,6 @@ INSERT INTO EventoClimatico (Nombre, Descripcion) VALUES
 ('Canicula',            'Periodo prolongado sin lluvia que supera el umbral'),
 ('Viento fuerte',       'Velocidad del viento superior al umbral configurado'),
 ('Temperatura extrema', 'Temperatura fuera del rango optimo para el cultivo'),
-('Riesgo de helada',    'Temperatura cercana a 0C que puede dañar el cultivo');
+('Riesgo de helada',    'Temperatura cercana a 0C que puede dañar el cultivo'),
+('Sin riesgo',          'Ningun umbral configurado fue superado, condiciones normales');
 GO
