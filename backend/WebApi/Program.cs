@@ -9,6 +9,14 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+
+// registro del http client
+builder.Services.AddHttpClient<INasaPowerService, NasaPowerService>(cliente =>
+{
+    cliente.BaseAddress = new Uri("https://power.larc.nasa.gov/api/temporal/daily/point");
+    cliente.Timeout = TimeSpan.FromSeconds(10);
+});
+
 // conexion a la base de datos
 builder.Services.AddScoped<ConnectionBD>();
 
