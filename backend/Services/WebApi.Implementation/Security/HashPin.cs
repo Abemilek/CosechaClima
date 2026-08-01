@@ -19,7 +19,7 @@ public static class HashPin
         return Convert.ToBase64String(hashBytes);
     }
 
-    public static bool Verifify(string pin, string salt, string hashGuardado)
+    public static bool Verify(string pin, string salt, string hashGuardado)
     {
         return CalculateHash(pin, salt) == hashGuardado;
     }

@@ -43,12 +43,12 @@ builder.Services.AddHttpClient<INasaPowerService, NasaPowerService>(cliente =>
 builder.Services.AddScoped<ConnectionBD>();
 
 // cada servicio registrado, por cada interfaz que exista
-//builder.Services.AddScoped<IUsuarioService, UsuarioService>();
+builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<IParcelaService, ParcelaService>();
 builder.Services.AddScoped<IUmbralConfiguracionService, UmbralConfiguracionService>();
 builder.Services.AddScoped<IDatosClimaticoService, DatosClimaticoService>();
 builder.Services.AddScoped<IAlertaService, AlertaService>();
-//builder.Services.AddScoped<IBitacoraService, BitacoraService>();
+builder.Services.AddScoped<IBitacoraService, BitacoraService>();
 builder.Services.AddScoped<IMotorDecisionesService, MotorDecisionesService>();
 builder.Services.AddScoped<IReglaDecisionService, ReglaDecisionService>();
 builder.Services.AddAuthorization();
