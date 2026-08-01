@@ -1,13 +1,35 @@
 using WebApi.Implementation.Connection;
 using WebApi.Interface;
 using WebApi.Implementation;
-
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using WebApi.Implementation.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+
+var jwtConfig = builder.Configuration.GetSection("Jwt");
+var secretKey = jwtConfig["SecretKey"]!;
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtConfig["Issuer"],
+            ValidAudience = jwtConfig["Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+        };
+    });
 
 
 // registro del http client
@@ -29,6 +51,8 @@ builder.Services.AddScoped<IAlertaService, AlertaService>();
 //builder.Services.AddScoped<IBitacoraService, BitacoraService>();
 builder.Services.AddScoped<IMotorDecisionesService, MotorDecisionesService>();
 builder.Services.AddScoped<IReglaDecisionService, ReglaDecisionService>();
+builder.Services.AddAuthorization();
+builder.Services.AddScoped<TokenGenerator>();
 
 var app = builder.Build();
 
@@ -39,6 +63,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseAuthentication();
 
 app.UseAuthorization();
 
