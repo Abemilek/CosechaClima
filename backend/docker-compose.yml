@@ -1,0 +1,71 @@
+services:
+  api:
+    # aqui se llama el Dockerfile del mismo dir
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cosechaclima-api
+    # de mi puerto al del contenedor
+    ports:
+      - "8080:8080"
+    environment:
+      ConnectionString_BD_CosechaClima: ${CONNECTION_STRING}
+      Jwt_Issuer: ${JWT_ISSUER}
+      Jwt_Audience: ${JWT_AUDIENCE}
+      Jwt_SecretKey: ${JWT_SECRET_KEY}
+      Jwt_DurationMinutes: ${JWT_DURATION_MINUTES}
+      ASPNETCORE_ENVIRONMENT: Development
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - cosechaclima-net
+
+  # ahora el servicio de sql server
+  # y usar una imagen de microsft
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: cosechaclima-db
+    # acuerdo de licencia varables etc
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${DB_SA_PASSWORD}
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      - cosechaclima-db-data:/var/opt/mssql
+      - ./Scripts:/scripts
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - cosechaclima-net
+
+  # servicio para corra las scripts
+  db-init:
+    image: mcr.microsoft.com/mssql-tools
+    container_name: cosechaclima-db-init
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes: 
+      - ./Scripts:/scripts
+    # primero ejecutar la db luego el seed
+    entrypoint: /bin/bash -c "/opt/mssql-tools/bin/sqlcmd -S db -U sa -P \"$$MSSQL_SA_PASSWORD\" -i /scripts/BD-CosechaClima.sql && /opt/mssql-tools/bin/sqlcmd -S db -U sa -P \"$$MSSQL_SA_PASSWORD\" -i /scripts/seed.sql"
+    environment: 
+      MSSQL_SA_PASSWORD: ${DB_SA_PASSWORD}
+    networks:
+      - cosechaclima-net
+
+# la red que usan los 3 servicios
+networks:
+  cosechaclima-net:
+    driver: bridge
+
+# el que usa el db
+volumes:
+  cosechaclima-db-data:
