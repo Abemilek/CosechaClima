@@ -55,7 +55,7 @@ services:
     volumes: 
       - ./Scripts:/scripts
     # primero ejecutar la db luego el seed
-    entrypoint: /bin/bash -c "/opt/mssql-tools18/bin/sqlcmd -C -S db -U sa -P \"$$MSSQL_SA_PASSWORD\" -i /scripts/BD-CosechaClima.sql && /opt/mssql-tools18/bin/sqlcmd -C -S db -U sa -P \"$$MSSQL_SA_PASSWORD\" -i /scripts/seed.sql"
+    entrypoint: /bin/bash -c "/opt/mssql-tools/bin/sqlcmd -S db -U sa -P \"$$MSSQL_SA_PASSWORD\" -i /scripts/BD-CosechaClima.sql && /opt/mssql-tools/bin/sqlcmd -S db -U sa -P \"$$MSSQL_SA_PASSWORD\" -i /scripts/seed.sql"
     environment: 
       MSSQL_SA_PASSWORD: ${DB_SA_PASSWORD}
     networks:
