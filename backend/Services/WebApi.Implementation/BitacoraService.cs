@@ -39,6 +39,40 @@ public class BitacoraService : IBitacoraService
         return Convert.ToInt32(result);
     }
 
+    public async Task<BitacoraCampo?> ObtenerPorId(int id)
+{
+    using var connection = _connectionBD.CrearConexion();
+    using var command = new SqlCommand(
+        "SELECT Id, UsuarioId, ParcelaId, Fecha, EventoClimaticoId, NivelRiesgo, " +
+        "Accion1Texto, Accion2Texto, Accion3Texto, Accion1Completada, Accion2Completada, " +
+        "Accion3Completada, Notas, FechaSincronizacion FROM BitacoraCampo WHERE Id = @Id", connection);
+    command.Parameters.AddWithValue("@Id", id);
+
+    await connection.OpenAsync();
+    using var lector = await command.ExecuteReaderAsync();
+
+    if (!await lector.ReadAsync())
+        return null;
+
+    return new BitacoraCampo
+    {
+        Id = lector.GetInt32(0),
+        UsuarioId = lector.GetInt32(1),
+        ParcelaId = lector.GetInt32(2),
+        Fecha = lector.GetDateTime(3),
+        EventoClimaticoId = lector.GetInt32(4),
+        NivelRiesgo = lector.GetString(5),
+        Accion1Texto = lector.GetString(6),
+        Accion2Texto = lector.GetString(7),
+        Accion3Texto = lector.GetString(8),
+        Accion1Completada = lector.GetBoolean(9),
+        Accion2Completada = lector.GetBoolean(10),
+        Accion3Completada = lector.GetBoolean(11),
+        Notas = lector.IsDBNull(12) ? null : lector.GetString(12),
+        FechaSincronizacion = lector.GetDateTime(13)
+    };
+}
+
     public async Task<List<BitacoraCampo>> ObtenerHistorial(int usuarioId)
     {
         var lista = new List<BitacoraCampo>();
