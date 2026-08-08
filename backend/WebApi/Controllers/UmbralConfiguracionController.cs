@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using WebApi.Extensions;
 using WebApi.Interface;
 using WebApi.Models;
+using WebApi.Dto;
 
 namespace WebApi.Controllers;
 
@@ -19,9 +20,19 @@ public class UmbralConfiguracionController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> CreateOrUpdate([FromBody] UmbralConfiguracion umbral)
+    public async Task<IActionResult> CreateOrUpdate([FromBody] UmbralRequestDto datos)
     {
-        umbral.UsuarioId = this.ObtenerUsuarioIdActual();
+        var umbral = new UmbralConfiguracion
+        {
+            UsuarioId = this.ObtenerUsuarioIdActual(),
+            LluviaIntensaMm = datos.LluviaIntensaMm,
+            VientoFuerteKmh = datos.VientoFuerteKmh,
+            CaniculaDias = datos.CaniculaDias,
+            VariedadCultivo = datos.VariedadCultivo,
+            TieneRiego = datos.TieneRiego,
+            HorarioSms = datos.HorarioSms
+        };
+
         var id = await _umbralService.CrearOActualizar(umbral);
         return Ok(new { id });
     }
