@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using WebApi.Extensions;
 using WebApi.Interface;
 using WebApi.Models;
 
@@ -6,6 +8,7 @@ namespace WebApi.Controllers;
 
 [ApiController]
 [Route("api/umbrales")]
+[Authorize]
 public class UmbralConfiguracionController : ControllerBase
 {
     private readonly IUmbralConfiguracionService _umbralService;
@@ -18,13 +21,15 @@ public class UmbralConfiguracionController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CreateOrUpdate([FromBody] UmbralConfiguracion umbral)
     {
+        umbral.UsuarioId = this.ObtenerUsuarioIdActual();
         var id = await _umbralService.CrearOActualizar(umbral);
         return Ok(new { id });
     }
 
-    [HttpGet("usuario/{usuarioId}")]
-    public async Task<IActionResult> GetByUser(int usuarioId)
+    [HttpGet("mios")]
+    public async Task<IActionResult> GetMine()
     {
+        var usuarioId = this.ObtenerUsuarioIdActual();
         var umbral = await _umbralService.ObtenerPorUsuario(usuarioId);
         return umbral is null ? NotFound() : Ok(umbral);
     }
