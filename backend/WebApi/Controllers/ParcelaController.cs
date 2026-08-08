@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using WebApi.Extensions;
 using WebApi.Interface;
 using WebApi.Models;
+using WebApi.Dto;
 
 namespace WebApi.Controllers;
 
@@ -19,9 +20,22 @@ public class ParcelaController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> Register([FromBody] Parcela parcela)
+    public async Task<IActionResult> Register([FromBody] ParcelaRequestDto datos)
     {
-        parcela.UsuarioId = this.ObtenerUsuarioIdActual();
+        var parcela = new Parcela
+        {
+            UsuarioId = this.ObtenerUsuarioIdActual(),
+            CultivoId = datos.CultivoId,
+            EtapaFenologicaId = datos.EtapaFenologicaId,
+            TipoSueloId = datos.TipoSueloId,
+            FechaSiembra = datos.FechaSiembra,
+            AreaMzs = datos.AreaMzs,
+            Latitud = datos.Latitud,
+            Longitud = datos.Longitud,
+            Municipio = datos.Municipio,
+            Comunidad = datos.Comunidad
+        };
+
         var id = await _parcelaService.Registrar(parcela);
         return Ok(new { id });
     }

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using WebApi.Extensions;
 using WebApi.Interface;
 using WebApi.Models;
+using WebApi.Dto;
 
 namespace WebApi.Controllers;
 
@@ -22,15 +23,27 @@ public class BitacoraController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> RegisterEntry([FromBody] BitacoraCampo entrada)
+    public async Task<IActionResult> RegisterEntry([FromBody] BitacoraRequestDto datos)
     {
         var usuarioId = this.ObtenerUsuarioIdActual();
 
-        var parcela = await _parcelaService.ObtenerPorId(entrada.ParcelaId);
+        var parcela = await _parcelaService.ObtenerPorId(datos.ParcelaId);
         if (parcela is null || parcela.UsuarioId != usuarioId)
             return Forbid();
 
-        entrada.UsuarioId = usuarioId;
+        var entrada = new BitacoraCampo
+        {
+            UsuarioId = usuarioId,
+            ParcelaId = datos.ParcelaId,
+            Fecha = datos.Fecha,
+            EventoClimaticoId = datos.EventoClimaticoId,
+            NivelRiesgo = datos.NivelRiesgo,
+            Accion1Texto = datos.Accion1Texto,
+            Accion2Texto = datos.Accion2Texto,
+            Accion3Texto = datos.Accion3Texto,
+            Notas = datos.Notas
+        };
+
         var id = await _bitacoraService.RegistrarEntrada(entrada);
         return Ok(new { id });
     }
