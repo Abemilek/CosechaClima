@@ -58,6 +58,9 @@ builder.Services.AddScoped<TokenGenerator>();
 builder.Services.AddExceptionHandler<ManejadorErroresGlobal>();
 builder.Services.AddProblemDetails();
 
+builder.Services.AddHealthChecks()
+    .AddCheck<ChequeoBaseDeDatos>("base-de-datos");
+
 builder.Services.AddRateLimiter(opciones =>
 {
     opciones.AddSlidingWindowLimiter("auth", limiteOpciones =>
@@ -87,6 +90,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.MapHealthChecks("/health");
 
 app.UseHttpsRedirection();
 
