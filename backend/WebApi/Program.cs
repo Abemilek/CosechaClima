@@ -5,6 +5,8 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using WebApi.Implementation.Security;
+using WebApi;
+using Microsoft.AspNetCore.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,8 +55,35 @@ builder.Services.AddScoped<IMotorDecisionesService, MotorDecisionesService>();
 builder.Services.AddScoped<IReglaDecisionService, ReglaDecisionService>();
 builder.Services.AddAuthorization();
 builder.Services.AddScoped<TokenGenerator>();
+builder.Services.AddExceptionHandler<ManejadorErroresGlobal>();
+builder.Services.AddProblemDetails();
+
+builder.Services.AddHealthChecks()
+    .AddCheck<ChequeoBaseDeDatos>("base-de-datos");
+
+builder.Services.AddRateLimiter(opciones =>
+{
+    opciones.AddSlidingWindowLimiter("auth", limiteOpciones =>
+    {
+        limiteOpciones.PermitLimit = 5;
+        limiteOpciones.Window = TimeSpan.FromMinutes(1);
+        limiteOpciones.SegmentsPerWindow = 2;
+        limiteOpciones.QueueLimit = 0;
+    });
+
+    opciones.OnRejected = async (contexto, cancellationToken) =>
+    {
+        contexto.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await contexto.HttpContext.Response.WriteAsJsonAsync(new
+        {
+            mensaje = "demasiados intentos, espera un minuto antes de volver a intentar"
+        }, cancellationToken);
+    };
+});
 
 var app = builder.Build();
+
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
@@ -62,11 +91,15 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.MapHealthChecks("/health");
+
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
 
 app.UseAuthorization();
+
+app.UseRateLimiter();
 
 app.MapControllers();
 

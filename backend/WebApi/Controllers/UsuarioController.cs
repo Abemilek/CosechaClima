@@ -3,6 +3,7 @@ using WebApi.Dto;
 using WebApi.Implementation.Security;
 using WebApi.Interface;
 using WebApi.Models;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace WebApi.Controllers;
 
@@ -19,6 +20,7 @@ public class UsuarioController : ControllerBase
         _tokenGenerator = tokenGenerator;
     }
 
+    [EnableRateLimiting("auth")]
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterDto datos)
     {
@@ -37,6 +39,7 @@ public class UsuarioController : ControllerBase
         return Ok(new { id, mensaje = "Usuario registrado correctamente" });
     }
 
+    [EnableRateLimiting("auth")]
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponseDto>> Login([FromBody] LoginDto datos)
     {
