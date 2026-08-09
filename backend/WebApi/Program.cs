@@ -5,6 +5,7 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using WebApi.Implementation.Security;
+using WebApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,8 +54,12 @@ builder.Services.AddScoped<IMotorDecisionesService, MotorDecisionesService>();
 builder.Services.AddScoped<IReglaDecisionService, ReglaDecisionService>();
 builder.Services.AddAuthorization();
 builder.Services.AddScoped<TokenGenerator>();
+builder.Services.AddExceptionHandler<ManejadorErroresGlobal>();
+builder.Services.AddProblemDetails();
 
 var app = builder.Build();
+
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
