@@ -35,9 +35,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 
 // registro del http client
-builder.Services.AddHttpClient<INasaPowerService, NasaPowerService>(cliente =>
+builder.Services.AddHttpClient<IProveedorClimaticoService, OpenMeteoService>(cliente =>
 {
-    cliente.BaseAddress = new Uri("https://power.larc.nasa.gov/api/temporal/daily/point");
+    cliente.BaseAddress = new Uri("https://api.open-meteo.com/v1/forecast");
     cliente.Timeout = TimeSpan.FromSeconds(10);
 });
 
