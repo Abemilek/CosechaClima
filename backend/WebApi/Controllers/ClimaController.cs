@@ -12,12 +12,12 @@ namespace WebApi.Controllers;
 [Authorize]
 public class ClimaController : ControllerBase
 {
-    private readonly INasaPowerService _nasaPowerService;
+    private readonly IProveedorClimaticoService _proveedorClimaticoService;
     private readonly IParcelaService _parcelaService;
 
-    public ClimaController(INasaPowerService nasaPowerService, IParcelaService parcelaService)
+    public ClimaController(IProveedorClimaticoService proveedorClimaticoService, IParcelaService parcelaService)
     {
-        _nasaPowerService = nasaPowerService;
+        _proveedorClimaticoService = proveedorClimaticoService;
         _parcelaService = parcelaService;
     }
 
@@ -34,7 +34,7 @@ public class ClimaController : ControllerBase
         if (parcela.Latitud is null || parcela.Longitud is null)
             return BadRequest(new { mensaje = "la parcela no tiene coordenadas registradas" });
 
-        var dato = await _nasaPowerService.ObtenerYGuardarDatosActuales(
+        var dato = await _proveedorClimaticoService.ObtenerYGuardarDatosActuales(
             parcelaId, parcela.Latitud.Value, parcela.Longitud.Value);
 
         if (dato is null)
