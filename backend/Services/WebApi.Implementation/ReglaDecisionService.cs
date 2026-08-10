@@ -2,6 +2,7 @@ using Microsoft.Data.SqlClient;
 using WebApi.Implementation.Connection;
 using WebApi.Interface;
 using WebApi.Models;
+using System.Text.Json;
 
 namespace WebApi.Implementation;
 
@@ -81,38 +82,10 @@ public class ReglaDecisionService : IReglaDecisionService
 
     public async Task AplicarContenidoPreliminar()
     {
-        var reglas = new (string Cultivo, string Evento, string NivelRiesgo, string Accion1, string Accion2, string Accion3, string Descripcion)[]
-        {
-            ("Maiz", "Lluvia intensa", "Alto",
-                "Revisar y despejar los drenajes de la parcela para evitar encharcamiento",
-                "Evitar encharcamiento prolongado que favorece la pudricion de raiz",
-                "Monitorear las plantas por sintomas de pudricion tras el evento de lluvia",
-                "PRELIMINAR: el exceso de agua satura el suelo y favorece pudricion de raiz y riesgo de acame en el maizal. Pendiente de validacion tecnica."),
-
-            ("Frijol", "Canicula", "Alto",
-                "Aplicar cobertura vegetal (mulching) o barreras vivas para conservar humedad del suelo",
-                "Priorizar riego de auxilio en horas de la manana o tarde si hay sistema disponible",
-                "Evitar labores que remuevan el suelo y aceleren la perdida de humedad",
-                "PRELIMINAR: el frijol es sensible al estres hidrico, sobre todo en floracion y llenado de vaina. Pendiente de validacion tecnica."),
-
-            ("Maiz", "Viento fuerte", "Alto",
-                "Revisar el estado de cortinas rompevientos si existen en la parcela",
-                "Evaluar el aporque (acumulacion de tierra en la base del tallo) para dar mayor sujecion a la planta",
-                "Posponer aplicaciones foliares hasta que baje el viento",
-                "PRELIMINAR: el acame (volcamiento del tallo) es uno de los riesgos mas documentados del maiz frente a viento fuerte. Pendiente de validacion tecnica."),
-
-            ("Frijol", "Lluvia intensa", "Alto",
-                "Verificar drenajes y evitar encharcamiento en la parcela",
-                "Suspender fertilizacion nitrogenada hasta que el suelo drene",
-                "Monitorear sintomas de pudricion de raiz y enfermedades fungosas",
-                "PRELIMINAR: el exceso de agua favorece la pudricion de raiz, sobre todo en suelos de mal drenaje. Pendiente de validacion tecnica."),
-
-            ("Maiz", "Canicula", "Alto",
-                "Priorizar riego de auxilio en horas de la manana o tarde si hay sistema disponible",
-                "Mantener cobertura de rastrojo sobre el suelo para conservar humedad",
-                "Evitar labores de cultivo que remuevan el suelo durante el periodo de sequia",
-                "PRELIMINAR: la floracion y el llenado de grano son las etapas mas criticas del maiz frente al estres hidrico. Pendiente de validacion tecnica."),
-        };
+        var rutaArchivo = Path.Combine(AppContext.BaseDirectory, "Scripts", "reglas-preliminares-completas.json");
+        var json = await File.ReadAllTextAsync(rutaArchivo);
+        var reglas = JsonSerializer.Deserialize<List<ReglaPreliminarData>>(json,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
 
         using var connection = _connectionBD.CrearConexion();
         await connection.OpenAsync();
@@ -121,12 +94,15 @@ public class ReglaDecisionService : IReglaDecisionService
         {
             using var command = new SqlCommand(
                 @"UPDATE rd
-                  SET NivelRiesgo = @NivelRiesgo, Accion1 = @Accion1, Accion2 = @Accion2,
+                SET NivelRiesgo = @NivelRiesgo, Accion1 = @Accion1, Accion2 = @Accion2,
                       Accion3 = @Accion3, DescripcionAlerta = @Descripcion
-                  FROM ReglasDecision rd
-                  JOIN Cultivos c ON c.Id = rd.CultivoId
-                  JOIN EventoClimatico ec ON ec.Id = rd.EventoClimaticoId
-                  WHERE c.Nombre = @Cultivo AND ec.Nombre = @Evento", connection);
+                FROM ReglasDecision rd
+                JOIN Cultivos c ON c.Id = rd.CultivoId
+                JOIN EventoClimatico ec ON ec.Id = rd.EventoClimaticoId
+                JOIN EtapaFenologica ef ON ef.Id = rd.EtapaFenologicaId
+                JOIN TipoSuelo ts ON ts.Id = rd.TipoSueloId
+                WHERE c.Nombre = @Cultivo AND ec.Nombre = @Evento
+                    AND ef.Nombre = @Etapa AND ts.Nombre = @Suelo", connection);
 
             command.Parameters.AddWithValue("@NivelRiesgo", regla.NivelRiesgo);
             command.Parameters.AddWithValue("@Accion1", regla.Accion1);
@@ -135,8 +111,10 @@ public class ReglaDecisionService : IReglaDecisionService
             command.Parameters.AddWithValue("@Descripcion", regla.Descripcion);
             command.Parameters.AddWithValue("@Cultivo", regla.Cultivo);
             command.Parameters.AddWithValue("@Evento", regla.Evento);
+            command.Parameters.AddWithValue("@Etapa", regla.EtapaFenologica);
+            command.Parameters.AddWithValue("@Suelo", regla.TipoSuelo);
 
             await command.ExecuteNonQueryAsync();
         }
-    }
+    }    
 }
