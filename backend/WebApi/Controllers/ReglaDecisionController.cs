@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
 using WebApi.Interface;
+using Microsoft.AspNetCore.Authorization;
 
 namespace WebApi.Controllers;
 
 [ApiController]
 [Route("api/reglas")]
+[Authorize]
 public class ReglaDecisionController : ControllerBase
 {
     private readonly IReglaDecisionService _reglaDecisionService;

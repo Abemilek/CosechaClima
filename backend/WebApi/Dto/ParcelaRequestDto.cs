@@ -15,7 +15,7 @@ public class ParcelaRequestDto
     [Required]
     public DateTime FechaSiembra { get; set; }
 
-    [Range(0.01, 10000, ErrorMessage = "el area debe ser mayor a 0")]
+    [Range(0.01, 99999.99, ErrorMessage = "el area debe estar entre 0.01 y 99999.99 manzanas")]
     public decimal AreaMzs { get; set; }
 
     [Range(-90, 90, ErrorMessage = "latitud fuera de rango valido")]

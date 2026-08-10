@@ -50,7 +50,7 @@ CREATE TABLE Parcelas (
     EtapaFenologicaId INT NULL,
     TipoSueloId INT NOT NULL,
     FechaSiembra DATE NOT NULL,
-    AreaMzs DECIMAL(5,2) NOT NULL,
+    AreaMzs DECIMAL(7,2) NOT NULL,
     Latitud DECIMAL(9,6) NULL,
     Longitud DECIMAL(9,6) NULL,
     Municipio NVARCHAR(100) NULL,
