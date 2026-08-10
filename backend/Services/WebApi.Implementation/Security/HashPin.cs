@@ -8,19 +8,24 @@ public static class HashPin
     public static string GenerateSalt()
     {
         // para generar hash difernte si dos personas usan el mismo pin
-        var bytesAleatorios = RandomNumberGenerator.GetBytes(16);
-        return Convert.ToBase64String(bytesAleatorios);
+        var randomBytes = RandomNumberGenerator.GetBytes(16);
+        return Convert.ToBase64String(randomBytes);
     }
 
     public static string CalculateHash(string pin, string salt)
     {
-        var combinado = Encoding.UTF8.GetBytes(pin + salt);
-        var hashBytes = SHA256.HashData(combinado);
+        var combined = Encoding.UTF8.GetBytes(pin + salt);
+        var hashBytes = SHA256.HashData(combined);
         return Convert.ToBase64String(hashBytes);
     }
 
     public static bool Verify(string pin, string salt, string hashGuardado)
     {
-        return CalculateHash(pin, salt) == hashGuardado;
+        var hashCalculado = CalculateHash(pin, salt);
+
+        var bytesCalculado = Encoding.UTF8.GetBytes(hashCalculado);
+        var bytesGuardado = Encoding.UTF8.GetBytes(hashGuardado);
+
+        return CryptographicOperations.FixedTimeEquals(bytesCalculado, bytesGuardado);
     }
 }
