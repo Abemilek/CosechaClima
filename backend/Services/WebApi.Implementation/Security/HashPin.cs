@@ -5,6 +5,9 @@ namespace WebApi.Implementation.Security;
 
 public static class HashPin
 {
+    private const int Iteraciones = 210_000;
+    private const int TamanoHashBytes = 32;
+
     public static string GenerateSalt()
     {
         // para generar hash difernte si dos personas usan el mismo pin
@@ -14,8 +17,15 @@ public static class HashPin
 
     public static string CalculateHash(string pin, string salt)
     {
-        var combined = Encoding.UTF8.GetBytes(pin + salt);
-        var hashBytes = SHA256.HashData(combined);
+        var saltBytes = Convert.FromBase64String(salt);
+
+        var hashBytes = Rfc2898DeriveBytes.Pbkdf2(
+            password: pin,
+            salt: saltBytes,
+            iterations: Iteraciones,
+            hashAlgorithm: HashAlgorithmName.SHA256,
+            outputLength: TamanoHashBytes);
+
         return Convert.ToBase64String(hashBytes);
     }
 
@@ -23,8 +33,8 @@ public static class HashPin
     {
         var hashCalculado = CalculateHash(pin, salt);
 
-        var bytesCalculado = Encoding.UTF8.GetBytes(hashCalculado);
-        var bytesGuardado = Encoding.UTF8.GetBytes(hashGuardado);
+        var bytesCalculado = Convert.FromBase64String(hashCalculado);
+        var bytesGuardado = Convert.FromBase64String(hashGuardado);
 
         return CryptographicOperations.FixedTimeEquals(bytesCalculado, bytesGuardado);
     }
