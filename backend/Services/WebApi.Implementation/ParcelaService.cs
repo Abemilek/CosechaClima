@@ -20,13 +20,13 @@ public class ParcelaService : IParcelaService
             "INSERT INTO Parcelas (UsuarioId, CultivoId, EtapaFenologicaId, TipoSueloId, " +
             "FechaSiembra, AreaMzs, Latitud, Longitud, Municipio, Comunidad, Activa) " +
             "OUTPUT INSERTED.Id " +
-            "Values (@UsuarioId, @CultivoId, @EtapaFenologicaId, @TipoSueloId, " +
-            "@FechaSiembra, @AreaMzs, @Latitud, @Longitud, @Municipio, @Comunidad, @Activa",
+            "VALUES (@UsuarioId, @CultivoId, @EtapaFenologicaId, @TipoSueloId, " +
+            "@FechaSiembra, @AreaMzs, @Latitud, @Longitud, @Municipio, @Comunidad, @Activa)",
         connection);
 
         command.Parameters.AddWithValue("@UsuarioId", parcela.UsuarioId);
         command.Parameters.AddWithValue("@CultivoId", parcela.CultivoId);
-        command.Parameters.AddWithValue("@EtapaFenolgicaId",(object?) parcela.EtapaFenologicaId ?? DBNull.Value);
+        command.Parameters.AddWithValue("@EtapaFenologicaId", (object?) parcela.EtapaFenologicaId ?? DBNull.Value);
         command.Parameters.AddWithValue("@TipoSueloId", parcela.TipoSueloId);
         command.Parameters.AddWithValue("@FechaSiembra", parcela.FechaSiembra.Date);
         command.Parameters.AddWithValue("@AreaMzs", parcela.AreaMzs);
