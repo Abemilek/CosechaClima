@@ -15,10 +15,10 @@ public class UsuarioService : IUsuarioService
         _connectionBD = connectionBD;
     }
 
-    public async Task<int> Registrar(Usuario usuario)
+    public async Task<int> Registrar(Usuario usuario, string pinEnTextoPlano)
     {
-        var salt = HashPin.GenerateSalt();
-        var hash = HashPin.CalculateHash(usuario.PinHash, salt); 
+    var salt = HashPin.GenerateSalt();
+    var hash = HashPin.CalculateHash(pinEnTextoPlano, salt);
 
         using var connection = _connectionBD.CrearConexion();
         using var command = new SqlCommand(
