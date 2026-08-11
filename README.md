@@ -136,12 +136,12 @@ curl -X POST http://localhost:8080/api/reglas/sembrar
 curl -X POST http://localhost:8080/api/reglas/aplicar-contenido-preliminar
 
 # 2. Registrar un usuario
-curl -X POST http://localhost:8080/api/usuarios/register \
+curl -X POST http://localhost:8080/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{"nombre":"Juan Perez","telefono":"88887777","pin":"1234"}'
 
 # 3. Iniciar sesion
-curl -X POST http://localhost:8080/api/usuarios/login \
+curl -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"telefono":"88887777","pin":"1234"}'
 ```
@@ -150,8 +150,8 @@ curl -X POST http://localhost:8080/api/usuarios/login \
 
 | Método | Ruta | Descripción | Requiere token |
 |---|---|---|---|
-| `POST` | `/api/usuarios/register` | Registro de productor | No |
-| `POST` | `/api/usuarios/login` | Inicio de sesión, devuelve JWT | No |
+| `POST` | `/api/auth/register` | Registro de productor | No |
+| `POST` | `/api/auth/login` | Inicio de sesión, devuelve JWT | No |
 | `POST` | `/api/parcelas` | Registrar una parcela | Sí |
 | `GET` | `/api/parcelas/mias` | Listar parcelas del usuario autenticado | Sí |
 | `POST` | `/api/umbrales` | Configurar umbrales de riesgo | Sí |
