@@ -23,6 +23,7 @@ public class ReglaDecisionController : ControllerBase
         return Ok(reglas);
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpPost("sembrar")]
     public async Task<IActionResult> Sembrar()
     {
@@ -30,10 +31,11 @@ public class ReglaDecisionController : ControllerBase
         return Ok(new { mensaje = "reglas placeholder generadas o ya existian"});
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpPost("aplicar-contenido-preliminar")]
     public async Task<IActionResult> AplicarContenidoPreliminar()
     {
         await _reglaDecisionService.AplicarContenidoPreliminar();
-        return Ok(new {message = "contenido preliminar aplicado a las 5 reglas representativas"});
+        return Ok(new {message = "contenido preliminar aplicado reglas representativas"});
     }
 }
