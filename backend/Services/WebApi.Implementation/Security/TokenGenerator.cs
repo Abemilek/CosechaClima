@@ -29,6 +29,11 @@ public class TokenGenerator
             new(ClaimTypes.Name, usuario.Nombre)
         };
 
+        if (usuario.EsAdmin)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, "Admin"));
+        }
+
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 

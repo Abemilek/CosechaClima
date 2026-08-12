@@ -50,7 +50,7 @@ public class UsuarioService : IUsuarioService
     {
         using var connection = _connectionBD.CrearConexion();
         using var command = new SqlCommand(
-            "SELECT Id, Nombre, Telefono, PinHash, PinSalt, FechaRegistro, Activo " +
+            "SELECT Id, Nombre, Telefono, PinHash, PinSalt, FechaRegistro, Activo, EsAdmin " +
             "FROM Usuarios WHERE Id = @Id", connection);
         command.Parameters.AddWithValue("@Id", id);
 
@@ -64,7 +64,7 @@ public class UsuarioService : IUsuarioService
     {
         using var connection = _connectionBD.CrearConexion();
         using var command = new SqlCommand(
-            "SELECT Id, Nombre, Telefono, PinHash, PinSalt, FechaRegistro, Activo " +
+            "SELECT Id, Nombre, Telefono, PinHash, PinSalt, FechaRegistro, Activo, EsAdmin " +
             "FROM Usuarios WHERE Telefono = @Telefono", connection);
         command.Parameters.AddWithValue("@Telefono", telefono);
 
@@ -84,7 +84,8 @@ public class UsuarioService : IUsuarioService
             PinHash = lector.GetString(3),
             PinSalt = lector.GetString(4),
             FechaRegistro = lector.GetDateTime(5),
-            Activo = lector.GetBoolean(6)
+            Activo = lector.GetBoolean(6),
+            EsAdmin = lector.GetBoolean(7)
         };
     }
 }

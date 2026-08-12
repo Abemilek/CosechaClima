@@ -8,4 +8,5 @@ public class Usuario {
     public string PinSalt {get; set; } = string.Empty;
     public DateTime FechaRegistro {get; set; } = DateTime.Now;
     public bool Activo {get; set; } = true;
+    public bool EsAdmin {get; set; } = false;
 }
