@@ -40,7 +40,8 @@ CREATE TABLE Usuarios (
     PinHash NVARCHAR(200) NOT NULL,
     PinSalt NVARCHAR(100) NOT NULL,
     FechaRegistro DATETIME DEFAULT GETDATE(),
-    Activo BIT DEFAULT 1
+    Activo BIT DEFAULT 1,
+    EsAdmin BIT NOT NULL DEFAULT 0
 );
 
 CREATE TABLE Parcelas (
