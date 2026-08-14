@@ -15,21 +15,25 @@ public class UsuarioService : IUsuarioService
         _connectionBD = connectionBD;
     }
 
-    public async Task<int> Registrar(Usuario usuario)
+    public async Task<int> Registrar(Usuario usuario, string pinEnTextoPlano)
     {
         var salt = HashPin.GenerateSalt();
-        var hash = HashPin.CalculateHash(usuario.PinHash, salt); 
+        var hash = HashPin.CalculateHash(pinEnTextoPlano, salt);
+
+        usuario.PinSalt = salt;
+        usuario.PinHash = hash;
 
         using var connection = _connectionBD.CrearConexion();
         using var command = new SqlCommand(
             "INSERT INTO Usuarios (Nombre, Telefono, PinHash, PinSalt) " +
             "OUTPUT INSERTED.Id " +
-            "VALUES (@Nombre, @Telefono, @PinHash, @PinSalt)", connection);
+            "VALUES (@Nombre, @Telefono, @PinHash, @PinSalt)",
+            connection);
 
         command.Parameters.AddWithValue("@Nombre", usuario.Nombre);
         command.Parameters.AddWithValue("@Telefono", usuario.Telefono);
-        command.Parameters.AddWithValue("@PinHash", hash);
-        command.Parameters.AddWithValue("@PinSalt", salt);
+        command.Parameters.AddWithValue("@PinHash", usuario.PinHash);
+        command.Parameters.AddWithValue("@PinSalt", usuario.PinSalt);
 
         await connection.OpenAsync();
         var result = await command.ExecuteScalarAsync();
