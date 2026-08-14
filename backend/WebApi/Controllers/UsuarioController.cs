@@ -24,19 +24,20 @@ public class UsuarioController : ControllerBase
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterDto datos)
     {
-        var existingUser = await _usuarioService.ObtenerPorTelefono(datos.Telefono);
-        if (existingUser is not null)
-            return Conflict(new { mensaje = "el numero de telefono ya esta registrado" });
+        var existente = await _usuarioService.ObtenerPorTelefono(datos.Telefono);
+        if (existente != null)
+        {
+            return Conflict(new { mensaje = "ya existe un usuario con este telefono" });
+        }
 
         var usuario = new Usuario
         {
             Nombre = datos.Nombre,
-            Telefono = datos.Telefono,
-            PinHash = datos.Pin
+            Telefono = datos.Telefono
         };
 
-        var id = await _usuarioService.Registrar(usuario);
-        return Ok(new { id, mensaje = "Usuario registrado correctamente" });
+        var id = await _usuarioService.Registrar(usuario, datos.Pin);
+        return Ok(new { id, mensaje = "usuario registrado correctamente" });
     }
 
     [EnableRateLimiting("auth")]
