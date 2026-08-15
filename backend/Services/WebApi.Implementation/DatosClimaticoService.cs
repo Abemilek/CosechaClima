@@ -126,6 +126,40 @@ public class DatosClimaticoService : IDatosClimaticoService
         command.Parameters.AddWithValue("@Fuente", datos.FuenteNASA);
     }
 
+    public async Task<List<DatosClimaticos>> ObtenerPorRangoFechas(
+    int parcelaId,
+    DateTime fechaDesde,
+    DateTime fechaHasta)
+{
+    var lista = new List<DatosClimaticos>();
+
+    using var connection = _connectionBD.CrearConexion();
+    using var command = new SqlCommand(
+        "SELECT Id, ParcelaId, Fecha, TemperaturaMedia, TemperaturaMax, " +
+        "TemperaturaMin, Precipitacion, HumedadRelativa, VientoVelocidad, " +
+        "RadiacionSolar, FuenteNASA, FechaDescarga " +
+        "FROM DatosClimaticos " +
+        "WHERE ParcelaId = @ParcelaId " +
+        "AND Fecha >= @FechaDesde " +
+        "AND Fecha <= @FechaHasta " +
+        "ORDER BY Fecha DESC",
+        connection);
+
+    command.Parameters.AddWithValue("@ParcelaId", parcelaId);
+    command.Parameters.AddWithValue("@FechaDesde", fechaDesde.Date);
+    command.Parameters.AddWithValue("@FechaHasta", fechaHasta.Date);
+
+    await connection.OpenAsync();
+    using var reader = await command.ExecuteReaderAsync();
+
+    while (await reader.ReadAsync())
+    {
+        lista.Add(MapDato(reader));
+    }
+
+    return lista;
+}
+
     private static DatosClimaticos MapDato(SqlDataReader reader)
     {
         return new DatosClimaticos
