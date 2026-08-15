@@ -1,6 +1,4 @@
-using Microsoft.Data.SqlClient;
 using WebApi.Interface;
-using WebApi.Implementation.Connection;
 using WebApi.Models;
 
 namespace WebApi.Implementation;
@@ -12,19 +10,22 @@ public class MotorDecisionesService : IMotorDecisionesService
     private readonly IDatosClimaticoService _datosClimaticoService;
     private readonly IReglaDecisionService _reglaDecisionService;
     private readonly IAlertaService _alertaService;
+    private readonly IEtapaFenologicaService _etapaFenologicaService;
 
     public MotorDecisionesService(
         IParcelaService parcelaService,
         IUmbralConfiguracionService umbralService,
         IDatosClimaticoService datosClimaticoService,
         IReglaDecisionService reglaDecisionService,
-        IAlertaService alertaService)
+        IAlertaService alertaService,
+        IEtapaFenologicaService etapaFenologicaService)
     {
         _parcelaService = parcelaService;
         _umbralService = umbralService;
         _datosClimaticoService = datosClimaticoService;
         _reglaDecisionService = reglaDecisionService;
         _alertaService = alertaService;
+        _etapaFenologicaService = etapaFenologicaService;
     }
 
     public async Task<Alerta> CalcularSemaforo(int parcelaId)
@@ -32,37 +33,32 @@ public class MotorDecisionesService : IMotorDecisionesService
         var parcela = await _parcelaService.ObtenerPorId(parcelaId)
             ?? throw new InvalidOperationException($"No existe la parcela {parcelaId}");
 
-        if (parcela.EtapaFenologicaId is null)
-            throw new InvalidOperationException("La parcela no tiene etapa fenologica asignada");
+        var etapaFenologicaId = parcela.EtapaFenologicaId
+            ?? (await _etapaFenologicaService.CalcularDesdeFecha(parcela.FechaSiembra)).Id;
 
         var umbrales = await _umbralService.ObtenerPorUsuario(parcela.UsuarioId)
-            ?? throw new InvalidOperationException("El usuario no tiene umbrales configurados");
+            ?? throw new InvalidOperationException("el usuario no tiene umbrales configurados");
 
-        // dato mas reciente para los umbrales de un solo dia
-        var ultimoDato = (await _datosClimaticoService.ObtenerUltimosDatos(parcelaId, dias: 1))
-            .FirstOrDefault();
+        var datosRecientes = await _datosClimaticoService.ObtenerUltimosDatos(
+            parcelaId, dias: umbrales.CaniculaDias);
 
-        if (ultimoDato is null)
-            throw new InvalidOperationException("No hay datos climaticos disponibles para esta parcela");
+        if (datosRecientes.Count == 0)
+            throw new InvalidOperationException("no hay datos climaticos disponibles para esta parcela");
 
-        var diasNecesarios = Math.Max(umbrales.CaniculaDias, 1);
-        var fechaDesde = DateTime.Today.AddDays(-(diasNecesarios - 1));
-        var ventanaCanicula = await _datosClimaticoService.ObtenerPorRangoFechas(
-            parcelaId, fechaDesde, DateTime.Today);
-
-        var eventoClimaticoId = DetermineActiveEvent(ultimoDato, ventanaCanicula, umbrales, diasNecesarios);
+        var datoMasReciente = datosRecientes[0];
+        var eventoClimaticoId = DetermineActiveEvent(datoMasReciente, datosRecientes, umbrales);
 
         var rules = await _reglaDecisionService.ObtenerTodas();
         var rule = rules.FirstOrDefault(r =>
             r.EventoClimaticoId == eventoClimaticoId &&
             r.CultivoId == parcela.CultivoId &&
-            r.EtapaFenologicaId == parcela.EtapaFenologicaId &&
+            r.EtapaFenologicaId == etapaFenologicaId &&
             r.TipoSueloId == parcela.TipoSueloId);
 
         if (rule is null)
             throw new InvalidOperationException(
                 $"No existe una regla para eventos={eventoClimaticoId}, Cultivo={parcela.CultivoId}, " +
-                $"Etapa={parcela.EtapaFenologicaId}, Suelo={parcela.TipoSueloId}. Revisar seed de reglas decision");
+                $"Etapa={etapaFenologicaId}, Suelo={parcela.TipoSueloId}. Revisar seed de reglas decision");
 
         var alert = new Alerta
         {
@@ -81,43 +77,32 @@ public class MotorDecisionesService : IMotorDecisionesService
     }
 
     private static int DetermineActiveEvent(
-        DatosClimaticos ultimoDato,
-        List<DatosClimaticos> ventanaCanicula,
-        UmbralConfiguracion umbrales,
-        int diasNecesarios)
+        DatosClimaticos datoMasReciente,
+        List<DatosClimaticos> historial,
+        UmbralConfiguracion umbrales)
     {
-        if (ultimoDato.TemperaturaMin is not null && ultimoDato.TemperaturaMin <= 2)
+        if (datoMasReciente.TemperaturaMin is not null && datoMasReciente.TemperaturaMin <= 2)
             return (int)EventoClimaticoId.RiesgoHelada;
 
-        if (ultimoDato.Precipitacion is not null && ultimoDato.Precipitacion >= umbrales.LluviaIntensaMm)
+        if (datoMasReciente.Precipitacion is not null && datoMasReciente.Precipitacion >= umbrales.LluviaIntensaMm)
             return (int)EventoClimaticoId.LluviaIntensa;
 
-        if (ultimoDato.VientoVelocidad is not null && ultimoDato.VientoVelocidad >= umbrales.VientoFuerteKmh)
+        if (datoMasReciente.VientoVelocidad is not null && datoMasReciente.VientoVelocidad >= umbrales.VientoFuerteKmh)
             return (int)EventoClimaticoId.VientoFuerte;
 
-        if (ultimoDato.TemperaturaMax is not null && ultimoDato.TemperaturaMax >= 35)
+        if (datoMasReciente.TemperaturaMax is not null && datoMasReciente.TemperaturaMax >= 35)
             return (int)EventoClimaticoId.TemperaturaExtrema;
 
-        // sin huecos de conectividad
-        if (HayCaniculaActiva(ventanaCanicula, diasNecesarios, DateTime.Today))
+        if (HayCaniculaActiva(historial, umbrales.CaniculaDias))
             return (int)EventoClimaticoId.Canicula;
 
         return (int)EventoClimaticoId.SinRiesgo;
     }
 
-    private static bool HayCaniculaActiva(List<DatosClimaticos> historial, int diasRequeridos, DateTime fechaReferencia)
+    private static bool HayCaniculaActiva(List<DatosClimaticos> historial, int diasRequeridos)
     {
-        var fechasEsperadas = Enumerable.Range(0, diasRequeridos)
-            .Select(offset => fechaReferencia.AddDays(-offset).Date)
-            .ToHashSet();
-
-        var fechasDisponibles = historial.Select(d => d.Fecha.Date).ToHashSet();
-
-        if (!fechasEsperadas.IsSubsetOf(fechasDisponibles))
-            return false;
-
-        return historial
-            .Where(d => fechasEsperadas.Contains(d.Fecha.Date))
-            .All(d => d.Precipitacion is null || d.Precipitacion == 0);
+        if (historial.Count < diasRequeridos) return false;
+        var ultimosNDias = historial.Take(diasRequeridos);
+        return ultimosNDias.All(d => d.Precipitacion is null || d.Precipitacion == 0);
     }
 }
