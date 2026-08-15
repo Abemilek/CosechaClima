@@ -29,22 +29,35 @@ public class OpenMeteoService : IProveedorClimaticoService
             if (diario?.Time is null || diario.Time.Count == 0)
                 return await UsarUltimoDatoGuardado(parcelaId);
 
-            // el 1 es hoy y el 0 es ayer
             var indiceHoy = diario.Time.Count > 1 ? 1 : 0;
+            var indicesAGuardar = diario.Time.Count > 1
+                ? new[] { 0, 1 }
+                : new[] { 0 };
 
-            var dato = new DatosClimaticos
+            DatosClimaticos? datoDeHoy = null;
+
+            foreach (var indice in indicesAGuardar)
             {
-                ParcelaId = parcelaId,
-                Fecha = DateTime.Today,
-                TemperaturaMax = ObtenerValor(diario.Temperature2mMax, indiceHoy),
-                TemperaturaMin = ObtenerValor(diario.Temperature2mMin, indiceHoy),
-                Precipitacion = ObtenerValor(diario.PrecipitationSum, indiceHoy),
-                VientoVelocidad = ObtenerValor(diario.Windspeed10mMax, indiceHoy),
-                FuenteNASA = "OPEN_METEO"
-            };
+                var fecha = DateTime.Parse(diario.Time[indice]);
 
-            await _datosClimaticoService.GuardarDatos(dato);
-            return dato;
+                var dato = new DatosClimaticos
+                {
+                    ParcelaId = parcelaId,
+                    Fecha = fecha.Date,
+                    TemperaturaMax = ObtenerValor(diario.Temperature2mMax, indice),
+                    TemperaturaMin = ObtenerValor(diario.Temperature2mMin, indice),
+                    Precipitacion = ObtenerValor(diario.PrecipitationSum, indice),
+                    VientoVelocidad = ObtenerValor(diario.Windspeed10mMax, indice),
+                    FuenteNASA = "OPEN_METEO"
+                };
+
+                await _datosClimaticoService.GuardarOActualizar(dato);
+
+                if (indice == indiceHoy)
+                    datoDeHoy = dato;
+            }
+
+            return datoDeHoy;
         }
         catch (HttpRequestException)
         {
@@ -56,37 +69,40 @@ public class OpenMeteoService : IProveedorClimaticoService
         }
     }
 
-    private static decimal? ObtenerValor(List<decimal>? lista, int indice)
-    {
-        return lista is not null && indice < lista.Count ? lista[indice] : null;
-    }
-
     private async Task<DatosClimaticos?> UsarUltimoDatoGuardado(int parcelaId)
     {
-        var ultimos = await _datosClimaticoService.ObtenerUltimosDatos(parcelaId, dias: 3);
+        var ultimos = await _datosClimaticoService.ObtenerUltimosDatos(parcelaId, dias: 1);
         return ultimos.FirstOrDefault();
     }
-}
 
-// deserializar el json de open meteo
-internal class OpenMeteoRespuesta
-{
-    public OpenMeteoDaily? Daily { get; set; }
-}
+    private static decimal? ObtenerValor(List<decimal?>? lista, int indice)
+    {
+        if (lista is null || indice >= lista.Count)
+            return null;
 
-internal class OpenMeteoDaily
-{
-    public List<string>? Time { get; set; }
+        return lista[indice];
+    }
 
-    [System.Text.Json.Serialization.JsonPropertyName("temperature_2m_max")]
-    public List<decimal>? Temperature2mMax { get; set; }
+    // deserializar el json de open meteo
+    internal class OpenMeteoRespuesta
+    {
+        public OpenMeteoDaily? Daily { get; set; }
+    }
 
-    [System.Text.Json.Serialization.JsonPropertyName("temperature_2m_min")]
-    public List<decimal>? Temperature2mMin { get; set; }
+    internal class OpenMeteoDaily
+    {
+        public List<string>? Time { get; set; }
 
-    [System.Text.Json.Serialization.JsonPropertyName("precipitation_sum")]
-    public List<decimal>? PrecipitationSum { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("temperature_2m_max")]
+        public List<decimal?>? Temperature2mMax { get; set; }
 
-    [System.Text.Json.Serialization.JsonPropertyName("windspeed_10m_max")]
-    public List<decimal>? Windspeed10mMax { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("temperature_2m_min")]
+        public List<decimal?>? Temperature2mMin { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("precipitation_sum")]
+        public List<decimal?>? PrecipitationSum { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("windspeed_10m_max")]
+        public List<decimal?>? Windspeed10mMax { get; set; }
+    }
 }

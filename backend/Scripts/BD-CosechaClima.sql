@@ -87,7 +87,7 @@ CREATE TABLE DatosClimaticos (
     HumedadRelativa DECIMAL(5,1) NULL,
     VientoVelocidad DECIMAL(5,1) NULL,
     RadiacionSolar DECIMAL(7,2) NULL,
-    FuenteNASA NVARCHAR(50) DEFAULT 'POWER',
+    FuenteClima NVARCHAR(50) DEFAULT 'OPEN_METEO',
     FechaDescarga DATETIME DEFAULT GETDATE(),
     CONSTRAINT FK_Datos_Parcela FOREIGN KEY (ParcelaId) REFERENCES Parcelas(Id)
 );
