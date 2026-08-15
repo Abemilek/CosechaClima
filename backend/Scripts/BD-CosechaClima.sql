@@ -89,7 +89,8 @@ CREATE TABLE DatosClimaticos (
     RadiacionSolar DECIMAL(7,2) NULL,
     FuenteNASA NVARCHAR(50) DEFAULT 'POWER',
     FechaDescarga DATETIME DEFAULT GETDATE(),
-    CONSTRAINT FK_Datos_Parcela FOREIGN KEY (ParcelaId) REFERENCES Parcelas(Id)
+    CONSTRAINT FK_Datos_Parcela FOREIGN KEY (ParcelaId) REFERENCES Parcelas(Id),
+    CONSTRAINT UK_Datos_Parcela_Fecha UNIQUE (ParcelaId, Fecha)
 );
 
 -- guarda el estado completo del dia
