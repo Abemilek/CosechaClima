@@ -33,28 +33,34 @@ public class MotorDecisionesService : IMotorDecisionesService
         var parcela = await _parcelaService.ObtenerPorId(parcelaId)
             ?? throw new InvalidOperationException($"No existe la parcela {parcelaId}");
 
+        // si el productor no fijo una etapa manualmente se calcula sola a partir de la fecha siembra
         var etapaFenologicaId = parcela.EtapaFenologicaId
             ?? (await _etapaFenologicaService.CalcularDesdeFecha(parcela.FechaSiembra)).Id;
 
         var umbrales = await _umbralService.ObtenerPorUsuario(parcela.UsuarioId)
             ?? throw new InvalidOperationException("el usuario no tiene umbrales configurados");
 
-        var datosRecientes = await _datosClimaticoService.ObtenerUltimosDatos(
-            parcelaId, dias: umbrales.CaniculaDias);
+        // dato mas reciente solo para los umbrales de un solo dia
+        var ultimoDato = (await _datosClimaticoService.ObtenerUltimosDatos(parcelaId, dias: 1))
+            .FirstOrDefault();
 
-        if (datosRecientes.Count == 0)
+        if (ultimoDato is null)
             throw new InvalidOperationException("no hay datos climaticos disponibles para esta parcela");
 
-        var datoMasReciente = datosRecientes[0];
-        var eventoClimaticoId = DetermineActiveEvent(datoMasReciente, datosRecientes, umbrales);
+        var diasNecesarios = Math.Max(umbrales.CaniculaDias, 1);
+        var fechaDesde = DateTime.Today.AddDays(-(diasNecesarios - 1));
+        var ventanaCanicula = await _datosClimaticoService.ObtenerPorRangoFechas(
+            parcelaId, fechaDesde, DateTime.Today);
+
+        var eventoClimaticoId = DetermineActiveEvent(ultimoDato, ventanaCanicula, umbrales, diasNecesarios);
 
         var rule = await _reglaDecisionService.ObtenerPorClave(
-    eventoClimaticoId, parcela.CultivoId, parcela.EtapaFenologicaId!.Value, parcela.TipoSueloId);
+            eventoClimaticoId, parcela.CultivoId, etapaFenologicaId, parcela.TipoSueloId);
 
-if (rule is null)
-    throw new InvalidOperationException(
-        $"No existe una regla para eventos={eventoClimaticoId}, Cultivo={parcela.CultivoId}, " +
-        $"Etapa={parcela.EtapaFenologicaId}, Suelo={parcela.TipoSueloId}. Revisar seed de reglas decision");
+        if (rule is null)
+            throw new InvalidOperationException(
+                $"No existe una regla para eventos={eventoClimaticoId}, Cultivo={parcela.CultivoId}, " +
+                $"Etapa={etapaFenologicaId}, Suelo={parcela.TipoSueloId}. Revisar seed de reglas decision");
 
         var alert = new Alerta
         {
@@ -73,32 +79,42 @@ if (rule is null)
     }
 
     private static int DetermineActiveEvent(
-        DatosClimaticos datoMasReciente,
-        List<DatosClimaticos> historial,
-        UmbralConfiguracion umbrales)
+        DatosClimaticos ultimoDato,
+        List<DatosClimaticos> ventanaCanicula,
+        UmbralConfiguracion umbrales,
+        int diasNecesarios)
     {
-        if (datoMasReciente.TemperaturaMin is not null && datoMasReciente.TemperaturaMin <= 2)
+        if (ultimoDato.TemperaturaMin is not null && ultimoDato.TemperaturaMin <= 2)
             return (int)EventoClimaticoId.RiesgoHelada;
 
-        if (datoMasReciente.Precipitacion is not null && datoMasReciente.Precipitacion >= umbrales.LluviaIntensaMm)
+        if (ultimoDato.Precipitacion is not null && ultimoDato.Precipitacion >= umbrales.LluviaIntensaMm)
             return (int)EventoClimaticoId.LluviaIntensa;
 
-        if (datoMasReciente.VientoVelocidad is not null && datoMasReciente.VientoVelocidad >= umbrales.VientoFuerteKmh)
+        if (ultimoDato.VientoVelocidad is not null && ultimoDato.VientoVelocidad >= umbrales.VientoFuerteKmh)
             return (int)EventoClimaticoId.VientoFuerte;
 
-        if (datoMasReciente.TemperaturaMax is not null && datoMasReciente.TemperaturaMax >= 35)
+        if (ultimoDato.TemperaturaMax is not null && ultimoDato.TemperaturaMax >= 35)
             return (int)EventoClimaticoId.TemperaturaExtrema;
 
-        if (HayCaniculaActiva(historial, umbrales.CaniculaDias))
+        if (HayCaniculaActiva(ventanaCanicula, diasNecesarios, DateTime.Today))
             return (int)EventoClimaticoId.Canicula;
 
         return (int)EventoClimaticoId.SinRiesgo;
     }
 
-    private static bool HayCaniculaActiva(List<DatosClimaticos> historial, int diasRequeridos)
+    private static bool HayCaniculaActiva(List<DatosClimaticos> historial, int diasRequeridos, DateTime fechaReferencia)
     {
-        if (historial.Count < diasRequeridos) return false;
-        var ultimosNDias = historial.Take(diasRequeridos);
-        return ultimosNDias.All(d => d.Precipitacion is null || d.Precipitacion == 0);
+        var fechasEsperadas = Enumerable.Range(0, diasRequeridos)
+            .Select(offset => fechaReferencia.AddDays(-offset).Date)
+            .ToHashSet();
+
+        var fechasDisponibles = historial.Select(d => d.Fecha.Date).ToHashSet();
+
+        if (!fechasEsperadas.IsSubsetOf(fechasDisponibles))
+            return false;
+
+        return historial
+            .Where(d => fechasEsperadas.Contains(d.Fecha.Date))
+            .All(d => d.Precipitacion is null || d.Precipitacion == 0);
     }
 }
