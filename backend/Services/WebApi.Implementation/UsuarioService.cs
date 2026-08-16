@@ -50,6 +50,17 @@ public class UsuarioService : IUsuarioService
         return esValido ? usuario : null;
     }
 
+    public async Task MarcarComoAdmin(int usuarioId)
+    {
+        using var connection = _connectionBD.CrearConexion();
+        using var command = new SqlCommand(
+            "UPDATE Usuarios SET EsAdmin = 1 WHERE Id = @Id", connection);
+        command.Parameters.AddWithValue("@Id", usuarioId);
+
+        await connection.OpenAsync();
+        await command.ExecuteNonQueryAsync();
+    }
+
     public async Task<Usuario?> ObtenerPorId(int id)
     {
         using var connection = _connectionBD.CrearConexion();
