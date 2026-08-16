@@ -8,6 +8,7 @@ using Microsoft.OpenApi;
 using WebApi.Implementation.Security;
 using WebApi;
 using Microsoft.AspNetCore.RateLimiting;
+using WebApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -120,5 +121,32 @@ app.UseAuthorization();
 app.UseRateLimiter();
 
 app.MapControllers();
+
+using (var scope = app.Services.CreateScope())
+{
+    var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+    var telefonoAdmin = config["AdminSeed:Telefono"];
+    var pinAdmin = config["AdminSeed:Pin"];
+
+    if (!string.IsNullOrWhiteSpace(telefonoAdmin) && !string.IsNullOrWhiteSpace(pinAdmin))
+    {
+        var usuarioService = scope.ServiceProvider.GetRequiredService<IUsuarioService>();
+        var existente = await usuarioService.ObtenerPorTelefono(telefonoAdmin);
+
+        if (existente is null)
+        {
+            var nombreAdmin = config["AdminSeed:Nombre"] ?? "Admin";
+            var id = await usuarioService.Registrar(
+                new Usuario { Nombre = nombreAdmin, Telefono = telefonoAdmin }, pinAdmin);
+            await usuarioService.MarcarComoAdmin(id);
+            app.Logger.LogInformation("Admin inicial creado: {Telefono}", telefonoAdmin);
+        }
+        else if (!existente.EsAdmin)
+        {
+            await usuarioService.MarcarComoAdmin(existente.Id);
+            app.Logger.LogInformation("Rol Admin otorgado a usuario existente: {Telefono}", telefonoAdmin);
+        }
+    }
+}
 
 app.Run();
