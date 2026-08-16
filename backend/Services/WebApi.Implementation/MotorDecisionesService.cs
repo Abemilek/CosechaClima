@@ -33,6 +33,7 @@ public class MotorDecisionesService : IMotorDecisionesService
         var parcela = await _parcelaService.ObtenerPorId(parcelaId)
             ?? throw new InvalidOperationException($"No existe la parcela {parcelaId}");
 
+        // si el productor no fijo una etapa manualmente se calcula sola a partir de la fecha siembra
         var etapaFenologicaId = parcela.EtapaFenologicaId
             ?? (await _etapaFenologicaService.CalcularDesdeFecha(parcela.FechaSiembra)).Id;
 
@@ -48,13 +49,14 @@ public class MotorDecisionesService : IMotorDecisionesService
         var datoMasReciente = datosRecientes[0];
         var eventoClimaticoId = DetermineActiveEvent(datoMasReciente, datosRecientes, umbrales);
 
+        // aqui usa el fallback o el plan B
         var rule = await _reglaDecisionService.ObtenerPorClave(
-    eventoClimaticoId, parcela.CultivoId, parcela.EtapaFenologicaId!.Value, parcela.TipoSueloId);
+            eventoClimaticoId, parcela.CultivoId, etapaFenologicaId, parcela.TipoSueloId);
 
-if (rule is null)
-    throw new InvalidOperationException(
-        $"No existe una regla para eventos={eventoClimaticoId}, Cultivo={parcela.CultivoId}, " +
-        $"Etapa={parcela.EtapaFenologicaId}, Suelo={parcela.TipoSueloId}. Revisar seed de reglas decision");
+        if (rule is null)
+            throw new InvalidOperationException(
+                $"No existe una regla para eventos={eventoClimaticoId}, Cultivo={parcela.CultivoId}, " +
+                $"Etapa={etapaFenologicaId}, Suelo={parcela.TipoSueloId}. Revisar seed de reglas decision");
 
         var alert = new Alerta
         {
