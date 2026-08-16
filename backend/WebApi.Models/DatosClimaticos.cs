@@ -11,6 +11,6 @@ public class DatosClimaticos {
     public decimal? HumedadRelativa {get; set; }
     public decimal? VientoVelocidad {get; set; }
     public decimal? RadiacionSolar {get; set; }
-    public string FuenteNASA {get; set; } = "POWER";
+    public string FuenteClima {get; set; } = "OPEN_METEO";
     public DateTime FechaDescarga {get; set; } = DateTime.Now;
 }

@@ -30,22 +30,31 @@ public class ReglaDecisionService : IReglaDecisionService
 
         while (await lector.ReadAsync())
         {
-            lista.Add(new ReglaDecision
-            {
-                Id = lector.GetInt32(0),
-                EventoClimaticoId = lector.GetInt32(1),
-                CultivoId = lector.GetInt32(2),
-                EtapaFenologicaId = lector.GetInt32(3),
-                TipoSueloId = lector.GetInt32(4),
-                NivelRiesgo = lector.GetString(5),
-                Accion1 = lector.GetString(6),
-                Accion2 = lector.GetString(7),
-                Accion3 = lector.GetString(8),
-                DescripcionAlerta = lector.GetString(9)
-            });
+            lista.Add(MapRegla(lector));
         }
 
         return lista;
+    }
+
+    public async Task<ReglaDecision?> ObtenerPorClave(
+        int eventoClimaticoId, int cultivoId, int etapaFenologicaId, int tipoSueloId)
+    {
+        using var connection = _connectionBD.CrearConexion();
+        using var command = new SqlCommand(
+            "SELECT Id, EventoClimaticoId, CultivoId, EtapaFenologicaId, TipoSueloId, " +
+            "NivelRiesgo, Accion1, Accion2, Accion3, DescripcionAlerta FROM ReglasDecision " +
+            "WHERE EventoClimaticoId = @Evento AND CultivoId = @Cultivo " +
+            "AND EtapaFenologicaId = @Etapa AND TipoSueloId = @Suelo", connection);
+
+        command.Parameters.AddWithValue("@Evento", eventoClimaticoId);
+        command.Parameters.AddWithValue("@Cultivo", cultivoId);
+        command.Parameters.AddWithValue("@Etapa", etapaFenologicaId);
+        command.Parameters.AddWithValue("@Suelo", tipoSueloId);
+
+        await connection.OpenAsync();
+        using var lector = await command.ExecuteReaderAsync();
+
+        return await lector.ReadAsync() ? MapRegla(lector) : null;
     }
 
     public async Task SembrarReglasIniciales()
@@ -116,5 +125,22 @@ public class ReglaDecisionService : IReglaDecisionService
 
             await command.ExecuteNonQueryAsync();
         }
-    }    
+    }
+
+    private static ReglaDecision MapRegla(SqlDataReader lector)
+    {
+        return new ReglaDecision
+        {
+            Id = lector.GetInt32(0),
+            EventoClimaticoId = lector.GetInt32(1),
+            CultivoId = lector.GetInt32(2),
+            EtapaFenologicaId = lector.GetInt32(3),
+            TipoSueloId = lector.GetInt32(4),
+            NivelRiesgo = lector.GetString(5),
+            Accion1 = lector.GetString(6),
+            Accion2 = lector.GetString(7),
+            Accion3 = lector.GetString(8),
+            DescripcionAlerta = lector.GetString(9)
+        };
+    }
 }
