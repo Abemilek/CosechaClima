@@ -131,6 +131,9 @@ CREATE TABLE ReglasDecision (
     CONSTRAINT FK_Regla_Suelo FOREIGN KEY (TipoSueloId) REFERENCES TipoSuelo(Id)
 );
 
+CREATE UNIQUE INDEX UK_ReglasDecision_Clave
+    ON ReglasDecision (EventoClimaticoId, CultivoId, EtapaFenologicaId, TipoSueloId);
+
 -- para fase 2 reportes comunitarios
 CREATE TABLE ReportesComunitarios (
     Id INT PRIMARY KEY IDENTITY(1,1),
