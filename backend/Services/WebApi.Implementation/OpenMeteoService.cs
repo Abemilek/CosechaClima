@@ -44,14 +44,14 @@ public class OpenMeteoService : IProveedorClimaticoService
                 {
                     ParcelaId = parcelaId,
                     Fecha = fecha.Date,
-                    TemperaturaMax = ObtenerValor(diario.Temperature2mMax, indiceHoy),
-                    TemperaturaMin = ObtenerValor(diario.Temperature2mMin, indiceHoy),
-                    Precipitacion = ObtenerValor(diario.PrecipitationSum, indiceHoy),
-                    VientoVelocidad = ObtenerValor(diario.Windspeed10mMax, indiceHoy),
+                    TemperaturaMax = ObtenerValor(diario.Temperature2mMax, indice),
+                    TemperaturaMin = ObtenerValor(diario.Temperature2mMin, indice),
+                    Precipitacion = ObtenerValor(diario.PrecipitationSum, indice),
+                    VientoVelocidad = ObtenerValor(diario.Windspeed10mMax, indice),
                     FuenteClima = "OPEN_METEO"
                 };
 
-                await _datosClimaticoService.GuardarDatos(dato);
+                await _datosClimaticoService.GuardarOActualizar(dato); // antes: GuardarDatos(dato)
 
                 if (indice == indiceHoy)
                     datoDeHoy = dato;
