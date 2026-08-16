@@ -51,7 +51,7 @@ public class OpenMeteoService : IProveedorClimaticoService
                     FuenteClima = "OPEN_METEO"
                 };
 
-                await _datosClimaticoService.GuardarOActualizar(dato); // antes: GuardarDatos(dato)
+                await _datosClimaticoService.GuardarOActualizar(dato);
 
                 if (indice == indiceHoy)
                     datoDeHoy = dato;
