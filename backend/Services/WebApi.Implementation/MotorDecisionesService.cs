@@ -48,17 +48,13 @@ public class MotorDecisionesService : IMotorDecisionesService
         var datoMasReciente = datosRecientes[0];
         var eventoClimaticoId = DetermineActiveEvent(datoMasReciente, datosRecientes, umbrales);
 
-        var rules = await _reglaDecisionService.ObtenerTodas();
-        var rule = rules.FirstOrDefault(r =>
-            r.EventoClimaticoId == eventoClimaticoId &&
-            r.CultivoId == parcela.CultivoId &&
-            r.EtapaFenologicaId == etapaFenologicaId &&
-            r.TipoSueloId == parcela.TipoSueloId);
+        var rule = await _reglaDecisionService.ObtenerPorClave(
+    eventoClimaticoId, parcela.CultivoId, parcela.EtapaFenologicaId!.Value, parcela.TipoSueloId);
 
-        if (rule is null)
-            throw new InvalidOperationException(
-                $"No existe una regla para eventos={eventoClimaticoId}, Cultivo={parcela.CultivoId}, " +
-                $"Etapa={etapaFenologicaId}, Suelo={parcela.TipoSueloId}. Revisar seed de reglas decision");
+if (rule is null)
+    throw new InvalidOperationException(
+        $"No existe una regla para eventos={eventoClimaticoId}, Cultivo={parcela.CultivoId}, " +
+        $"Etapa={parcela.EtapaFenologicaId}, Suelo={parcela.TipoSueloId}. Revisar seed de reglas decision");
 
         var alert = new Alerta
         {
