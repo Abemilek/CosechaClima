@@ -4,6 +4,7 @@ using WebApi.Implementation;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using WebApi.Implementation.Security;
 using WebApi;
 using Microsoft.AspNetCore.RateLimiting;
@@ -12,8 +13,23 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(opciones =>
+{
+    opciones.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "pega el token asi: Bearer {token}",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT"
+    });
 
+    opciones.AddSecurityRequirement(documento => new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecuritySchemeReference("Bearer", documento)] = []
+    });
+});
 
 var jwtConfig = builder.Configuration.GetSection("Jwt");
 var secretKey = jwtConfig["SecretKey"]!;
