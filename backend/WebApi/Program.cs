@@ -54,6 +54,7 @@ builder.Services.AddScoped<IBitacoraService, BitacoraService>();
 builder.Services.AddScoped<IMotorDecisionesService, MotorDecisionesService>();
 builder.Services.AddScoped<IReglaDecisionService, ReglaDecisionService>();
 builder.Services.AddScoped<IEtapaFenologicaService, EtapaFenologicaService>();
+builder.Services.AddScoped<ICatalogoService, CatalogoService>();
 builder.Services.AddAuthorization();
 builder.Services.AddScoped<TokenGenerator>();
 builder.Services.AddExceptionHandler<ManejadorErroresGlobal>();

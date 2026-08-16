@@ -13,15 +13,27 @@ namespace WebApi.Controllers;
 public class ParcelaController : ControllerBase
 {
     private readonly IParcelaService _parcelaService;
+    private readonly ICatalogoService _catalogoService;
 
-    public ParcelaController(IParcelaService parcelaService)
+    public ParcelaController(IParcelaService parcelaService, ICatalogoService catalogoService)
     {
         _parcelaService = parcelaService;
+        _catalogoService = catalogoService;
     }
 
     [HttpPost]
     public async Task<IActionResult> Register([FromBody] ParcelaRequestDto datos)
     {
+        if (!await _catalogoService.CultivoExiste(datos.CultivoId))
+            return BadRequest(new { mensaje = $"el cultivo {datos.CultivoId} no existe" });
+
+        if (!await _catalogoService.TipoSueloExiste(datos.TipoSueloId))
+            return BadRequest(new { mensaje = $"el tipo de suelo {datos.TipoSueloId} no existe" });
+
+        if (datos.EtapaFenologicaId is not null
+            && !await _catalogoService.EtapaFenologicaExiste(datos.EtapaFenologicaId.Value))
+            return BadRequest(new { mensaje = $"la etapa fenologica {datos.EtapaFenologicaId} no existe" });
+
         var parcela = new Parcela
         {
             UsuarioId = this.ObtenerUsuarioIdActual(),
@@ -64,6 +76,9 @@ public class ParcelaController : ControllerBase
         var parcela = await _parcelaService.ObtenerPorId(id);
         if (parcela is null || parcela.UsuarioId != this.ObtenerUsuarioIdActual())
             return Forbid();
+
+        if (!await _catalogoService.EtapaFenologicaExiste(etapaId))
+            return BadRequest(new { mensaje = $"la etapa fenologica {etapaId} no existe" });
 
         var updated = await _parcelaService.ActualizarEtapa(id, etapaId);
         return updated ? Ok() : NotFound();
