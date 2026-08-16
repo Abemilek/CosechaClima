@@ -4,16 +4,33 @@ using WebApi.Implementation;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using WebApi.Implementation.Security;
 using WebApi;
 using Microsoft.AspNetCore.RateLimiting;
+using WebApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(opciones =>
+{
+    opciones.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "pega el token asi: Bearer {token}",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT"
+    });
 
+    opciones.AddSecurityRequirement(documento => new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecuritySchemeReference("Bearer", documento)] = []
+    });
+});
 
 var jwtConfig = builder.Configuration.GetSection("Jwt");
 var secretKey = jwtConfig["SecretKey"]!;
@@ -104,5 +121,32 @@ app.UseAuthorization();
 app.UseRateLimiter();
 
 app.MapControllers();
+
+using (var scope = app.Services.CreateScope())
+{
+    var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+    var telefonoAdmin = config["AdminSeed:Telefono"];
+    var pinAdmin = config["AdminSeed:Pin"];
+
+    if (!string.IsNullOrWhiteSpace(telefonoAdmin) && !string.IsNullOrWhiteSpace(pinAdmin))
+    {
+        var usuarioService = scope.ServiceProvider.GetRequiredService<IUsuarioService>();
+        var existente = await usuarioService.ObtenerPorTelefono(telefonoAdmin);
+
+        if (existente is null)
+        {
+            var nombreAdmin = config["AdminSeed:Nombre"] ?? "Admin";
+            var id = await usuarioService.Registrar(
+                new Usuario { Nombre = nombreAdmin, Telefono = telefonoAdmin }, pinAdmin);
+            await usuarioService.MarcarComoAdmin(id);
+            app.Logger.LogInformation("Admin inicial creado: {Telefono}", telefonoAdmin);
+        }
+        else if (!existente.EsAdmin)
+        {
+            await usuarioService.MarcarComoAdmin(existente.Id);
+            app.Logger.LogInformation("Rol Admin otorgado a usuario existente: {Telefono}", telefonoAdmin);
+        }
+    }
+}
 
 app.Run();

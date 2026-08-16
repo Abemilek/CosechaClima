@@ -7,4 +7,5 @@ public interface IUsuarioService {
     Task<Usuario?> Autenticar(string telefono, string pin);
     Task<Usuario?> ObtenerPorId (int id);
     Task<Usuario?> ObtenerPorTelefono (string telefono);
+    Task MarcarComoAdmin(int usuarioId);
 }
