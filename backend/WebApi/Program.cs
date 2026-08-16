@@ -2,6 +2,7 @@ using WebApi.Implementation.Connection;
 using WebApi.Interface;
 using WebApi.Implementation;
 using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -29,6 +30,21 @@ builder.Services.AddSwaggerGen(opciones =>
     opciones.AddSecurityRequirement(documento => new OpenApiSecurityRequirement
     {
         [new OpenApiSecuritySchemeReference("Bearer", documento)] = []
+    });
+});
+
+// politica de cors para el frontend
+builder.Services.AddCors(opciones =>
+{
+    opciones.AddPolicy("FrontendPolicy", politica =>
+    {
+        var origenesPermitidos = builder.Configuration
+            .GetSection("Cors:AllowedOrigins")
+            .Get<string[]>() ?? [];
+
+        politica.WithOrigins(origenesPermitidos)
+            .AllowAnyHeader()
+            .AllowAnyMethod();
     });
 });
 
@@ -112,7 +128,12 @@ if (app.Environment.IsDevelopment())
 
 app.MapHealthChecks("/health");
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
+app.UseCors("FrontendPolicy");
 
 app.UseAuthentication();
 
@@ -124,28 +145,53 @@ app.MapControllers();
 
 using (var scope = app.Services.CreateScope())
 {
-    var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
-    var telefonoAdmin = config["AdminSeed:Telefono"];
-    var pinAdmin = config["AdminSeed:Pin"];
-
-    if (!string.IsNullOrWhiteSpace(telefonoAdmin) && !string.IsNullOrWhiteSpace(pinAdmin))
+    try
     {
-        var usuarioService = scope.ServiceProvider.GetRequiredService<IUsuarioService>();
-        var existente = await usuarioService.ObtenerPorTelefono(telefonoAdmin);
+        var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+        var telefonoAdmin = config["AdminSeed:Telefono"];
+        var pinAdmin = config["AdminSeed:Pin"];
 
-        if (existente is null)
+        var seedConfigurado = !string.IsNullOrWhiteSpace(telefonoAdmin)
+            || !string.IsNullOrWhiteSpace(pinAdmin);
+
+        if (seedConfigurado)
         {
-            var nombreAdmin = config["AdminSeed:Nombre"] ?? "Admin";
-            var id = await usuarioService.Registrar(
-                new Usuario { Nombre = nombreAdmin, Telefono = telefonoAdmin }, pinAdmin);
-            await usuarioService.MarcarComoAdmin(id);
-            app.Logger.LogInformation("Admin inicial creado: {Telefono}", telefonoAdmin);
+            var telefonoValido = !string.IsNullOrWhiteSpace(telefonoAdmin)
+                && Regex.IsMatch(telefonoAdmin, "^[0-9]{8}$");
+            var pinValido = !string.IsNullOrWhiteSpace(pinAdmin)
+                && Regex.IsMatch(pinAdmin, "^[0-9]{4}$");
+
+            if (!telefonoValido || !pinValido)
+            {
+                app.Logger.LogWarning(
+                    "AdminSeed configurado con formato invalido (telefono debe tener 8 digitos, " +
+                    "pin debe tener 4 digitos) -- se omite el seed del admin inicial");
+            }
+            else
+            {
+                var usuarioService = scope.ServiceProvider.GetRequiredService<IUsuarioService>();
+                var existente = await usuarioService.ObtenerPorTelefono(telefonoAdmin!);
+
+                if (existente is null)
+                {
+                    var nombreAdmin = config["AdminSeed:Nombre"] ?? "Admin";
+                    var id = await usuarioService.Registrar(
+                        new Usuario { Nombre = nombreAdmin, Telefono = telefonoAdmin! }, pinAdmin!);
+                    await usuarioService.MarcarComoAdmin(id);
+                    app.Logger.LogInformation("Admin inicial creado: {Telefono}", telefonoAdmin);
+                }
+                else if (!existente.EsAdmin)
+                {
+                    await usuarioService.MarcarComoAdmin(existente.Id);
+                    app.Logger.LogInformation(
+                        "Rol Admin otorgado a usuario existente: {Telefono}", telefonoAdmin);
+                }
+            }
         }
-        else if (!existente.EsAdmin)
-        {
-            await usuarioService.MarcarComoAdmin(existente.Id);
-            app.Logger.LogInformation("Rol Admin otorgado a usuario existente: {Telefono}", telefonoAdmin);
-        }
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "fallo el seed del admin inicial -- la app continua sin crearlo");
     }
 }
 
