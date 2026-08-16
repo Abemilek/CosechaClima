@@ -25,16 +25,33 @@ public class DatosClimaticoService : IDatosClimaticoService
             "VALUES (@ParcelaId, @Fecha, @TMedia, @TMax, @TMin, @Precipitacion, @Humedad, " +
             "@Viento, @Radiacion, @Fuente)", connection);
 
-        command.Parameters.AddWithValue("@ParcelaId", datos.ParcelaId);
-        command.Parameters.AddWithValue("@Fecha", datos.Fecha.Date);
-        command.Parameters.AddWithValue("@TMedia", (object?)datos.TemperaturaMedia ?? DBNull.Value);
-        command.Parameters.AddWithValue("@TMax", (object?)datos.TemperaturaMax ?? DBNull.Value);
-        command.Parameters.AddWithValue("@TMin", (object?)datos.TemperaturaMin ?? DBNull.Value);
-        command.Parameters.AddWithValue("@Precipitacion", (object?)datos.Precipitacion ?? DBNull.Value);
-        command.Parameters.AddWithValue("@Humedad", (object?)datos.HumedadRelativa ?? DBNull.Value);
-        command.Parameters.AddWithValue("@Viento", (object?)datos.VientoVelocidad ?? DBNull.Value);
-        command.Parameters.AddWithValue("@Radiacion", (object?)datos.RadiacionSolar ?? DBNull.Value);
-        command.Parameters.AddWithValue("@Fuente", datos.FuenteClima);
+        AgregarParametros(command, datos);
+
+        await connection.OpenAsync();
+        var result = await command.ExecuteScalarAsync();
+        return Convert.ToInt32(result);
+    }
+
+    public async Task<int> GuardarOActualizar(DatosClimaticos datos)
+    {
+        using var connection = _connectionBD.CrearConexion();
+        using var command = new SqlCommand(
+            "MERGE DatosClimaticos AS destino " +
+            "USING (SELECT @ParcelaId AS ParcelaId, @Fecha AS Fecha) AS origen " +
+            "ON destino.ParcelaId = origen.ParcelaId AND destino.Fecha = origen.Fecha " +
+            "WHEN MATCHED THEN UPDATE SET " +
+            "   TemperaturaMedia = @TMedia, TemperaturaMax = @TMax, TemperaturaMin = @TMin, " +
+            "   Precipitacion = @Precipitacion, HumedadRelativa = @Humedad, " +
+            "   VientoVelocidad = @Viento, RadiacionSolar = @Radiacion, " +
+            "   FuenteClima = @Fuente, FechaDescarga = GETDATE() " +
+            "WHEN NOT MATCHED THEN INSERT " +
+            "   (ParcelaId, Fecha, TemperaturaMedia, TemperaturaMax, TemperaturaMin, " +
+            "   Precipitacion, HumedadRelativa, VientoVelocidad, RadiacionSolar, FuenteClima) " +
+            "   VALUES (@ParcelaId, @Fecha, @TMedia, @TMax, @TMin, @Precipitacion, @Humedad, " +
+            "   @Viento, @Radiacion, @Fuente) " +
+            "OUTPUT INSERTED.Id;", connection);
+
+        AgregarParametros(command, datos);
 
         await connection.OpenAsync();
         var result = await command.ExecuteScalarAsync();
@@ -87,7 +104,7 @@ public class DatosClimaticoService : IDatosClimaticoService
 
         return lista;
     }
-    
+
     public async Task<List<DatosClimaticos>> ObtenerPorRangoFechas(int parcelaId, DateTime desde, DateTime hasta)
     {
         var lista = new List<DatosClimaticos>();
@@ -96,7 +113,7 @@ public class DatosClimaticoService : IDatosClimaticoService
         using var command = new SqlCommand(
             "SELECT Id, ParcelaId, Fecha, TemperaturaMedia, TemperaturaMax, " +
             "TemperaturaMin, Precipitacion, HumedadRelativa, VientoVelocidad, RadiacionSolar, " +
-            "FuenteNASA, FechaDescarga FROM DatosClimaticos " +
+            "FuenteClima, FechaDescarga FROM DatosClimaticos " +
             "WHERE ParcelaId = @ParcelaId AND Fecha BETWEEN @Desde AND @Hasta " +
             "ORDER BY Fecha DESC", connection);
         command.Parameters.AddWithValue("@ParcelaId", parcelaId);
@@ -118,6 +135,20 @@ public class DatosClimaticoService : IDatosClimaticoService
     {
         throw new NotImplementedException(
             "ObtenerPrediccion pendiente: falta definir la fuente de pronostico.");
+    }
+
+    private static void AgregarParametros(SqlCommand command, DatosClimaticos datos)
+    {
+        command.Parameters.AddWithValue("@ParcelaId", datos.ParcelaId);
+        command.Parameters.AddWithValue("@Fecha", datos.Fecha.Date);
+        command.Parameters.AddWithValue("@TMedia", (object?)datos.TemperaturaMedia ?? DBNull.Value);
+        command.Parameters.AddWithValue("@TMax", (object?)datos.TemperaturaMax ?? DBNull.Value);
+        command.Parameters.AddWithValue("@TMin", (object?)datos.TemperaturaMin ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Precipitacion", (object?)datos.Precipitacion ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Humedad", (object?)datos.HumedadRelativa ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Viento", (object?)datos.VientoVelocidad ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Radiacion", (object?)datos.RadiacionSolar ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Fuente", datos.FuenteClima);
     }
 
     private static DatosClimaticos MapDato(SqlDataReader reader)
