@@ -87,7 +87,7 @@ public class DatosClimaticoService : IDatosClimaticoService
 
         return lista;
     }
-    
+
     public async Task<List<DatosClimaticos>> ObtenerPorRangoFechas(int parcelaId, DateTime desde, DateTime hasta)
     {
         var lista = new List<DatosClimaticos>();
@@ -96,7 +96,7 @@ public class DatosClimaticoService : IDatosClimaticoService
         using var command = new SqlCommand(
             "SELECT Id, ParcelaId, Fecha, TemperaturaMedia, TemperaturaMax, " +
             "TemperaturaMin, Precipitacion, HumedadRelativa, VientoVelocidad, RadiacionSolar, " +
-            "FuenteNASA, FechaDescarga FROM DatosClimaticos " +
+            "FuenteClima, FechaDescarga FROM DatosClimaticos " +
             "WHERE ParcelaId = @ParcelaId AND Fecha BETWEEN @Desde AND @Hasta " +
             "ORDER BY Fecha DESC", connection);
         command.Parameters.AddWithValue("@ParcelaId", parcelaId);
