@@ -1,5 +1,5 @@
 services:
-    api:
+  api:
     build:
       context: .
       dockerfile: Dockerfile
@@ -60,11 +60,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    volumes: 
+    volumes:
       - ./Scripts:/scripts
     # primero ejecutar la db luego el seed
     entrypoint: /bin/bash -c "/opt/mssql-tools/bin/sqlcmd -S db -U sa -P \"$$MSSQL_SA_PASSWORD\" -i /scripts/BD-CosechaClima.sql && /opt/mssql-tools/bin/sqlcmd -S db -U sa -P \"$$MSSQL_SA_PASSWORD\" -i /scripts/seed.sql"
-    environment: 
+    environment:
       MSSQL_SA_PASSWORD: ${DB_SA_PASSWORD}
     networks:
       - cosechaclima-net
