@@ -1,0 +1,51 @@
+<svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="sky" cx="35%" cy="25%" r="85%">
+      <stop offset="0%" stop-color="#FFF9EC"/>
+      <stop offset="100%" stop-color="#F4EAD5"/>
+    </radialGradient>
+    <linearGradient id="leafDark" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1B5E20"/>
+      <stop offset="100%" stop-color="#2E7D32"/>
+    </linearGradient>
+    <linearGradient id="leafLight" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#43A047"/>
+      <stop offset="100%" stop-color="#7CB342"/>
+    </linearGradient>
+    <linearGradient id="soil" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#A1724A"/>
+      <stop offset="100%" stop-color="#7A5232"/>
+    </linearGradient>
+  </defs>
+
+  <!-- fondo circular -->
+  <circle cx="120" cy="120" r="112" fill="url(#sky)"/>
+  <circle cx="120" cy="120" r="112" fill="none" stroke="#C9E3B8" stroke-width="3"/>
+
+  <!-- sol sutil detras de la planta -->
+  <circle cx="168" cy="72" r="26" fill="#FDD87D" opacity="0.55"/>
+
+  <!-- semaforo climatico: arco de 3 puntos, el elemento central del producto -->
+  <circle cx="78" cy="60" r="11" fill="#E53935"/>
+  <circle cx="120" cy="46" r="11" fill="#FBC02D"/>
+  <circle cx="162" cy="60" r="11" fill="#43A047"/>
+  <circle cx="78" cy="60" r="11" fill="none" stroke="#FFF9EC" stroke-width="2.5"/>
+  <circle cx="120" cy="46" r="11" fill="none" stroke="#FFF9EC" stroke-width="2.5"/>
+  <circle cx="162" cy="60" r="11" fill="none" stroke="#FFF9EC" stroke-width="2.5"/>
+
+  <!-- suelo -->
+  <path d="M 55 190 Q 120 172 185 190 L 185 205 Q 120 190 55 205 Z" fill="url(#soil)"/>
+
+  <!-- tallo -->
+  <path d="M 120 190 C 118 160 122 130 120 100" stroke="#2E7D32" stroke-width="7" fill="none" stroke-linecap="round"/>
+
+  <!-- hoja izquierda -->
+  <path d="M 120 150 C 90 145 65 125 58 95 C 95 98 118 118 122 148 Z" fill="url(#leafDark)"/>
+
+  <!-- hoja derecha -->
+  <path d="M 120 128 C 148 120 170 100 178 72 C 145 78 124 96 118 126 Z" fill="url(#leafLight)"/>
+
+  <!-- hoja central superior (mazorca estilizada / brote) -->
+  <path d="M 120 100 C 108 82 108 62 120 44 C 132 62 132 82 120 100 Z" fill="url(#leafDark)"/>
+  <path d="M 120 96 C 112 82 112 66 120 52 C 128 66 128 82 120 96 Z" fill="#FBC02D" opacity="0.85"/>
+</svg>
