@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using WebApi.Interface;
 using WebApi.Models;
+using Microsoft.Extensions.Logging;
 
 namespace WebApi.Implementation;
 
@@ -8,11 +9,16 @@ public class OpenMeteoService : IProveedorClimaticoService
 {
     private readonly HttpClient _httpClient;
     private readonly IDatosClimaticoService _datosClimaticoService;
+    private readonly ILogger<OpenMeteoService> _logger;
 
-    public OpenMeteoService(HttpClient httpClient, IDatosClimaticoService datosClimaticoService)
+    public OpenMeteoService(
+        HttpClient httpClient,
+        IDatosClimaticoService datosClimaticoService,
+        ILogger<OpenMeteoService> logger)
     {
         _httpClient = httpClient;
         _datosClimaticoService = datosClimaticoService;
+        _logger = logger;
     }
 
     public async Task<DatosClimaticos?> ObtenerYGuardarDatosActuales(int parcelaId, decimal latitud, decimal longitud)
@@ -27,7 +33,12 @@ public class OpenMeteoService : IProveedorClimaticoService
             var diario = respuesta?.Daily;
 
             if (diario?.Time is null || diario.Time.Count == 0)
+            {
+                _logger.LogWarning(
+                    "Open-Meteo respondio sin datos diarios para parcela {ParcelaId} ({Lat},{Lon})",
+                    parcelaId, latitud, longitud);
                 return await UsarUltimoDatoGuardado(parcelaId);
+            }
 
             var indiceHoy = diario.Time.Count > 1 ? 1 : 0;
             var indicesAGuardar = diario.Time.Count > 1
@@ -59,12 +70,18 @@ public class OpenMeteoService : IProveedorClimaticoService
 
             return datoDeHoy;
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException ex)
         {
+            _logger.LogWarning(ex,
+                "Fallo de red al consultar Open-Meteo para parcela {ParcelaId} ({Lat},{Lon}) -- usando ultimo dato guardado si existe",
+                parcelaId, latitud, longitud);
             return await UsarUltimoDatoGuardado(parcelaId);
         }
-        catch (TaskCanceledException)
+        catch (TaskCanceledException ex)
         {
+            _logger.LogWarning(ex,
+                "Timeout consultando Open-Meteo para parcela {ParcelaId} ({Lat},{Lon}) -- usando ultimo dato guardado si existe",
+                parcelaId, latitud, longitud);
             return await UsarUltimoDatoGuardado(parcelaId);
         }
     }
