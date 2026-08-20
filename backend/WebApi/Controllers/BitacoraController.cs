@@ -28,7 +28,10 @@ public class BitacoraController : ControllerBase
         var usuarioId = this.ObtenerUsuarioIdActual();
 
         var parcela = await _parcelaService.ObtenerPorId(datos.ParcelaId);
-        if (parcela is null || parcela.UsuarioId != usuarioId)
+        if (parcela is null)
+            return NotFound(new { mensaje = $"no existe la parcela {datos.ParcelaId}" });
+
+        if (parcela.UsuarioId != usuarioId)
             return Forbid();
 
         var entrada = new BitacoraCampo
