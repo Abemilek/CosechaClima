@@ -9,6 +9,7 @@ using Microsoft.OpenApi;
 using WebApi.Implementation.Security;
 using WebApi;
 using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 using WebApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -98,12 +99,18 @@ builder.Services.AddHealthChecks()
 
 builder.Services.AddRateLimiter(opciones =>
 {
-    opciones.AddSlidingWindowLimiter("auth", limiteOpciones =>
+    opciones.AddPolicy("auth", contexto =>
     {
-        limiteOpciones.PermitLimit = 5;
-        limiteOpciones.Window = TimeSpan.FromMinutes(1);
-        limiteOpciones.SegmentsPerWindow = 2;
-        limiteOpciones.QueueLimit = 0;
+        var direccionIp = contexto.Connection.RemoteIpAddress?.ToString() ?? "ip-desconocida";
+
+        return RateLimitPartition.GetSlidingWindowLimiter(direccionIp, _ =>
+            new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                SegmentsPerWindow = 2,
+                QueueLimit = 0
+            });
     });
 
     opciones.OnRejected = async (contexto, cancellationToken) =>

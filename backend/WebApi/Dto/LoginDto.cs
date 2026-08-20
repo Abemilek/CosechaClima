@@ -7,21 +7,19 @@ public class RegisterDto
     [Required, MaxLength(100)]
     public string Nombre { get; set; } = string.Empty;
 
-    // esto asume numeros de telefonos de nicaragua de 8 digitos
     [Required, RegularExpression(@"^\d{8}$", ErrorMessage = "el telefono debe tener 8 digitos")]
     public string Telefono { get; set; } = string.Empty;
 
-    // y aqui se fuerza que sea de 4 dijitos el pin
     [Required, RegularExpression(@"^\d{4}$", ErrorMessage = "el pin debe ser de exactamente 4 digitos")]
     public string Pin { get; set; } = string.Empty;
 }
 
 public class LoginDto
 {
-    [Required]
+    [Required, MaxLength(8), RegularExpression(@"^\d{0,8}$", ErrorMessage = "telefono invalido")]
     public string Telefono { get; set; } = string.Empty;
 
-    [Required]
+    [Required, MaxLength(4), RegularExpression(@"^\d{0,4}$", ErrorMessage = "pin invalido")]
     public string Pin { get; set; } = string.Empty;
 }
 
