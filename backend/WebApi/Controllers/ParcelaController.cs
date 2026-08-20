@@ -56,7 +56,10 @@ public class ParcelaController : ControllerBase
     public async Task<IActionResult> GetById(int id)
     {
         var parcela = await _parcelaService.ObtenerPorId(id);
-        if (parcela is null || parcela.UsuarioId != this.ObtenerUsuarioIdActual())
+        if (parcela is null)
+            return NotFound(new { mensaje = $"no existe la parcela {id}" });
+
+        if (parcela.UsuarioId != this.ObtenerUsuarioIdActual())
             return Forbid();
 
         return Ok(parcela);
@@ -74,7 +77,10 @@ public class ParcelaController : ControllerBase
     public async Task<IActionResult> ActualizarEtapa(int id, int etapaId)
     {
         var parcela = await _parcelaService.ObtenerPorId(id);
-        if (parcela is null || parcela.UsuarioId != this.ObtenerUsuarioIdActual())
+        if (parcela is null)
+            return NotFound();
+
+        if (parcela.UsuarioId != this.ObtenerUsuarioIdActual())
             return Forbid();
 
         if (!await _catalogoService.EtapaFenologicaExiste(etapaId))
@@ -88,7 +94,10 @@ public class ParcelaController : ControllerBase
     public async Task<IActionResult> Delete(int id)
     {
         var parcela = await _parcelaService.ObtenerPorId(id);
-        if (parcela is null || parcela.UsuarioId != this.ObtenerUsuarioIdActual())
+        if (parcela is null)
+            return NotFound();
+
+        if (parcela.UsuarioId != this.ObtenerUsuarioIdActual())
             return Forbid();
 
         var deleted = await _parcelaService.Eliminar(id);

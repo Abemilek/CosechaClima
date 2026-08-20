@@ -41,7 +41,7 @@ public class ParcelaService : IParcelaService
         return Convert.ToInt32(result);
     }
 
-    public async Task<Parcela> ObtenerPorId(int id)
+    public async Task<Parcela?> ObtenerPorId(int id)
     {
         using var connection = _connectionBD.CrearConexion();
         using var command = new SqlCommand(
@@ -58,7 +58,7 @@ public class ParcelaService : IParcelaService
             return MapParcela(reader);
         }
 
-        throw new InvalidOperationException($"No existe la parcela {id}");
+        return null;
     }
 
     public async Task<List<Parcela>> ObtenerPorUsuario (int usuarioId)
@@ -99,8 +99,6 @@ public class ParcelaService : IParcelaService
 
     public async Task<bool> Eliminar (int id)
     {
-        // borrado logico
-        // no se debe borrar de verdad
         using var connection = _connectionBD.CrearConexion();
         using var command = new SqlCommand(
             "UPDATE Parcelas SET Activa = 0 WHERE Id = @Id", connection);
