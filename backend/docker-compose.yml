@@ -29,18 +29,15 @@ services:
     networks:
       - cosechaclima-net
 
-  # ahora el servicio de sql server
-  # y usar una imagen de microsft
   db:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: cosechaclima-db
-    # acuerdo de licencia varables etc
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: ${DB_SA_PASSWORD}
       MSSQL_PID: "Developer"
     ports:
-      - "1433:1433"
+      - "127.0.0.1:1433:1433"
     volumes:
       - cosechaclima-db-data:/var/opt/mssql
       - ./Scripts:/scripts
@@ -53,7 +50,6 @@ services:
     networks:
       - cosechaclima-net
 
-  # servicio para corra las scripts
   db-init:
     image: mcr.microsoft.com/mssql-tools
     container_name: cosechaclima-db-init
@@ -62,18 +58,15 @@ services:
         condition: service_healthy
     volumes:
       - ./Scripts:/scripts
-    # primero ejecutar la db luego el seed
     entrypoint: /bin/bash -c "/opt/mssql-tools/bin/sqlcmd -S db -U sa -P \"$$MSSQL_SA_PASSWORD\" -i /scripts/BD-CosechaClima.sql && /opt/mssql-tools/bin/sqlcmd -S db -U sa -P \"$$MSSQL_SA_PASSWORD\" -i /scripts/seed.sql"
     environment:
       MSSQL_SA_PASSWORD: ${DB_SA_PASSWORD}
     networks:
       - cosechaclima-net
 
-# la red que usan los 3 servicios
 networks:
   cosechaclima-net:
     driver: bridge
 
-# el que usa el db
 volumes:
   cosechaclima-db-data:
