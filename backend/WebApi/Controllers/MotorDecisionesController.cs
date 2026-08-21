@@ -1,12 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using WebApi.Dto;
 using WebApi.Interface;
-using WebApi.Models;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using WebApi.Extensions;
-
-
 namespace WebApi.Controllers;
 
 [ApiController]
@@ -33,21 +30,14 @@ public class MotorDecisionesController : ControllerBase
         if (parcela.UsuarioId != this.ObtenerUsuarioIdActual())
             return Forbid();
 
-        try
+        var alert = await _motorDecisionesService.CalcularSemaforo(datos.ParcelaId);
+        var dto = new SemaforoDto
         {
-            var alert = await _motorDecisionesService.CalcularSemaforo(datos.ParcelaId);
-            var dto = new SemaforoDto
-            {
-                NivelRiesgo = alert.NivelRiesgo,
-                DescripcionAlerta = alert.DescripcionAlerta,
-                Acciones = new List<string> { alert.Accion1, alert.Accion2, alert.Accion3 },
-                Fecha = alert.Fecha
-            };
-            return Ok(dto);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return NotFound(new { mensaje = ex.Message });
-        }
+            NivelRiesgo = alert.NivelRiesgo,
+            DescripcionAlerta = alert.DescripcionAlerta,
+            Acciones = new List<string> { alert.Accion1, alert.Accion2, alert.Accion3 },
+            Fecha = alert.Fecha
+        };
+        return Ok(dto);
     }
 }
