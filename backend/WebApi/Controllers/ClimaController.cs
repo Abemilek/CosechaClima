@@ -12,13 +12,19 @@ namespace WebApi.Controllers;
 [Authorize]
 public class ClimaController : ControllerBase
 {
+    private static readonly TimeSpan AntiguedadMaximaDatoHoy = TimeSpan.FromHours(6);
+
     private readonly IProveedorClimaticoService _proveedorClimaticoService;
     private readonly IParcelaService _parcelaService;
+    private readonly IDatosClimaticoService _datosClimaticoService;
 
-    public ClimaController(IProveedorClimaticoService proveedorClimaticoService, IParcelaService parcelaService)
+    public ClimaController(IProveedorClimaticoService proveedorClimaticoService,
+        IParcelaService parcelaService,
+        IDatosClimaticoService datosClimaticoService)
     {
         _proveedorClimaticoService = proveedorClimaticoService;
         _parcelaService = parcelaService;
+        _datosClimaticoService = datosClimaticoService;
     }
 
     [HttpPost("actualizar/{parcelaId}")]
@@ -33,6 +39,13 @@ public class ClimaController : ControllerBase
 
         if (parcela.Latitud is null || parcela.Longitud is null)
             return BadRequest(new { mensaje = "la parcela no tiene coordenadas registradas" });
+
+        var datoDeHoy = await _datosClimaticoService.ObtenerPorParcelaYFecha(parcelaId, DateTime.Today);
+        if (datoDeHoy is not null
+            && (DateTime.Now - datoDeHoy.FechaDescarga) <= AntiguedadMaximaDatoHoy)
+        {
+            return Ok(datoDeHoy);
+        }
 
         var dato = await _proveedorClimaticoService.ObtenerYGuardarDatosActuales(
             parcelaId, parcela.Latitud.Value, parcela.Longitud.Value);
