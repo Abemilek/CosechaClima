@@ -5,7 +5,7 @@ namespace WebApi.Implementation.Security;
 
 public static class HashPin
 {
-    private const int Iteraciones = 210_000;
+    private const int Iteraciones = 600_000;
     private const int TamanoHashBytes = 32;
 
     public static string GenerateSalt()
