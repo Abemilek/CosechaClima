@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Globalization;
 using WebApi.Interface;
 using WebApi.Models;
 using Microsoft.Extensions.Logging;
@@ -23,8 +24,9 @@ public class OpenMeteoService : IProveedorClimaticoService
 
     public async Task<DatosClimaticos?> ObtenerYGuardarDatosActuales(int parcelaId, decimal latitud, decimal longitud)
     {
-        var url = $"?latitude={latitud}&longitude={longitud}" +
-                   "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max" +
+        var url = $"?latitude={latitud.ToString(CultureInfo.InvariantCulture)}" +
+                   $"&longitude={longitud.ToString(CultureInfo.InvariantCulture)}" +
+                   "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max" +
                    "&timezone=America%2FManagua&past_days=1&forecast_days=3";
 
         try
@@ -119,7 +121,7 @@ public class OpenMeteoService : IProveedorClimaticoService
         [System.Text.Json.Serialization.JsonPropertyName("precipitation_sum")]
         public List<decimal?>? PrecipitationSum { get; set; }
 
-        [System.Text.Json.Serialization.JsonPropertyName("windspeed_10m_max")]
+        [System.Text.Json.Serialization.JsonPropertyName("wind_speed_10m_max")]
         public List<decimal?>? Windspeed10mMax { get; set; }
     }
 }
