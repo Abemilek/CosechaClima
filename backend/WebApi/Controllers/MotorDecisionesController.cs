@@ -23,16 +23,19 @@ public class MotorDecisionesController : ControllerBase
         _parcelaService = parcelaService;
     }
 
-    [HttpGet("semaforo")]
-    public async Task<ActionResult<SemaforoDto>> ObtenerSemaforo([FromQuery] int parcelaId)
+    [HttpPost("semaforo")]
+    public async Task<ActionResult<SemaforoDto>> ObtenerSemaforo([FromBody] SemaforoRequestDto datos)
     {
-        var parcela = await _parcelaService.ObtenerPorId(parcelaId);
-        if (parcela is null || parcela.UsuarioId != this.ObtenerUsuarioIdActual())
+        var parcela = await _parcelaService.ObtenerPorId(datos.ParcelaId);
+        if (parcela is null)
+            return NotFound(new { mensaje = $"no existe la parcela {datos.ParcelaId}" });
+
+        if (parcela.UsuarioId != this.ObtenerUsuarioIdActual())
             return Forbid();
 
         try
         {
-            var alert = await _motorDecisionesService.CalcularSemaforo(parcelaId);
+            var alert = await _motorDecisionesService.CalcularSemaforo(datos.ParcelaId);
             var dto = new SemaforoDto
             {
                 NivelRiesgo = alert.NivelRiesgo,
