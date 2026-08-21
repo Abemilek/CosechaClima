@@ -61,6 +61,30 @@ public class ParcelaService : IParcelaService
         return null;
     }
 
+    public async Task<bool> Actualizar(Parcela parcela)
+    {
+        using var connection = _connectionBD.CrearConexion();
+        using var command = new SqlCommand(
+            "UPDATE Parcelas SET " +
+            "Latitud = COALESCE(@Latitud, Latitud), " +
+            "Longitud = COALESCE(@Longitud, Longitud), " +
+            "AreaMzs = COALESCE(@AreaMzs, AreaMzs), " +
+            "Municipio = COALESCE(@Municipio, Municipio), " +
+            "Comunidad = COALESCE(@Comunidad, Comunidad) " +
+            "WHERE Id = @Id", connection);
+
+        command.Parameters.AddWithValue("@Latitud", (object?) parcela.Latitud ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Longitud", (object?) parcela.Longitud ?? DBNull.Value);
+        command.Parameters.AddWithValue("@AreaMzs", (object?) parcela.AreaMzs ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Municipio", (object?) parcela.Municipio ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Comunidad", (object?) parcela.Comunidad ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Id", parcela.Id);
+
+        await connection.OpenAsync();
+        var filasAfectadas = await command.ExecuteNonQueryAsync();
+        return filasAfectadas > 0;
+    }
+
     public async Task<List<Parcela>> ObtenerPorUsuario (int usuarioId)
     {
         var lista = new List<Parcela>();

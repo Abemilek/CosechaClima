@@ -7,5 +7,6 @@ public interface IParcelaService {
     Task<Parcela?> ObtenerPorId (int id);
     Task<List<Parcela>> ObtenerPorUsuario(int usuarioId);
     Task<bool> ActualizarEtapa (int parcelaId, int etapaId);
+    Task<bool> Actualizar (Parcela parcela);
     Task<bool> Eliminar(int id);
 }

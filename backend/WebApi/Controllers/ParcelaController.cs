@@ -52,6 +52,34 @@ public class ParcelaController : ControllerBase
         return Ok(new { id });
     }
 
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Actualizar(int id, [FromBody] ParcelaUpdateRequestDto datos)
+    {
+        var parcela = await _parcelaService.ObtenerPorId(id);
+        if (parcela is null)
+            return NotFound(new { mensaje = $"no existe la parcela {id}" });
+
+        if (parcela.UsuarioId != this.ObtenerUsuarioIdActual())
+            return Forbid();
+
+        if (datos.Latitud is null && datos.Longitud is null && datos.AreaMzs is null
+            && datos.Municipio is null && datos.Comunidad is null)
+            return BadRequest(new { mensaje = "no hay ningun dato que actualizar" });
+
+        var actualizada = new Parcela
+        {
+            Id = parcela.Id,
+            Latitud = datos.Latitud,
+            Longitud = datos.Longitud,
+            AreaMzs = datos.AreaMzs ?? parcela.AreaMzs,
+            Municipio = datos.Municipio,
+            Comunidad = datos.Comunidad
+        };
+
+        var ok = await _parcelaService.Actualizar(actualizada);
+        return ok ? Ok(new { actualizada = true }) : NotFound();
+    }
+
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
     {
