@@ -58,7 +58,7 @@ public class DatosClimaticoService : IDatosClimaticoService
         return Convert.ToInt32(result);
     }
 
-    public async Task<DatosClimaticos> ObtenerPorParcelaYFecha(int parcelaId, DateTime fecha)
+    public async Task<DatosClimaticos?> ObtenerPorParcelaYFecha(int parcelaId, DateTime fecha)
     {
         using var connection = _connectionBD.CrearConexion();
         using var command = new SqlCommand(
@@ -77,8 +77,7 @@ public class DatosClimaticoService : IDatosClimaticoService
             return MapDato(reader);
         }
 
-        throw new InvalidOperationException(
-            $"No hay datos climaticos para la parcela {parcelaId} en la fecha {fecha:yyyy-MM-dd}");
+        return null;
     }
 
     public async Task<List<DatosClimaticos>> ObtenerUltimosDatos(int parcelaId, int dias = 7)

@@ -1,5 +1,6 @@
 using WebApi.Interface;
 using WebApi.Models;
+using WebApi.Implementation.Exceptions;
 
 namespace WebApi.Implementation;
 
@@ -31,21 +32,19 @@ public class MotorDecisionesService : IMotorDecisionesService
     public async Task<Alerta> CalcularSemaforo(int parcelaId)
     {
         var parcela = await _parcelaService.ObtenerPorId(parcelaId)
-            ?? throw new InvalidOperationException($"No existe la parcela {parcelaId}");
+            ?? throw new RecursoNoEncontradoException($"no existe la parcela {parcelaId}");
 
-        // si el productor no fijo una etapa manualmente se calcula sola a partir de la fecha siembra
         var etapaFenologicaId = parcela.EtapaFenologicaId
             ?? (await _etapaFenologicaService.CalcularDesdeFecha(parcela.FechaSiembra)).Id;
 
         var umbrales = await _umbralService.ObtenerPorUsuario(parcela.UsuarioId)
-            ?? throw new InvalidOperationException("el usuario no tiene umbrales configurados");
+            ?? throw new FlujoIncompletoException("el usuario no tiene umbrales configurados");
 
-        // dato mas reciente solo para los umbrales de un solo dia
         var ultimoDato = (await _datosClimaticoService.ObtenerUltimosDatos(parcelaId, dias: 1))
             .FirstOrDefault();
 
         if (ultimoDato is null)
-            throw new InvalidOperationException("no hay datos climaticos disponibles para esta parcela");
+            throw new FlujoIncompletoException("no hay datos climaticos disponibles para esta parcela");
 
         var diasNecesarios = Math.Max(umbrales.CaniculaDias, 1);
         var fechaDesde = DateTime.Today.AddDays(-(diasNecesarios - 1));
@@ -58,9 +57,8 @@ public class MotorDecisionesService : IMotorDecisionesService
             eventoClimaticoId, parcela.CultivoId, etapaFenologicaId, parcela.TipoSueloId);
 
         if (rule is null)
-            throw new InvalidOperationException(
-                $"No existe una regla para eventos={eventoClimaticoId}, Cultivo={parcela.CultivoId}, " +
-                $"Etapa={etapaFenologicaId}, Suelo={parcela.TipoSueloId}. Revisar seed de reglas decision");
+            throw new FlujoIncompletoException(
+                "no existe una regla agronomica para esta combinacion de cultivo, etapa y suelo");
 
         var alert = new Alerta
         {
