@@ -1,38 +1,44 @@
-CREATE DATABASE BD_CosechaClima;
+IF DB_ID(N'BD_CosechaClima') IS NULL
+    CREATE DATABASE BD_CosechaClima;
 GO
 
 USE BD_CosechaClima;
 GO
 
--- tablas de catalogo
-
+IF OBJECT_ID(N'dbo.TipoSuelo', N'U') IS NULL
 CREATE TABLE TipoSuelo (
     Id INT PRIMARY KEY IDENTITY(1,1),
     Nombre NVARCHAR(50) NOT NULL,
     Descripcion NVARCHAR(200) NULL
 );
+GO
 
+IF OBJECT_ID(N'dbo.Cultivos', N'U') IS NULL
 CREATE TABLE Cultivos (
     Id INT PRIMARY KEY IDENTITY(1,1),
     Nombre NVARCHAR(50) NOT NULL,
     NombreCientifico NVARCHAR(100) NULL
 );
+GO
 
+IF OBJECT_ID(N'dbo.EtapaFenologica', N'U') IS NULL
 CREATE TABLE EtapaFenologica (
     Id INT PRIMARY KEY IDENTITY(1,1),
     Nombre NVARCHAR(50) NOT NULL,
     Descripcion NVARCHAR(100) NULL,
     DiasDesdeSiembra INT NULL
 );
+GO
 
+IF OBJECT_ID(N'dbo.EventoClimatico', N'U') IS NULL
 CREATE TABLE EventoClimatico (
     Id INT PRIMARY KEY IDENTITY(1,1),
     Nombre NVARCHAR(50) NOT NULL,
     Descripcion NVARCHAR(200) NULL
 );
+GO
 
--- tablas de negocio
-
+IF OBJECT_ID(N'dbo.Usuarios', N'U') IS NULL
 CREATE TABLE Usuarios (
     Id INT PRIMARY KEY IDENTITY(1,1),
     Nombre NVARCHAR(100) NOT NULL,
@@ -43,7 +49,9 @@ CREATE TABLE Usuarios (
     Activo BIT DEFAULT 1,
     EsAdmin BIT NOT NULL DEFAULT 0
 );
+GO
 
+IF OBJECT_ID(N'dbo.Parcelas', N'U') IS NULL
 CREATE TABLE Parcelas (
     Id INT PRIMARY KEY IDENTITY(1,1),
     UsuarioId INT NOT NULL,
@@ -63,7 +71,9 @@ CREATE TABLE Parcelas (
     CONSTRAINT FK_Parcela_Etapa FOREIGN KEY (EtapaFenologicaId) REFERENCES EtapaFenologica(Id),
     CONSTRAINT FK_Parcela_Suelo FOREIGN KEY (TipoSueloId) REFERENCES TipoSuelo(Id)
 );
+GO
 
+IF OBJECT_ID(N'dbo.UmbralConfiguracion', N'U') IS NULL
 CREATE TABLE UmbralConfiguracion (
     Id INT PRIMARY KEY IDENTITY(1,1),
     UsuarioId INT NOT NULL UNIQUE,
@@ -75,7 +85,9 @@ CREATE TABLE UmbralConfiguracion (
     HorarioSms TIME DEFAULT '06:00',
     CONSTRAINT FK_Umbral_Usuario FOREIGN KEY (UsuarioId) REFERENCES Usuarios(Id)
 );
+GO
 
+IF OBJECT_ID(N'dbo.DatosClimaticos', N'U') IS NULL
 CREATE TABLE DatosClimaticos (
     Id INT PRIMARY KEY IDENTITY(1,1),
     ParcelaId INT NOT NULL,
@@ -92,8 +104,9 @@ CREATE TABLE DatosClimaticos (
     CONSTRAINT FK_Datos_Parcela FOREIGN KEY (ParcelaId) REFERENCES Parcelas(Id),
     CONSTRAINT UK_Datos_Parcela_Fecha UNIQUE (ParcelaId, Fecha)
 );
+GO
 
--- guarda el estado completo del dia
+IF OBJECT_ID(N'dbo.BitacoraCampo', N'U') IS NULL
 CREATE TABLE BitacoraCampo (
     Id INT PRIMARY KEY IDENTITY(1,1),
     UsuarioId INT NOT NULL,
@@ -114,7 +127,9 @@ CREATE TABLE BitacoraCampo (
     CONSTRAINT FK_Bitacora_Parcela FOREIGN KEY (ParcelaId) REFERENCES Parcelas(Id),
     CONSTRAINT FK_Bitacora_Evento FOREIGN KEY (EventoClimaticoId) REFERENCES EventoClimatico(Id)
 );
+GO
 
+IF OBJECT_ID(N'dbo.ReglasDecision', N'U') IS NULL
 CREATE TABLE ReglasDecision (
     Id INT PRIMARY KEY IDENTITY(1,1),
     EventoClimaticoId INT NOT NULL,
@@ -131,11 +146,14 @@ CREATE TABLE ReglasDecision (
     CONSTRAINT FK_Regla_Etapa FOREIGN KEY (EtapaFenologicaId) REFERENCES EtapaFenologica(Id),
     CONSTRAINT FK_Regla_Suelo FOREIGN KEY (TipoSueloId) REFERENCES TipoSuelo(Id)
 );
+GO
 
+IF OBJECT_ID(N'dbo.UK_ReglasDecision_Clave', N'U') IS NULL
 CREATE UNIQUE INDEX UK_ReglasDecision_Clave
     ON ReglasDecision (EventoClimaticoId, CultivoId, EtapaFenologicaId, TipoSueloId);
+GO
 
--- para fase 2 reportes comunitarios
+IF OBJECT_ID(N'dbo.ReportesComunitarios', N'U') IS NULL
 CREATE TABLE ReportesComunitarios (
     Id INT PRIMARY KEY IDENTITY(1,1),
     UsuarioId INT NOT NULL,
@@ -146,8 +164,9 @@ CREATE TABLE ReportesComunitarios (
     Longitud DECIMAL(10,6) NOT NULL,
     CONSTRAINT FK_Reporte_Usuario FOREIGN KEY (UsuarioId) REFERENCES Usuarios(Id)
 );
+GO
 
--- motor de decisiones: resultado del semaforo calculado por parcela/dia
+IF OBJECT_ID(N'dbo.Alertas', N'U') IS NULL
 CREATE TABLE Alertas (
     Id INT PRIMARY KEY IDENTITY(1,1),
     UsuarioId INT NOT NULL,
