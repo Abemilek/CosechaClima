@@ -15,7 +15,8 @@ Cruza datos climáticos en tiempo real contra un árbol de decisión agronómico
   <img alt="Status" src="https://img.shields.io/badge/status-en%20desarrollo-yellow">
   <img alt="Cost" src="https://img.shields.io/badge/costo%20de%20infraestructura-%240-brightgreen">
   <br>
-  <img alt="Build" src="https://img.shields.io/github/actions/workflow/status/Abemilek/CosechaClima/backend-ci.yml?branch=main">
+  <img alt="Backend Build" src="https://img.shields.io/github/actions/workflow/status/Abemilek/CosechaClima/backend-ci.yml?branch=main&label=backend%20build">
+  <img alt="Mobile Build" src="https://img.shields.io/github/actions/workflow/status/Abemilek/CosechaClima/mobile-ci.yml?branch=main&label=mobile%20build">
   <img alt="Last Commit" src="https://img.shields.io/github/last-commit/Abemilek/CosechaClima">
   <img alt="Issues" src="https://img.shields.io/github/issues/Abemilek/CosechaClima">
   <img alt="Repo Size" src="https://img.shields.io/github/repo-size/Abemilek/CosechaClima">
@@ -58,26 +59,9 @@ CosechaClima traduce datos climáticos abiertos en una recomendación accionable
 
 ## Arquitectura
 
-```
-                         ┌──────────────────┐
-                         │       App        │
-                         └────────┬─────────┘
-                                  │ 
-                         ┌────────▼─────────┐
-                         │   WebApi (API)   │ 
-                         └────────┬─────────┘
-                         ┌────────▼─────────┐
-                         │ WebApi.Interface │  
-                         └────────┬─────────┘
-                         ┌────────▼──────────────┐
-                         │ WebApi.Implementation  │
-                         └────────┬───────────────┘
-                    ┌─────────────┼──────────────────┐
-            ┌───────▼──────┐  ┌───▼────────┐  ┌───────▼────────┐
-            │  SQL Server  │  │ Open-Meteo │  │ WebApi.Models   │
-            │  (Docker)    │  │  (clima)   │  │ (entidades)     │
-            └──────────────┘  └────────────┘  └─────────────────┘
-```
+<p align="center">
+  <img src="./docs/assets/architecture.svg" alt="Diagrama de arquitectura de CosechaClima" width="700">
+</p>
 
 Arquitectura en capas estricta: cada capa solo conoce a la inmediatamente inferior a través de una interfaz — el motor de decisiones, por ejemplo, no sabe si los datos climáticos vienen de Open-Meteo, de NASA POWER, o de una base de datos local; solo conoce `IProveedorClimaticoService`.
 
