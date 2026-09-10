@@ -136,6 +136,13 @@ Convención de nombres de rama: `tipo/descripcion-corta` (ej. `fix/canicula-dete
 - [Open-Meteo](https://open-meteo.com) por el acceso gratuito a datos meteorológicos de alta resolución.
 - INTA Nicaragua y FAO por las guías técnicas públicas de manejo de maíz y frijol usadas como base agronómica preliminar.
 - [OWASP API Security Project](https://owasp.org/www-project-api-security/) como marco de referencia para el endurecimiento de seguridad de la API.
+- [OWASP API Security Project] DlopezS98 por la creación de la estructura inicial del cliente móvil en Flutter/Dart utilizada como base para el desarrollo de CosechaClima.
+- [OWASP API Security Project] Sizm12 — responsable de la estructura inicial del backend y de la definición de la arquitectura limpia por capas de CosechaClima, incluyendo:
+
+Capa de Presentación: WebApi.Api, controladores y configuración de la Web API.
+Capa de Aplicación: WebApi.Interface y WebApi.Implementation, encargadas de definir e implementar la lógica de negocio.
+Capa de Datos: WebApi.Data, responsable del acceso a datos, mapeo de entidades e interacción con la base de datos.
+Organización inicial de la separación de responsabilidades entre presentación, aplicación y acceso a datos.
 
 ## Licencia
 
