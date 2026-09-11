@@ -16,10 +16,10 @@ public class RegisterDto
 
 public class LoginDto
 {
-    [Required, MaxLength(8), RegularExpression(@"^\d{0,8}$", ErrorMessage = "telefono invalido")]
+    [Required, RegularExpression(@"^\d{8}$", ErrorMessage = "el telefono debe tener 8 digitos")]
     public string Telefono { get; set; } = string.Empty;
 
-    [Required, MaxLength(4), RegularExpression(@"^\d{0,4}$", ErrorMessage = "pin invalido")]
+    [Required, RegularExpression(@"^\d{4}$", ErrorMessage = "el pin debe ser de exactamente 4 digitos")]
     public string Pin { get; set; } = string.Empty;
 }
 
