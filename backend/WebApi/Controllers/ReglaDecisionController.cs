@@ -17,6 +17,7 @@ public class ReglaDecisionController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> ObtenerTodas()
     {
         var reglas = await _reglaDecisionService.ObtenerTodas();

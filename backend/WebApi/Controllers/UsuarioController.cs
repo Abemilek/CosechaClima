@@ -46,7 +46,7 @@ public class UsuarioController : ControllerBase
     {
         var user = await _usuarioService.Autenticar(datos.Telefono, datos.Pin);
         if (user is null)
-            return Unauthorized(new { message = "telefno o pin incorrecto" });
+            return Unauthorized(new { message = "telefono o pin incorrecto" });
 
         var token = _tokenGenerator.GenerateFor(user);
         return Ok(new LoginResponseDto { Token = token, Nombre = user.Nombre });
