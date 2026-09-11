@@ -43,7 +43,7 @@ public class UsuarioService : IUsuarioService
     public async Task<Usuario?> Autenticar(string telefono, string pin)
     {
         var usuario = await ObtenerPorTelefono(telefono);
-        if (usuario is null)
+        if (usuario is null || !usuario.Activo)
             return null;
 
         var esValido = HashPin.Verify(pin, usuario.PinSalt, usuario.PinHash);
