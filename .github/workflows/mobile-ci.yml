@@ -23,10 +23,10 @@ jobs:
       - name: Checkout repositorio
         uses: actions/checkout@v7
 
-      - name: Configurar Flutter (canal stable)
+      - name: Configurar Flutter (version fijada por FVM)
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version-file: mobile/.fvmrc
           cache: true
 
       - name: Restaurar dependencias
