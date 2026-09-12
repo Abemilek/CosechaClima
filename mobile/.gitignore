@@ -43,3 +43,6 @@ coverage/
 
 # Variables de entorno / API keys del cliente movil
 .env
+
+# FVM Version Cache
+.fvm/
