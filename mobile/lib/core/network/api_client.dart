@@ -18,8 +18,9 @@ class ApiClient {
 
   Uri _uri(String path, [Map<String, dynamic>? query]) {
     final cleanPath = path.startsWith('/') ? path : '/$path';
-    return Uri.parse('${ApiConfig.baseUrl}${ApiConfig.apiPrefix}$cleanPath')
-        .replace(queryParameters: query?.map((k, v) => MapEntry(k, v.toString())));
+    return Uri.parse(
+      '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}$cleanPath',
+    ).replace(queryParameters: query?.map((k, v) => MapEntry(k, v.toString())));
   }
 
   Future<Map<String, String>> _headers({bool auth = true}) async {
@@ -33,15 +34,19 @@ class ApiClient {
     return headers;
   }
 
-  Future<dynamic> get(String path, {Map<String, dynamic>? query, bool auth = true}) =>
-      _send(() async {
-        final res = await _client
-            .get(_uri(path, query), headers: await _headers(auth: auth))
-            .timeout(ApiConfig.timeout);
-        return _handle(res, auth: auth);
-      });
+  Future<dynamic> get(
+    String path, {
+    Map<String, dynamic>? query,
+    bool auth = true,
+  }) => _send(() async {
+    final res = await _client
+        .get(_uri(path, query), headers: await _headers(auth: auth))
+        .timeout(ApiConfig.timeout);
+    return _handle(res, auth: auth);
+  });
 
-  Future<dynamic> post(String path, {Object? body, bool auth = true}) => _send(() async {
+  Future<dynamic> post(String path, {Object? body, bool auth = true}) =>
+      _send(() async {
         final res = await _client
             .post(
               _uri(path),
@@ -52,7 +57,8 @@ class ApiClient {
         return _handle(res, auth: auth);
       });
 
-  Future<dynamic> put(String path, {Object? body, bool auth = true}) => _send(() async {
+  Future<dynamic> put(String path, {Object? body, bool auth = true}) =>
+      _send(() async {
         final res = await _client
             .put(
               _uri(path),
@@ -64,11 +70,11 @@ class ApiClient {
       });
 
   Future<dynamic> delete(String path, {bool auth = true}) => _send(() async {
-        final res = await _client
-            .delete(_uri(path), headers: await _headers(auth: auth))
-            .timeout(ApiConfig.timeout);
-        return _handle(res, auth: auth);
-      });
+    final res = await _client
+        .delete(_uri(path), headers: await _headers(auth: auth))
+        .timeout(ApiConfig.timeout);
+    return _handle(res, auth: auth);
+  });
 
   Future<dynamic> _send(Future<dynamic> Function() request) async {
     try {
@@ -107,7 +113,10 @@ class ApiClient {
         final decoded = jsonDecode(rawBody);
         if (decoded is Map<String, dynamic>) {
           message =
-              (decoded['title'] ?? decoded['mensaje'] ?? decoded['message'] ?? message)
+              (decoded['title'] ??
+                      decoded['mensaje'] ??
+                      decoded['message'] ??
+                      message)
                   .toString();
         }
       } catch (_) {

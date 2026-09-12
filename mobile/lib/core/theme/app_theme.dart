@@ -42,11 +42,7 @@ class AppShadows {
   AppShadows._();
 
   static const soft = [
-    BoxShadow(
-      color: Color(0x172D2115),
-      blurRadius: 20,
-      offset: Offset(0, 8),
-    ),
+    BoxShadow(color: Color(0x172D2115), blurRadius: 20, offset: Offset(0, 8)),
   ];
 }
 
@@ -55,40 +51,39 @@ class AppTheme {
 
   static const _serifFallback = ['Georgia', 'Times New Roman', 'serif'];
 
-  static TextTheme _textTheme(TextTheme base) => base
-      .copyWith(
-        displaySmall: base.displaySmall?.copyWith(
-          fontFamily: 'Georgia',
-          fontFamilyFallback: _serifFallback,
-          fontWeight: FontWeight.w800,
-          height: 1.04,
-          color: AppColors.ink,
-        ),
-        headlineMedium: base.headlineMedium?.copyWith(
-          fontFamily: 'Georgia',
-          fontFamilyFallback: _serifFallback,
-          fontWeight: FontWeight.w800,
-          fontSize: 34,
-          height: 1.04,
-          color: AppColors.ink,
-        ),
-        headlineSmall: base.headlineSmall?.copyWith(
-          fontFamily: 'Georgia',
-          fontFamilyFallback: _serifFallback,
-          fontWeight: FontWeight.w800,
-          fontSize: 28,
-          color: AppColors.ink,
-        ),
-        titleLarge: base.titleLarge?.copyWith(
-          fontFamily: 'Georgia',
-          fontFamilyFallback: _serifFallback,
-          fontWeight: FontWeight.w800,
-          fontSize: 22,
-          color: AppColors.ink,
-        ),
-        bodyLarge: base.bodyLarge?.copyWith(color: AppColors.ink),
-        bodyMedium: base.bodyMedium?.copyWith(color: AppColors.muted),
-      );
+  static TextTheme _textTheme(TextTheme base) => base.copyWith(
+    displaySmall: base.displaySmall?.copyWith(
+      fontFamily: 'Georgia',
+      fontFamilyFallback: _serifFallback,
+      fontWeight: FontWeight.w800,
+      height: 1.04,
+      color: AppColors.ink,
+    ),
+    headlineMedium: base.headlineMedium?.copyWith(
+      fontFamily: 'Georgia',
+      fontFamilyFallback: _serifFallback,
+      fontWeight: FontWeight.w800,
+      fontSize: 34,
+      height: 1.04,
+      color: AppColors.ink,
+    ),
+    headlineSmall: base.headlineSmall?.copyWith(
+      fontFamily: 'Georgia',
+      fontFamilyFallback: _serifFallback,
+      fontWeight: FontWeight.w800,
+      fontSize: 28,
+      color: AppColors.ink,
+    ),
+    titleLarge: base.titleLarge?.copyWith(
+      fontFamily: 'Georgia',
+      fontFamilyFallback: _serifFallback,
+      fontWeight: FontWeight.w800,
+      fontSize: 22,
+      color: AppColors.ink,
+    ),
+    bodyLarge: base.bodyLarge?.copyWith(color: AppColors.ink),
+    bodyMedium: base.bodyMedium?.copyWith(color: AppColors.muted),
+  );
 
   static ThemeData get light {
     final base = ThemeData(
@@ -144,7 +139,10 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.paper,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         constraints: const BoxConstraints(minHeight: 62),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.input),

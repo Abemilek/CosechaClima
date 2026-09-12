@@ -3,7 +3,8 @@ import 'dart:convert';
 class JwtDecoder {
   JwtDecoder._();
 
-  static const _roleClaimUri = 'http://schemas.microsoft.com/ws/2008/06/identity/claims/role';
+  static const _roleClaimUri =
+      'http://schemas.microsoft.com/ws/2008/06/identity/claims/role';
 
   static Map<String, dynamic> payload(String token) {
     final partes = token.split('.');

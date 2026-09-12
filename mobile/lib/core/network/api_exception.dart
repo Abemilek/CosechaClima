@@ -33,7 +33,8 @@ class TimeoutApiException implements Exception {
   final String message;
 
   const TimeoutApiException([
-    this.message = 'El servidor tardó demasiado en responder. Intentá de nuevo.',
+    this.message =
+        'El servidor tardó demasiado en responder. Intentá de nuevo.',
   ]);
 
   @override

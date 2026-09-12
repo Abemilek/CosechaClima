@@ -42,7 +42,9 @@ class Environment {
       if (Platform.isAndroid) {
         final info = await DeviceInfoPlugin().androidInfo;
         if (!info.isPhysicalDevice) {
-          return _backendEnDocker ? androidEmulatorDocker : androidEmulatorLocal;
+          return _backendEnDocker
+              ? androidEmulatorDocker
+              : androidEmulatorLocal;
         }
         return _backendEnDocker ? docker : local;
       }
