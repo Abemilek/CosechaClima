@@ -16,7 +16,9 @@ void main() {
     expect(find.byType(TextField), findsNWidgets(4));
   });
 
-  testWidgets('reporta el PIN concatenado a medida que se escribe', (tester) async {
+  testWidgets('reporta el PIN concatenado a medida que se escribe', (
+    tester,
+  ) async {
     String? ultimoValor;
     await tester.pumpWidget(buildTestable((v) => ultimoValor = v));
 
@@ -30,7 +32,9 @@ void main() {
   });
 
   testWidgets('muestra el texto de error cuando se provee', (tester) async {
-    await tester.pumpWidget(buildTestable((_) {}, errorText: 'Los PIN no coinciden'));
+    await tester.pumpWidget(
+      buildTestable((_) {}, errorText: 'Los PIN no coinciden'),
+    );
     expect(find.text('Los PIN no coinciden'), findsOneWidget);
   });
 }

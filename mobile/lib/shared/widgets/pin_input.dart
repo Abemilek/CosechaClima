@@ -67,23 +67,32 @@ class _PinInputState extends State<PinInput> {
                     decoration: InputDecoration(
                       counterText: '',
                       filled: true,
-                      fillColor: filled ? const Color(0xFFEDF8ED) : AppColors.paper,
+                      fillColor: filled
+                          ? const Color(0xFFEDF8ED)
+                          : AppColors.paper,
                       contentPadding: EdgeInsets.zero,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(AppRadius.input),
                         borderSide: BorderSide(
-                          color: filled ? AppColors.green : const Color(0xFFE6D8CA),
+                          color: filled
+                              ? AppColors.green
+                              : const Color(0xFFE6D8CA),
                         ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(AppRadius.input),
                         borderSide: BorderSide(
-                          color: filled ? AppColors.green : const Color(0xFFE6D8CA),
+                          color: filled
+                              ? AppColors.green
+                              : const Color(0xFFE6D8CA),
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(AppRadius.input),
-                        borderSide: const BorderSide(color: AppColors.pinActive, width: 3),
+                        borderSide: const BorderSide(
+                          color: AppColors.pinActive,
+                          width: 3,
+                        ),
                       ),
                     ),
                     onChanged: (v) => _onDigitChanged(i, v),
@@ -98,7 +107,11 @@ class _PinInputState extends State<PinInput> {
           Text(
             widget.errorText!,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.red, fontSize: 13, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              color: AppColors.red,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ],

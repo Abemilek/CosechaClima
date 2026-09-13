@@ -25,7 +25,8 @@ class _LocationPickerFieldState extends State<LocationPickerField> {
   bool _mostrarManual = false;
 
   bool get _tieneCoordenadas =>
-      widget.latitudCtrl.text.trim().isNotEmpty && widget.longitudCtrl.text.trim().isNotEmpty;
+      widget.latitudCtrl.text.trim().isNotEmpty &&
+      widget.longitudCtrl.text.trim().isNotEmpty;
 
   @override
   void initState() {
@@ -81,8 +82,13 @@ class _LocationPickerFieldState extends State<LocationPickerField> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      _tieneCoordenadas ? 'Ubicación detectada' : 'Usá tu ubicación GPS',
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                      _tieneCoordenadas
+                          ? 'Ubicación detectada'
+                          : 'Usá tu ubicación GPS',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
                 ],
@@ -101,11 +107,19 @@ class _LocationPickerFieldState extends State<LocationPickerField> {
                   onPressed: _detectando ? null : _detectarUbicacion,
                   icon: _detectando
                       ? const SizedBox(
-                          height: 16, width: 16,
+                          height: 16,
+                          width: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Icon(_tieneCoordenadas ? Icons.refresh : Icons.my_location, size: 18),
-                  label: Text(_tieneCoordenadas ? 'Detectar de nuevo' : 'Detectar mi ubicación'),
+                      : Icon(
+                          _tieneCoordenadas ? Icons.refresh : Icons.my_location,
+                          size: 18,
+                        ),
+                  label: Text(
+                    _tieneCoordenadas
+                        ? 'Detectar de nuevo'
+                        : 'Detectar mi ubicación',
+                  ),
                 ),
               ),
             ],
@@ -122,9 +136,18 @@ class _LocationPickerFieldState extends State<LocationPickerField> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.info_outline, size: 18, color: Color(0xFFA56800)),
+                const Icon(
+                  Icons.info_outline,
+                  size: 18,
+                  color: Color(0xFFA56800),
+                ),
                 const SizedBox(width: 8),
-                Expanded(child: Text(_errorGps!, style: const TextStyle(fontSize: 13, color: AppColors.ink))),
+                Expanded(
+                  child: Text(
+                    _errorGps!,
+                    style: const TextStyle(fontSize: 13, color: AppColors.ink),
+                  ),
+                ),
               ],
             ),
           ),
@@ -132,8 +155,15 @@ class _LocationPickerFieldState extends State<LocationPickerField> {
         const SizedBox(height: 10),
         TextButton.icon(
           onPressed: () => setState(() => _mostrarManual = !_mostrarManual),
-          icon: Icon(_mostrarManual ? Icons.expand_less : Icons.expand_more, size: 18),
-          label: Text(_mostrarManual ? 'Ocultar entrada manual' : 'Ingresar coordenadas a mano'),
+          icon: Icon(
+            _mostrarManual ? Icons.expand_less : Icons.expand_more,
+            size: 18,
+          ),
+          label: Text(
+            _mostrarManual
+                ? 'Ocultar entrada manual'
+                : 'Ingresar coordenadas a mano',
+          ),
         ),
         if (_mostrarManual) ...[
           const SizedBox(height: 6),
@@ -143,13 +173,21 @@ class _LocationPickerFieldState extends State<LocationPickerField> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('LATITUD', style: TextStyle(
-                      color: AppColors.soil, fontSize: 12, fontWeight: FontWeight.w900,
-                    )),
+                    const Text(
+                      'LATITUD',
+                      style: TextStyle(
+                        color: AppColors.soil,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: widget.latitudCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                        signed: true,
+                      ),
                       onChanged: (_) => setState(widget.onChanged),
                       decoration: const InputDecoration(hintText: '11.85'),
                     ),
@@ -161,13 +199,21 @@ class _LocationPickerFieldState extends State<LocationPickerField> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('LONGITUD', style: TextStyle(
-                      color: AppColors.soil, fontSize: 12, fontWeight: FontWeight.w900,
-                    )),
+                    const Text(
+                      'LONGITUD',
+                      style: TextStyle(
+                        color: AppColors.soil,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: widget.longitudCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                        signed: true,
+                      ),
                       onChanged: (_) => setState(widget.onChanged),
                       decoration: const InputDecoration(hintText: '-86.19'),
                     ),

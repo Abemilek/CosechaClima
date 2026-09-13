@@ -46,7 +46,10 @@ class AppPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(AppRadius.pill)),
+      decoration: BoxDecoration(
+        color: _bg,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -56,7 +59,11 @@ class AppPill extends StatelessWidget {
           ],
           Text(
             text,
-            style: TextStyle(color: _fg, fontSize: 13, fontWeight: FontWeight.w800),
+            style: TextStyle(
+              color: _fg,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ],
       ),
