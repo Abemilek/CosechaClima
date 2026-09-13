@@ -23,9 +23,9 @@ class AppPill extends StatelessWidget {
       case AppPillVariant.red:
         return AppColors.redBg;
       case AppPillVariant.dark:
-        return Colors.white.withOpacity(0.14);
+        return Colors.white.withValues(alpha: 0.14);
       case AppPillVariant.normal:
-        return AppColors.green.withOpacity(0.1);
+        return AppColors.green.withValues(alpha: 0.1);
     }
   }
 

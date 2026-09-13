@@ -34,7 +34,10 @@ class AppAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         color: bg,
         shape: BoxShape.circle,
-        border: Border.all(color: AppColors.green.withOpacity(0.18), width: 2),
+        border: Border.all(
+          color: AppColors.green.withValues(alpha: 0.18),
+          width: 2,
+        ),
       ),
       child: Icon(icon, color: fg, size: size == AppAvatarSize.large ? 34 : 20),
     );
