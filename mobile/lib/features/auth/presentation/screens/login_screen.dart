@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/app_avatar.dart';
 import '../../../../shared/widgets/pin_input.dart';
-// `import '../../../parcela/presentation/screens/parcela_list_screen.dart';`
+import '../../../parcela/presentation/screens/parcela_list_screen.dart';
 import '../view_models/auth_view_model.dart';
 import 'register_screen.dart';
 
@@ -36,11 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final ok = await auth.login(telefono: _telefonoCtrl.text.trim(), pin: _pin);
     if (ok && mounted) {
       await Navigator.of(context).pushAndRemoveUntil<void>(
-        MaterialPageRoute<void>(
-          builder: (_) => const Scaffold(
-            body: Center(child: Text('TODO: ParcelaListScreen')),
-          ),
-        ),
+        MaterialPageRoute<void>(builder: (_) => const ParcelaListScreen()),
         (route) => false,
       );
     }
