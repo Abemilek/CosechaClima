@@ -22,11 +22,17 @@ public class TokenGenerator
         var secretKey = jwtConfig["SecretKey"]!;
         var duration = int.Parse(jwtConfig["DurationMinutes"]!);
 
+        if (Encoding.UTF8.GetByteCount(secretKey) < 32)
+        {
+            throw new InvalidOperationException("La clave secreta JWT debe tener al menos 32 bytes de longitud para HMAC-SHA256.");
+        }
+
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
             new(ClaimTypes.MobilePhone, usuario.Telefono),
-            new(ClaimTypes.Name, usuario.Nombre)
+            new(ClaimTypes.Name, usuario.Nombre),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
         if (usuario.EsAdmin)
