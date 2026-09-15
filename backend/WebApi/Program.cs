@@ -76,7 +76,7 @@ builder.Services.AddHttpClient<IProveedorClimaticoService, OpenMeteoService>(cli
 });
 
 // conexion a la base de datos
-builder.Services.AddScoped<ConnectionBD>();
+builder.Services.AddSingleton<ConnectionBD>();
 
 // cada servicio registrado, por cada interfaz que exista
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
