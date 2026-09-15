@@ -71,11 +71,7 @@ class _CrearParcelaWizardScreenState extends State<CrearParcelaWizardScreen> {
 
   void _goTo(int step) {
     setState(() => _step = step);
-    _pageController.animateToPage(
-      step,
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-    );
+    _pageController.jumpToPage(step);
   }
 
   Future<void> _submit() async {

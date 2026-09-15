@@ -44,8 +44,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthViewModel>();
-
     return Scaffold(
       backgroundColor: AppColors.cream,
       body: SafeArea(
@@ -110,30 +108,35 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 8),
               PinInput(onChanged: (v) => setState(() => _pin = v)),
-              if (auth.error != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  auth.error!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppColors.red,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: (auth.cargando || !_formValido) ? null : _submit,
-                child: auth.cargando
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
+
+              Consumer<AuthViewModel>(
+                builder: (context, auth, _) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (auth.error != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          auth.error!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppColors.red,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      )
-                    : const Text('Iniciar sesión'),
+                      ],
+                      const SizedBox(height: 24),
+                      FilledButton(
+                        onPressed: (auth.cargando || !_formValido)
+                            ? null
+                            : _submit,
+                        child: auth.cargando
+                            ? const Text('Espere...')
+                            : const Text('Iniciar sesión'),
+                      ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 8),
               Center(
