@@ -3,7 +3,9 @@ using WebApi.Dto;
 using WebApi.Interface;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using WebApi.Extensions;
+
 namespace WebApi.Controllers;
 
 [ApiController]
@@ -21,6 +23,7 @@ public class MotorDecisionesController : ControllerBase
     }
 
     [HttpPost("semaforo")]
+    [EnableRateLimiting("motor")]
     public async Task<ActionResult<SemaforoDto>> ObtenerSemaforo([FromBody] SemaforoRequestDto datos)
     {
         var parcela = await _parcelaService.ObtenerPorId(datos.ParcelaId);
