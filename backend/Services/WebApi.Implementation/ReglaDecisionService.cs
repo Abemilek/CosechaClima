@@ -3,6 +3,7 @@ using WebApi.Implementation.Connection;
 using WebApi.Interface;
 using WebApi.Models;
 using System.Text.Json;
+using System.Data;
 
 namespace WebApi.Implementation;
 
@@ -93,38 +94,41 @@ public class ReglaDecisionService : IReglaDecisionService
     {
         var rutaArchivo = Path.Combine(AppContext.BaseDirectory, "Scripts", "reglas-preliminares-completas.json");
         var json = await File.ReadAllTextAsync(rutaArchivo);
-        var reglas = JsonSerializer.Deserialize<List<ReglaPreliminarData>>(json,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
 
         using var connection = _connectionBD.CrearConexion();
+        
+        using var command = new SqlCommand(
+            @"UPDATE rd
+              SET NivelRiesgo = j.NivelRiesgo, 
+                  Accion1 = j.Accion1, 
+                  Accion2 = j.Accion2,
+                  Accion3 = j.Accion3, 
+                  DescripcionAlerta = j.Descripcion
+              FROM ReglasDecision rd
+              JOIN Cultivos c ON c.Id = rd.CultivoId
+              JOIN EventoClimatico ec ON ec.Id = rd.EventoClimaticoId
+              JOIN EtapaFenologica ef ON ef.Id = rd.EtapaFenologicaId
+              JOIN TipoSuelo ts ON ts.Id = rd.TipoSueloId
+              JOIN OPENJSON(@JsonReglas) WITH (
+                  Cultivo NVARCHAR(100),
+                  Evento NVARCHAR(100),
+                  EtapaFenologica NVARCHAR(100) '$.EtapaFenologica',
+                  TipoSuelo NVARCHAR(100),
+                  NivelRiesgo NVARCHAR(50),
+                  Accion1 NVARCHAR(500),
+                  Accion2 NVARCHAR(500),
+                  Accion3 NVARCHAR(500),
+                  Descripcion NVARCHAR(500)
+              ) j ON c.Nombre = j.Cultivo 
+                 AND ec.Nombre = j.Evento 
+                 AND ef.Nombre = j.EtapaFenologica 
+                 AND ts.Nombre = j.TipoSuelo;", connection);
+
+        var jsonParam = command.Parameters.Add("@JsonReglas", SqlDbType.NVarChar, -1);
+        jsonParam.Value = json;
+
         await connection.OpenAsync();
-
-        foreach (var regla in reglas)
-        {
-            using var command = new SqlCommand(
-                @"UPDATE rd
-                SET NivelRiesgo = @NivelRiesgo, Accion1 = @Accion1, Accion2 = @Accion2,
-                      Accion3 = @Accion3, DescripcionAlerta = @Descripcion
-                FROM ReglasDecision rd
-                JOIN Cultivos c ON c.Id = rd.CultivoId
-                JOIN EventoClimatico ec ON ec.Id = rd.EventoClimaticoId
-                JOIN EtapaFenologica ef ON ef.Id = rd.EtapaFenologicaId
-                JOIN TipoSuelo ts ON ts.Id = rd.TipoSueloId
-                WHERE c.Nombre = @Cultivo AND ec.Nombre = @Evento
-                    AND ef.Nombre = @Etapa AND ts.Nombre = @Suelo", connection);
-
-            command.Parameters.AddWithValue("@NivelRiesgo", regla.NivelRiesgo);
-            command.Parameters.AddWithValue("@Accion1", regla.Accion1);
-            command.Parameters.AddWithValue("@Accion2", regla.Accion2);
-            command.Parameters.AddWithValue("@Accion3", regla.Accion3);
-            command.Parameters.AddWithValue("@Descripcion", regla.Descripcion);
-            command.Parameters.AddWithValue("@Cultivo", regla.Cultivo);
-            command.Parameters.AddWithValue("@Evento", regla.Evento);
-            command.Parameters.AddWithValue("@Etapa", regla.EtapaFenologica);
-            command.Parameters.AddWithValue("@Suelo", regla.TipoSuelo);
-
-            await command.ExecuteNonQueryAsync();
-        }
+        await command.ExecuteNonQueryAsync();
     }
 
     private static ReglaDecision MapRegla(SqlDataReader lector)
