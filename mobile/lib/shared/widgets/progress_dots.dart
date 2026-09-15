@@ -19,8 +19,7 @@ class ProgressDots extends StatelessWidget {
         final active = i == activeIndex;
         return Padding(
           padding: const EdgeInsets.only(right: 8),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+          child: Container(
             width: active ? 32 : 10,
             height: 8,
             decoration: BoxDecoration(
