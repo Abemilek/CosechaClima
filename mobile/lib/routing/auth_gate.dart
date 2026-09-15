@@ -14,7 +14,14 @@ class AuthGate extends StatelessWidget {
 
     switch (estado) {
       case EstadoSesion.desconocido:
-        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        return const Scaffold(
+          body: Center(
+            child: Text(
+              'Cargando...',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        );
       case EstadoSesion.autenticado:
         return const ParcelaListScreen();
       case EstadoSesion.invitado:
