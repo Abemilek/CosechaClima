@@ -1,6 +1,8 @@
 using WebApi.Interface;
 using WebApi.Models;
 using WebApi.Implementation.Exceptions;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace WebApi.Implementation;
 
@@ -51,12 +53,28 @@ public class MotorDecisionesService : IMotorDecisionesService
         var ventanaCanicula = await _datosClimaticoService.ObtenerPorRangoFechas(
             parcelaId, fechaDesde, DateTime.Today);
 
-        var eventoClimaticoId = DetermineActiveEvent(ultimoDato, ventanaCanicula, umbrales, diasNecesarios);
+        var eventosActivos = DetermineActiveEvents(ultimoDato, ventanaCanicula, umbrales, diasNecesarios);
 
-        var rule = await _reglaDecisionService.ObtenerPorClave(
-            eventoClimaticoId, parcela.CultivoId, etapaFenologicaId, parcela.TipoSueloId);
+        ReglaDecision? reglaPrioritaria = null;
+        int maxPrioridad = -1;
 
-        if (rule is null)
+        foreach (var eventoId in eventosActivos)
+        {
+            var rule = await _reglaDecisionService.ObtenerPorClave(
+                eventoId, parcela.CultivoId, etapaFenologicaId, parcela.TipoSueloId);
+
+            if (rule != null)
+            {
+                int prioridad = CalcularPrioridadRiesgo(rule.NivelRiesgo);
+                if (prioridad > maxPrioridad)
+                {
+                    maxPrioridad = prioridad;
+                    reglaPrioritaria = rule;
+                }
+            }
+        }
+
+        if (reglaPrioritaria is null)
             throw new FlujoIncompletoException(
                 "no existe una regla agronomica para esta combinacion de cultivo, etapa y suelo");
 
@@ -65,40 +83,54 @@ public class MotorDecisionesService : IMotorDecisionesService
             UsuarioId = parcela.UsuarioId,
             ParcelaId = parcela.Id,
             Fecha = DateTime.Today,
-            EventoClimaticoId = eventoClimaticoId,
-            NivelRiesgo = rule.NivelRiesgo,
-            Accion1 = rule.Accion1,
-            Accion2 = rule.Accion2,
-            Accion3 = rule.Accion3,
-            DescripcionAlerta = rule.DescripcionAlerta
+            EventoClimaticoId = reglaPrioritaria.EventoClimaticoId,
+            NivelRiesgo = reglaPrioritaria.NivelRiesgo,
+            Accion1 = reglaPrioritaria.Accion1,
+            Accion2 = reglaPrioritaria.Accion2,
+            Accion3 = reglaPrioritaria.Accion3,
+            DescripcionAlerta = reglaPrioritaria.DescripcionAlerta
         };
+        
         alert.Id = await _alertaService.GuardarOActualizar(alert);
         return alert;
     }
 
-    private static int DetermineActiveEvent(
+    private static List<int> DetermineActiveEvents(
         DatosClimaticos ultimoDato,
         List<DatosClimaticos> ventanaCanicula,
         UmbralConfiguracion umbrales,
         int diasNecesarios)
     {
-        if (ultimoDato.TemperaturaMin is not null && ultimoDato.TemperaturaMin <= 2)
-            return (int)EventoClimaticoId.RiesgoHelada;
+        var eventos = new List<int>();
+
+        if (ultimoDato.TemperaturaMin is not null && ultimoDato.TemperaturaMin <= 2m)
+            eventos.Add((int)EventoClimaticoId.RiesgoHelada);
 
         if (ultimoDato.Precipitacion is not null && ultimoDato.Precipitacion >= umbrales.LluviaIntensaMm)
-            return (int)EventoClimaticoId.LluviaIntensa;
+            eventos.Add((int)EventoClimaticoId.LluviaIntensa);
 
         if (ultimoDato.VientoVelocidad is not null && ultimoDato.VientoVelocidad >= umbrales.VientoFuerteKmh)
-            return (int)EventoClimaticoId.VientoFuerte;
+            eventos.Add((int)EventoClimaticoId.VientoFuerte);
 
-        if (ultimoDato.TemperaturaMax is not null && ultimoDato.TemperaturaMax >= 35)
-            return (int)EventoClimaticoId.TemperaturaExtrema;
+        if (ultimoDato.TemperaturaMax is not null && ultimoDato.TemperaturaMax >= 35m)
+            eventos.Add((int)EventoClimaticoId.TemperaturaExtrema);
 
         if (HayCaniculaActiva(ventanaCanicula, diasNecesarios, DateTime.Today))
-            return (int)EventoClimaticoId.Canicula;
+            eventos.Add((int)EventoClimaticoId.Canicula);
 
-        return (int)EventoClimaticoId.SinRiesgo;
+        if (!eventos.Any())
+            eventos.Add((int)EventoClimaticoId.SinRiesgo);
+
+        return eventos;
     }
+
+    private static int CalcularPrioridadRiesgo(string nivel) => nivel.ToLower() switch
+    {
+        "alto" => 3,
+        "medio" => 2,
+        "bajo" => 1,
+        _ => 0
+    };
 
     private static bool HayCaniculaActiva(List<DatosClimaticos> historial, int diasRequeridos, DateTime fechaReferencia)
     {
