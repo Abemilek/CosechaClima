@@ -1,9 +1,14 @@
-![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4)
-![C#](https://img.shields.io/badge/C%23-13-239120)
-![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B)
-![SQL Server 2022](https://img.shields.io/badge/SQL_Server-2022-CC2927)
-![Docker](https://img.shields.io/badge/Docker-Compose-2496ED)
-![License MIT](https://img.shields.io/badge/license-MIT-green)
+<div align="center">
+  <img src="docs/assets/cosechaclima-logo.svg" width="250" alt="CosechaClima Logo">
+  <br><br>
+
+  ![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4)
+  ![C#](https://img.shields.io/badge/C%23-13-239120)
+  ![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B)
+  ![SQL Server 2022](https://img.shields.io/badge/SQL_Server-2022-CC2927)
+  ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED)
+  ![License MIT](https://img.shields.io/badge/license-MIT-green)
+</div>
 
 # CosechaClima
 
