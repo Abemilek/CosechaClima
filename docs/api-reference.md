@@ -1,303 +1,411 @@
-# CosechaClima API — Referencia técnica
+# CosechaClima API -- Referencia tecnica
 
-> Ver también: [`authentication.md`](./authentication.md) para el detalle del flujo de login, y [`error-handling.md`](./error-handling.md) para el catálogo completo de códigos de error.
+> Ver tambien: [authentication.md](./authentication.md) para el detalle del flujo de login, y [error-handling.md](./error-handling.md) para el catalogo completo de codigos de error.
 
-Documentación completa de todos los endpoints, (motor de decisiones, autorización por ownership, DTOs de validación, rate limiting, Open-Meteo). Complementa a Swagger (`/swagger`) — Swagger es la fuente de verdad *en vivo*, este documento explica el **por qué** y el **flujo interno** de cada endpoint, que Swagger no muestra.
+Documentacion completa de todos los endpoints. Complementa a Swagger (`/swagger`) -- Swagger es la fuente de verdad en vivo, este documento explica el por que y el flujo interno de cada endpoint.
 
-**Base URL (local):** `http://localhost:8080`
-**Base URL (Docker en red local):** `http://<IP de la laptop>:8080`
+**Base URL (Docker):** `http://localhost:8080`
+**Base URL (local sin Docker):** `http://localhost:5013`
+
+---
 
 ## Convenciones generales
 
-### Autenticación
-Todos los endpoints, salvo los marcados como **Público**, requieren un header:
+### Autenticacion
+
+Todos los endpoints, salvo los marcados como **Publico**, requieren el header:
+
 ```
 Authorization: Bearer <token>
 ```
-El token se obtiene de `POST /api/usuarios/login` y expira en 24 horas (configurable). Si falta o expiró, el endpoint devuelve `401`.
+
+El token se obtiene de `POST /api/auth/login`, expira en 24 horas (configurable) y contiene un claim `Jti` para unicidad. Si falta o expiro, el endpoint devuelve `401`.
 
 ### Formato de errores
-Todos los errores (salvo validación automática de modelo) siguen el estándar `ProblemDetails` (RFC 7807):
+
+Todos los errores siguen el estandar RFC 7807 (`ProblemDetails`):
+
 ```json
-{ "status": 400, "title": "Descripción del error", "instance": "/api/ruta" }
+{ "status": 400, "title": "Descripcion del error", "instance": "/api/ruta" }
 ```
 
-### Códigos de estado usados en toda la API
+### Codigos de estado
 
-| Código | Significado en esta API |
+| Codigo | Significado |
 |---|---|
-| `200` | Éxito |
-| `400` | Body inválido (falta un campo requerido, o no cumple una regla de validación) |
-| `401` | Falta el token, o no es válido/expiró |
-| `403` | Token válido, pero el recurso pedido no pertenece al usuario autenticado |
-| `404` | El recurso no existe |
-| `429` | Demasiadas peticiones en poco tiempo (rate limiting, solo en `/register` y `/login`) |
-| `503` | Un servicio externo (Open-Meteo) no respondió y no hay dato de respaldo |
+| `200` | Exito |
+| `400` | Body invalido o referencia a catalogo inexistente |
+| `401` | Falta el token, o no es valido/expiro |
+| `403` | Token valido, pero el recurso no pertenece al usuario autenticado |
+| `404` | El recurso no existe, o falta un paso previo del flujo de negocio |
+| `409` | Recurso duplicado |
+| `429` | Rate limiting excedido |
+| `503` | Servicio externo no disponible y sin dato de respaldo |
 
-### Ownership (importante para entender el diseño)
-Ningún endpoint acepta un `usuarioId` como parámetro para decidir de quién son los datos — **siempre se deriva del token**. Los endpoints de "listar mis cosas" usan rutas como `/mias` en vez de `/usuario/{id}`, precisamente para que no exista la posibilidad de pedir los datos de otro usuario cambiando un número en la URL.
+### Ownership
+
+Ningun endpoint acepta un `usuarioId` como parametro. Siempre se deriva del claim `NameIdentifier` del token. Las rutas usan `/mias` o `/mios` en vez de `/usuario/{id}`.
 
 ---
 
-## Índice
+## Indice
 
-1. [Usuarios y autenticación](#1-usuarios-y-autenticación)
+1. [Autenticacion](#1-autenticacion)
 2. [Parcelas](#2-parcelas)
-3. [Umbrales de configuración](#3-umbrales-de-configuración)
+3. [Umbrales de configuracion](#3-umbrales-de-configuracion)
 4. [Clima](#4-clima)
 5. [Motor de decisiones](#5-motor-de-decisiones)
-6. [Bitácora de campo](#6-bitácora-de-campo)
-7. [Reglas de decisión (administración)](#7-reglas-de-decisión-administración)
-8. [Health check](#8-health-check)
+6. [Bitacora de campo](#6-bitacora-de-campo)
+7. [Reglas de decision (administracion)](#7-reglas-de-decision-administracion)
+8. [Catalogos](#8-catalogos)
+9. [Health check](#9-health-check)
 
 ---
 
-## 1. Usuarios y autenticación
+## 1. Autenticacion
 
-Controlador: `UsuarioController` — Ruta base: `/api/usuarios` — **Público** (sin token)
-Rate limit: máx. 5 peticiones/minuto por endpoint (ventana deslizante) — devuelve `429` si se excede.
+**Controlador:** `UsuarioController` -- **Ruta base:** `/api/auth` -- **Acceso:** Publico
+**Rate limit:** politica `auth` (5 peticiones/minuto por IP, ventana deslizante)
 
-### `POST /api/usuarios/register`
+### POST /api/auth/register
 
-**Qué hace:** crea una cuenta nueva. Internamente genera un `salt` aleatorio, calcula `SHA256(pin + salt)`, y guarda **solo el hash** — el PIN en texto plano nunca llega a la base de datos.
+Crea una cuenta nueva. Genera un salt aleatorio, calcula el hash PBKDF2 del PIN, y guarda solo el hash.
 
-**Request body:**
-| Campo | Tipo | Requerido | Validación |
+**Request body (`RegisterDto`):**
+
+| Campo | Tipo | Requerido | Validacion |
 |---|---|---|---|
-| `nombre` | string | Sí | máx. 100 caracteres |
-| `telefono` | string | Sí | exactamente 8 dígitos numéricos |
-| `pin` | string | Sí | exactamente 4 dígitos numéricos |
+| `nombre` | string | Si | max 100 caracteres |
+| `telefono` | string | Si | exactamente 8 digitos (`^\d{8}$`) |
+| `pin` | string | Si | exactamente 4 digitos (`^\d{4}$`) |
 
 ```json
 { "nombre": "Juan Perez", "telefono": "88887777", "pin": "1234" }
 ```
 
 **Respuestas:**
-- `200 OK` → `{ "id": 1, "mensaje": "Usuario registrado correctamente" }`
-- `400` → violación de validación (ej. teléfono con letras)
-- `409 Conflict` → el teléfono ya está registrado
 
-### `POST /api/usuarios/login`
+| Codigo | Cuerpo |
+|---|---|
+| `200` | `{ "id": 1, "mensaje": "usuario registrado correctamente" }` |
+| `409` | Telefono ya registrado |
+| `429` | Rate limit excedido |
 
-**Qué hace:** busca al usuario por teléfono, recalcula el hash del PIN recibido con el `salt` guardado, y compara contra el hash almacenado. Si coincide, genera un JWT firmado con expiración de 24 horas conteniendo el id, teléfono y nombre del usuario como claims.
+### POST /api/auth/login
 
-**Request body:**
+Autentica al usuario por telefono + PIN. Si coincide, genera un JWT firmado con HMAC-SHA256 conteniendo claims de identidad, rol y Jti.
+
+**Request body (`LoginDto`):**
+
+| Campo | Tipo | Requerido | Validacion |
+|---|---|---|---|
+| `telefono` | string | Si | exactamente 8 digitos |
+| `pin` | string | Si | exactamente 4 digitos |
+
 ```json
 { "telefono": "88887777", "pin": "1234" }
 ```
 
 **Respuestas:**
-- `200 OK` → `{ "token": "eyJhbGci...", "nombre": "Juan Perez" }`
-- `401` → teléfono o PIN incorrectos (mensaje deliberadamente genérico, no distingue cuál de los dos falló — evita revelar si un teléfono está registrado)
+
+| Codigo | Cuerpo |
+|---|---|
+| `200` | `{ "token": "eyJhbGci...", "nombre": "Juan Perez" }` |
+| `401` | Telefono o PIN incorrectos (mensaje generico deliberado) |
+| `429` | Rate limit excedido |
 
 ---
 
 ## 2. Parcelas
 
-Controlador: `ParcelaController` — Ruta base: `/api/parcelas` — **Requiere token**
+**Controlador:** `ParcelaController` -- **Ruta base:** `/api/parcelas` -- **Acceso:** JWT requerido
 
-### `POST /api/parcelas`
+### POST /api/parcelas
 
-**Qué hace:** registra una parcela nueva. El `usuarioId` se asigna automáticamente desde el token — cualquier valor que el cliente intente mandar para ese campo se ignora (no existe siquiera en el DTO de request).
+Registra una parcela nueva. El `usuarioId` se asigna automaticamente desde el token.
 
 **Request body (`ParcelaRequestDto`):**
-| Campo | Tipo | Requerido | Validación |
+
+| Campo | Tipo | Requerido | Validacion |
 |---|---|---|---|
-| `cultivoId` | int | Sí | debe existir en el catálogo `Cultivos` |
-| `etapaFenologicaId` | int? | No | puede quedar sin definir al principio |
-| `tipoSueloId` | int | Sí | debe existir en el catálogo `TipoSuelo` |
-| `fechaSiembra` | date | Sí | formato `YYYY-MM-DD` |
-| `areaMzs` | decimal | Sí | entre 0.01 y 10000 |
-| `latitud` | decimal? | No | entre -90 y 90 |
-| `longitud` | decimal? | No | entre -180 y 180 |
-| `municipio` | string? | No | máx. 100 caracteres |
-| `comunidad` | string? | No | máx. 100 caracteres |
+| `cultivoId` | int | Si | debe existir en catalogo |
+| `etapaFenologicaId` | int? | No | si se envia, debe existir |
+| `tipoSueloId` | int | Si | debe existir en catalogo |
+| `fechaSiembra` | date | Si | formato `YYYY-MM-DD` |
+| `areaMzs` | decimal | Si | 0.01 - 99999.99 |
+| `latitud` | decimal? | No | -90 a 90 |
+| `longitud` | decimal? | No | -180 a 180 |
+| `municipio` | string? | No | max 100 |
+| `comunidad` | string? | No | max 100 |
 
-**Respuesta:** `200 OK` → `{ "id": 3 }`
+**Respuesta:** `200` -> `{ "id": 3 }`
 
-**Nota de flujo:** si la parcela se crea sin `latitud`/`longitud`, el endpoint `POST /api/clima/actualizar/{id}` (sección 4) va a devolver `400` hasta que se actualicen — el clima no se puede consultar sin coordenadas.
+### PUT /api/parcelas/{id}
 
-### `GET /api/parcelas/{id}`
+Actualiza campos parciales de una parcela. Verifica ownership.
 
-**Qué hace:** devuelve una parcela específica. Antes de responder, verifica que `parcela.UsuarioId` coincida con el usuario del token.
+**Request body (`ParcelaUpdateRequestDto`):**
 
-**Respuestas:**
-- `200 OK` → objeto `Parcela` completo
-- `403` → la parcela existe, pero no es del usuario autenticado
-- `404` → no existe una parcela con ese id (nota: si no existe, técnicamente también podría devolver `403` según la implementación — tratalos igual desde Flutter, en ambos casos significa "no tenés acceso a esto")
+| Campo | Tipo | Requerido | Validacion |
+|---|---|---|---|
+| `latitud` | decimal? | No | -90 a 90 |
+| `longitud` | decimal? | No | -180 a 180 |
+| `areaMzs` | decimal? | No | 0.01 - 99999.99 |
+| `municipio` | string? | No | max 100 |
+| `comunidad` | string? | No | max 100 |
 
-### `GET /api/parcelas/mias`
+**Respuestas:** `200` `{ "actualizada": true }` / `400` sin datos / `403` / `404`
 
-**Qué hace:** lista todas las parcelas del usuario autenticado. No recibe ningún parámetro — el usuario se deriva 100% del token.
+### GET /api/parcelas/{id}
 
-**Respuesta:** `200 OK` → array de objetos `Parcela` (puede ser `[]` si no tiene ninguna todavía).
+Devuelve una parcela especifica. Verifica ownership.
 
-### `PUT /api/parcelas/{id}/etapa/{etapaId}`
+**Respuestas:** `200` objeto `Parcela` / `403` / `404`
 
-**Qué hace:** actualiza la etapa fenológica de una parcela (por ejemplo, cuando el cultivo pasa de "Desarrollo vegetativo" a "Floración"). Verifica ownership antes de actualizar.
+### GET /api/parcelas/mias
 
-**Respuestas:** `200 OK` (actualizado) / `403` (no es tuya) / `404` (no existe)
+Lista todas las parcelas del usuario autenticado.
 
-**Nota de flujo:** este es el endpoint que Flutter debería llamar cuando el usuario marca manualmente que su cultivo avanzó de etapa — el motor de decisiones usa este valor para seleccionar la regla correcta, así que si nunca se actualiza, el semáforo va a seguir evaluando contra la etapa con la que se creó la parcela.
+**Respuesta:** `200` array de `Parcela` (puede ser `[]`)
 
-### `DELETE /api/parcelas/{id}`
+### PUT /api/parcelas/{id}/etapa/{etapaId}
 
-**Qué hace:** elimina una parcela. Verifica ownership antes de borrar.
+Actualiza la etapa fenologica de una parcela. Verifica ownership y existencia de la etapa.
 
-**Respuestas:** `200 OK` / `403` / `404`
+**Respuestas:** `200` / `400` etapa no existe / `403` / `404`
+
+### DELETE /api/parcelas/{id}
+
+Elimina una parcela. Verifica ownership.
+
+**Respuestas:** `200` / `403` / `404`
 
 ---
 
-## 3. Umbrales de configuración
+## 3. Umbrales de configuracion
 
-Controlador: `UmbralConfiguracionController` — Ruta base: `/api/umbrales` — **Requiere token**
+**Controlador:** `UmbralConfiguracionController` -- **Ruta base:** `/api/umbrales` -- **Acceso:** JWT requerido
 
-### `POST /api/umbrales`
+### POST /api/umbrales
 
-**Qué hace:** crea o actualiza (upsert) los umbrales de riesgo del usuario autenticado — cada usuario tiene un único registro de umbrales (no uno por parcela). El motor de decisiones compara los datos climáticos del día contra estos valores para determinar qué evento climático está activo.
+Crea o actualiza (upsert) los umbrales de riesgo del usuario. Cada usuario tiene un unico registro de umbrales.
 
 **Request body (`UmbralRequestDto`):**
-| Campo | Tipo | Requerido | Default | Validación |
+
+| Campo | Tipo | Requerido | Default | Validacion |
 |---|---|---|---|---|
 | `lluviaIntensaMm` | int | No | 100 | 0 - 1000 |
 | `vientoFuerteKmh` | int | No | 40 | 0 - 300 |
 | `caniculaDias` | int | No | 7 | 1 - 60 |
-| `variedadCultivo` | string | No | "Criollo" | máx. 50 caracteres |
-| `tieneRiego` | bool | No | false | — |
-| `horarioSms` | time | Sí | — | formato `HH:mm` |
+| `variedadCultivo` | string | No | "Criollo" | max 50 |
+| `tieneRiego` | bool | No | false | -- |
+| `horarioSms` | time | Si | -- | formato `HH:mm` |
 
-**Respuesta:** `200 OK` → `{ "id": 1 }`
+**Respuesta:** `200` -> `{ "id": 1 }`
 
-### `GET /api/umbrales/mios`
+### GET /api/umbrales/mios
 
-**Respuestas:** `200 OK` → objeto `UmbralConfiguracion` / `404` → el usuario todavía no configuró umbrales (Flutter debería interpretar esto como "mostrar la pantalla de configuración inicial", no como un error)
+**Respuestas:** `200` objeto `UmbralConfiguracion` / `404` (usuario no ha configurado umbrales -- Flutter debe interpretar como "mostrar pantalla de configuracion inicial")
 
 ---
 
 ## 4. Clima
 
-Controlador: `ClimaController` — Ruta base: `/api/clima` — **Requiere token**
+**Controlador:** `ClimaController` -- **Ruta base:** `/api/clima` -- **Acceso:** JWT requerido
 
-### `POST /api/clima/actualizar/{parcelaId}`
+### POST /api/clima/actualizar/{parcelaId}
 
-**Qué hace — flujo interno paso a paso:**
+**Flujo interno:**
+
 1. Busca la parcela por id y verifica ownership.
 2. Verifica que tenga `latitud`/`longitud` cargadas.
-3. Llama a la API de Open-Meteo con esas coordenadas, pidiendo el día anterior, hoy y 2 días de pronóstico.
-4. Si Open-Meteo responde bien, guarda el dato del día actual en `DatosClimaticos` y lo devuelve.
-5. Si Open-Meteo falla (sin internet, timeout de 10s, error del servicio), busca el último dato climático ya guardado para esa parcela (hasta 3 días atrás) y lo devuelve como respaldo, sin lanzar error.
+3. Si existe dato del dia actual con menos de 6 horas de antiguedad, lo retorna del cache.
+4. Si no, llama a Open-Meteo con las coordenadas de la parcela.
+5. Si Open-Meteo falla, busca el ultimo dato guardado como respaldo.
 
 **Respuestas:**
-- `200 OK` → objeto `DatosClimaticos` (con `temperaturaMax`, `temperaturaMin`, `precipitacion`, `vientoVelocidad`, `fuenteNASA`)
-- `400` → la parcela no tiene coordenadas registradas
-- `403` → la parcela no es del usuario autenticado
-- `404` → la parcela no existe
-- `503` → Open-Meteo no respondió **y** tampoco hay ningún dato previo guardado (caso raro, típicamente solo en la primerísima consulta de una parcela recién creada sin conexión)
 
-**Nota de flujo para Flutter:** este endpoint hay que llamarlo **antes** de pedir el semáforo (sección 5) — el motor de decisiones necesita un dato climático guardado para poder calcular algo. Una buena práctica de UX es encadenar ambas llamadas automáticamente cuando el usuario entra a la pantalla de una parcela, mostrando un loading mientras tanto.
+| Codigo | Significado |
+|---|---|
+| `200` | Objeto `DatosClimaticos` |
+| `400` | La parcela no tiene coordenadas registradas |
+| `403` | La parcela no es del usuario autenticado |
+| `404` | La parcela no existe |
+| `503` | Open-Meteo no respondio y no hay datos previos guardados |
+
+**Modelo `DatosClimaticos`:**
+
+| Campo | Tipo |
+|---|---|
+| `id` | int |
+| `parcelaId` | int |
+| `fecha` | datetime |
+| `temperaturaMedia` | decimal? |
+| `temperaturaMax` | decimal? |
+| `temperaturaMin` | decimal? |
+| `precipitacion` | decimal? |
+| `humedadRelativa` | decimal? |
+| `vientoVelocidad` | decimal? |
+| `radiacionSolar` | decimal? |
+| `fuenteClima` | string |
+| `fechaDescarga` | datetime |
+
+> [!NOTE]
+> Este endpoint debe llamarse **antes** de pedir el semaforo (seccion 5). El motor de decisiones necesita datos climaticos guardados para calcular.
 
 ---
 
 ## 5. Motor de decisiones
 
-Controlador: `MotorDecisionesController` — Ruta base: `/api/motor` — **Requiere token**
+**Controlador:** `MotorDecisionesController` -- **Ruta base:** `/api/motor` -- **Acceso:** JWT requerido
+**Rate limit:** politica `motor`
 
-### `GET /api/motor/semaforo?parcelaId={id}`
+### POST /api/motor/semaforo
 
-**Qué hace — flujo interno paso a paso:**
+**Request body (`SemaforoRequestDto`):**
+
+| Campo | Tipo | Requerido |
+|---|---|---|
+| `parcelaId` | int | Si |
+
+```json
+{ "parcelaId": 5 }
+```
+
+**Flujo interno:**
+
 1. Verifica ownership de la parcela.
-2. Busca los umbrales configurados por el usuario.
-3. Busca el dato climático más reciente guardado para esa parcela (el que trajo el endpoint de la sección 4).
-4. Compara los valores del clima contra los umbrales para determinar cuál de los 6 eventos climáticos está activo (lluvia intensa, canícula, viento fuerte, temperatura extrema, riesgo de helada, o "sin riesgo" si nada supera el umbral). La canícula se evalúa contra varios días consecutivos sin lluvia, no solo el día actual.
-5. Busca en el árbol de 180 reglas la combinación exacta de evento × cultivo × etapa fenológica × tipo de suelo.
-6. Guarda (o actualiza, si ya existe una para el día de hoy) el resultado en la tabla `Alertas`.
-7. Devuelve el semáforo.
+2. Determina la etapa fenologica (usa la asignada, o la calcula desde la fecha de siembra).
+3. Busca los umbrales configurados por el usuario.
+4. Busca el dato climatico mas reciente de la parcela.
+5. Evalua **todos los eventos climaticos activos simultaneamente**:
 
-**Query params:** `parcelaId` (int, requerido)
+| Evento | Condicion de activacion |
+|---|---|
+| Riesgo de helada | `TemperaturaMin <= 2` |
+| Lluvia intensa | `Precipitacion >= umbrales.LluviaIntensaMm` |
+| Viento fuerte | `VientoVelocidad >= umbrales.VientoFuerteKmh` |
+| Temperatura extrema | `TemperaturaMax >= 35` |
+| Canicula | N dias consecutivos sin precipitacion (`umbrales.CaniculaDias`) |
+| Sin riesgo | Ninguno de los anteriores |
 
-**Respuesta (`200 OK`, `SemaforoDto`):**
+6. Para cada evento activo, busca la regla en el arbol de 216 combinaciones (evento x cultivo x etapa x suelo).
+7. Selecciona la regla con el **nivel de riesgo mas alto** (Alto > Medio > Bajo).
+8. Guarda o actualiza la alerta del dia.
+
+**Respuesta (`SemaforoDto`):**
+
 ```json
 {
   "nivelRiesgo": "Alto",
   "descripcionAlerta": "PRELIMINAR: el exceso de agua satura el suelo...",
   "acciones": ["Revisar drenajes", "Evitar encharcamiento", "Monitorear pudricion"],
-  "fecha": "2026-08-08"
+  "fecha": "2026-09-16"
 }
 ```
 
-**Errores:**
-- `403` → la parcela no es del usuario
-- `404` → puede significar varias cosas distintas, todas con mensaje descriptivo en el body: la parcela no existe, no tiene etapa fenológica asignada, el usuario no configuró umbrales, no hay datos climáticos guardados, o no existe una regla para esa combinación exacta (esto último puede pasar en las 175 combinaciones que todavía están en `'PENDIENTE'`)
+**Errores:** `403` (no es del usuario) / `404` (con mensaje descriptivo en `title`: parcela no existe, sin etapa, sin umbrales, sin datos climaticos, o sin regla para la combinacion)
 
-**Nota importante para Flutter:** un `404` acá no siempre significa "error de la app" — puede ser un caso de negocio real y esperado (ej. "todavía no configuraste umbrales"). Conviene leer el mensaje del `title` en el `ProblemDetails` y mostrarle al usuario un mensaje útil según el caso, no un error genérico.
+> [!NOTE]
+> Un `404` de este endpoint no siempre es un error de la app. Puede ser un caso de negocio real (ej. "todavia no configuraste umbrales"). Leer el campo `title` del `ProblemDetails` para mostrar un mensaje util.
 
 ---
 
-## 6. Bitácora de campo
+## 6. Bitacora de campo
 
-Controlador: `BitacoraController` — Ruta base: `/api/logs` — **Requiere token**
+**Controlador:** `BitacoraController` -- **Ruta base:** `/api/logs` -- **Acceso:** JWT requerido
 
-### `POST /api/logs`
+### POST /api/logs
 
-**Qué hace:** registra que el productor tomó nota del semáforo de un día. Verifica que la `parcelaId` enviada pertenezca al usuario antes de guardar.
+Registra una entrada de bitacora. Verifica ownership de la parcela.
 
 **Request body (`BitacoraRequestDto`):**
-| Campo | Tipo | Requerido |
-|---|---|---|
-| `parcelaId` | int | Sí |
-| `fecha` | date | Sí |
-| `eventoClimaticoId` | int | Sí |
-| `nivelRiesgo` | string | Sí (máx. 20) |
-| `accion1Texto`, `accion2Texto`, `accion3Texto` | string | Sí (máx. 500 cada uno) |
-| `notas` | string? | No (máx. 2000) |
 
-Nota: las 3 acciones nacen siempre como "no completadas" — no hay forma de crear una entrada que ya nazca marcada, eso solo se hace con el endpoint siguiente.
+| Campo | Tipo | Requerido | Validacion |
+|---|---|---|---|
+| `parcelaId` | int | Si | debe pertenecer al usuario |
+| `fecha` | date | Si | -- |
+| `eventoClimaticoId` | int | Si | -- |
+| `nivelRiesgo` | string | Si | max 20 |
+| `accion1Texto` | string | Si | max 500 |
+| `accion2Texto` | string | Si | max 500 |
+| `accion3Texto` | string | Si | max 500 |
+| `notas` | string? | No | max 2000 |
 
-**Respuesta:** `200 OK` → `{ "id": 5 }`
+Las 3 acciones nacen como "no completadas". Solo se marcan con el endpoint siguiente.
 
-### `GET /api/logs/mias`
+**Respuesta:** `200` -> `{ "id": 5 }`
 
-**Respuesta:** `200 OK` → array de entradas de bitácora del usuario, ordenadas por fecha descendente.
+### GET /api/logs/mias
 
-### `PUT /api/logs/{entradaId}/action/{numeroAccion}`
+Lista entradas de bitacora del usuario, ordenadas por fecha descendente.
 
-**Qué hace:** marca una de las 3 acciones como completada. `numeroAccion` debe ser `1`, `2` o `3`. Verifica que la entrada pertenezca al usuario antes de modificarla.
+**Respuesta:** `200` -> array de `BitacoraCampo`
 
-**Respuestas:** `200 OK` / `403` / `404`
+### PUT /api/logs/{entradaId}/action/{numeroAccion}
 
-### `GET /api/logs/mias/summary`
+Marca una de las 3 acciones como completada. `numeroAccion` debe ser `1`, `2` o `3`. Verifica ownership.
 
-**Qué hace:** arma un texto plano con las últimas 5 entradas de bitácora, pensado para compartir por WhatsApp/SMS.
+**Respuestas:** `200` / `403` / `404`
 
-**Respuesta:** `200 OK` → `{ "summary": "08/08: riesgo Alto - [x] Revisar drenajes\n07/08: ..." }`
+### GET /api/logs/mias/summary
 
----
+Genera un texto plano con las ultimas entradas de bitacora, pensado para compartir por WhatsApp/SMS.
 
-## 7. Reglas de decisión (administración)
-
-Controlador: `ReglaDecisionController` — Ruta base: `/api/reglas` — **Requiere token** (endpoints administrativos, no hay rol separado todavía — cualquier usuario logueado puede llamarlos, es una limitación conocida y documentada)
-
-### `GET /api/reglas`
-Devuelve las 180 reglas del árbol de decisión completo. Útil para depurar por qué el semáforo devolvió lo que devolvió.
-
-### `POST /api/reglas/sembrar`
-Genera las 180 combinaciones si todavía no existen (operación idempotente — correrlo dos veces no duplica nada). Se llama **una sola vez**, al levantar la base de datos por primera vez.
-
-### `POST /api/reglas/aplicar-contenido-preliminar`
-Aplica el contenido agronómico real a las 5 reglas representativas ya investigadas. También idempotente.
-
-**Nota para Flutter:** estos 3 endpoints no forman parte del flujo normal de la app — son de configuración inicial del backend, no deberían aparecer en ninguna pantalla de la app móvil.
+**Respuesta:** `200` -> `{ "summary": "16/09: riesgo Alto - [x] Revisar drenajes\n15/09: ..." }`
 
 ---
 
-## 8. Health check
+## 7. Reglas de decision (administracion)
 
-### `GET /health` — **Público**
+**Controlador:** `ReglaDecisionController` -- **Ruta base:** `/api/reglas` -- **Acceso:** JWT + Rol `Admin`
 
-**Qué hace:** verifica que la API pueda conectarse a la base de datos en este momento.
+> [!WARNING]
+> Estos endpoints son para configuracion inicial del backend. No deben aparecer en la app movil.
 
-**Respuestas:**
-- `200 OK` con cuerpo `Healthy` → todo bien
-- `503` → la base de datos no responde
+### GET /api/reglas
 
-**Nota:** no es un endpoint de negocio, es para monitoreo (Docker lo usa para saber si tiene que reiniciar el contenedor). Flutter no debería llamarlo nunca en el flujo normal de la app.
+Devuelve las 216 reglas del arbol de decision completo.
+
+**Respuesta:** `200` -> array de `ReglaDecision`
+
+### POST /api/reglas/sembrar
+
+Genera las 216 combinaciones si no existen. Operacion idempotente.
+
+**Respuesta:** `200` -> `{ "mensaje": "reglas placeholder generadas o ya existian" }`
+
+### POST /api/reglas/aplicar-contenido-preliminar
+
+Aplica el contenido agronomico real desde `Scripts/reglas-preliminares-completas.json` usando `OPENJSON` en un unico batch. Operacion idempotente.
+
+**Respuesta:** `200` -> `{ "message": "contenido preliminar aplicado reglas representativas" }`
+
+---
+
+## 8. Catalogos
+
+**Controlador:** `CatalogoController` -- **Ruta base:** `/api/catalogos` -- **Acceso:** JWT requerido
+
+| Endpoint | Respuesta |
+|---|---|
+| `GET /api/catalogos/cultivos` | `List<Cultivo>` (id, nombre, nombreCientifico) |
+| `GET /api/catalogos/tipos-suelo` | `List<TipoSuelo>` (id, nombre, descripcion) |
+| `GET /api/catalogos/eventos-climaticos` | `List<EventoClimatico>` (id, nombre, descripcion) |
+| `GET /api/catalogos/etapas-fenologicas` | `List<EtapaFenologica>` (id, nombre, descripcion, diasDesdeSiembra) |
+
+---
+
+## 9. Health check
+
+**Ruta:** `/health` -- **Acceso:** Publico
+
+Verifica que la API pueda conectarse a la base de datos.
+
+| Codigo | Significado |
+|---|---|
+| `200` | `Healthy` -- todo operativo |
+| `503` | Base de datos no responde |
+
+> [!NOTE]
+> Endpoint de infraestructura. Docker lo usa para healthcheck de contenedores. La app movil no deberia llamarlo en el flujo normal.
