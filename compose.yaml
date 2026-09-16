@@ -1,7 +1,7 @@
 services:
   api:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     container_name: cosechaclima-api
     ports:
@@ -23,7 +23,7 @@ services:
       db-init:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -42,7 +42,7 @@ services:
       - "127.0.0.1:1433:1433"
     volumes:
       - cosechaclima-db-data:/var/opt/mssql
-      - ./Scripts:/scripts
+      - ./backend/Scripts:/scripts
     healthcheck:
       test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' || exit 1"]
       interval: 10s
@@ -59,7 +59,7 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - ./Scripts:/scripts
+      - ./backend/Scripts:/scripts
     entrypoint: /bin/bash -c "/opt/mssql-tools/bin/sqlcmd -S db -U sa -P \"$$MSSQL_SA_PASSWORD\" -i /scripts/BD-CosechaClima.sql && /opt/mssql-tools/bin/sqlcmd -S db -U sa -P \"$$MSSQL_SA_PASSWORD\" -i /scripts/seed.sql"
     environment:
       MSSQL_SA_PASSWORD: ${DB_SA_PASSWORD}
