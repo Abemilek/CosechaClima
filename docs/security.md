@@ -1,32 +1,79 @@
 # Security
 
-Resumen del modelo de seguridad de la API — qué se implementó y por qué. El detalle exhaustivo de la revisión que originó estas decisiones vive en el historial de PRs del repositorio; esto es la versión de referencia rápida.
+Decisiones de seguridad, hallazgos resueltos y politicas de proteccion de la API CosechaClima. Alineado con [OWASP API Security Top 10 (2023)](https://owasp.org/API-Security/editions/2023/en/0x00-header/).
 
-## Autenticación
-JWT Bearer, expiración de 24 horas. PIN de 4 dígitos, nunca almacenado en texto plano — hash SHA-256 con salt individual por usuario, comparado con `CryptographicOperations.FixedTimeEquals` (comparación de tiempo constante, mitiga timing attacks).
+## Autenticacion
 
-## Autorización y control de acceso
-Todo endpoint de negocio requiere `[Authorize]`. El id de usuario para decidir "de quién son estos datos" se deriva siempre del claim del token (`ClaimTypes.NameIdentifier`), nunca de un parámetro de URL o del body — esto cierra el patrón de vulnerabilidad conocido como **IDOR** (Insecure Direct Object Reference / Broken Object Level Authorization, [OWASP API Security Top 10](https://owasp.org/API-Security/editions/2023/en/0x00-header/), categoría API1:2023).
+- **JWT Bearer** con firmado HMAC-SHA256.
+- Clave secreta minimo 32 caracteres (256 bits), validada al arranque.
+- Claim `Jti` (JWT ID) generado como GUID en cada login para unicidad de token y prevencion de replay attacks.
+- Expiracion configurable (default: 24 horas).
+- PIN de usuario almacenado como hash PBKDF2 + salt aleatorio individual por usuario. El PIN en texto plano nunca se persiste.
+- Comparacion de hash usando `CryptographicOperations.FixedTimeEquals` para mitigar timing attacks.
 
-Endpoints administrativos (siembra y actualización del árbol de reglas) requieren además el rol `Admin`, asignado manualmente vía base de datos — no existe autopromoción por API.
+## Autorizacion
 
-## Validación de entrada y mass assignment
-Los endpoints de escritura reciben DTOs de request dedicados (`ParcelaRequestDto`, `BitacoraRequestDto`, `UmbralRequestDto`), nunca las entidades de dominio completas — así el cliente solo puede escribir los campos que el DTO expone explícitamente. Cierra el patrón **Broken Object Property Level Authorization** (OWASP API3:2023). Validación declarativa con `DataAnnotations` (`[Required]`, `[Range]`, `[RegularExpression]`).
+- **Ownership-based access control:** todos los recursos (parcelas, umbrales, bitacora, clima) verifican que el `UsuarioId` del recurso coincida con el claim `NameIdentifier` del token JWT. Nunca se acepta un `usuarioId` como parametro de URL o body.
+- **Rol Admin:** separado para operaciones administrativas (sembrado y aplicacion de reglas). No existe endpoint HTTP para auto-promoverse -- otorgado exclusivamente via seed de base de datos o SQL directo.
+- `[Authorize]` aplicado a nivel de clase en todos los controladores de negocio.
+- `[Authorize(Roles = "Admin")]` en los 3 endpoints de `ReglaDecisionController`.
 
-## Rate limiting
-Ventana deslizante (5 peticiones/minuto) en `/api/auth/register` y `/api/auth/login`, mitigando fuerza bruta contra el PIN de 4 dígitos.
+## Rate Limiting
+
+| Politica | Tipo | Limite | Endpoints protegidos |
+|---|---|---|---|
+| `auth` | Ventana deslizante | 5 peticiones/minuto por IP | `POST /api/auth/register`, `POST /api/auth/login` |
+| `motor` | Aplicada al controlador | Previene abuso computacional | `POST /api/motor/semaforo` |
+
+Respuesta al exceder el limite: `429 Too Many Requests`.
+
+## Validacion de entrada
+
+- DataAnnotations declarativas en todos los DTOs de request (`[Required]`, `[Range]`, `[MaxLength]`, `[RegularExpression]`).
+- Verificacion de existencia de claves foraneas (cultivos, suelos, etapas fenologicas) antes de operaciones de escritura.
+- DTOs de request dedicados (`ParcelaRequestDto`, `BitacoraRequestDto`, `UmbralRequestDto`) reemplazando binding directo de entidades de dominio.
 
 ## Manejo de errores
-`IExceptionHandler` centralizado; ninguna excepción expone detalles internos (stack traces, mensajes de SQL Server) al cliente. Ver [`error-handling.md`](./error-handling.md).
 
-## Secretos
-Gestionados por variables de entorno (`.env`, excluido de git). `appsettings.json` versionado sin valores reales. Ninguna clave hardcodeada en el código fuente.
+- Manejador global de excepciones (`ManejadorErroresGlobal`) implementando `IExceptionHandler`.
+- Todos los errores retornados como RFC 7807 `ProblemDetails`.
+- Excepciones SQL traducidas a codigos HTTP apropiados (FK violation -> 400, unique constraint -> 409).
+- Detalles internos de excepciones nunca expuestos al cliente -- solo logueados en servidor.
 
-## Limitaciones conocidas (documentadas, no ocultas)
-- El rate limiting es global por servidor, no por IP.
-- Sin versionado de API (`/api/v1/...`).
-- Cobertura de pruebas automatizadas mínima.
-- El contenido agronómico del árbol de decisión es preliminar, generado de forma sistemática, pendiente de validación técnica formal.
+## Prevencion de inyeccion SQL
 
-## Referencia usada
-[OWASP API Security Top 10 (2023)](https://owasp.org/API-Security/editions/2023/en/0x00-header/) — marco de referencia para identificar y priorizar los hallazgos de seguridad de este proyecto.
+- Todas las queries usan comandos parametrizados exclusivamente (`SqlCommand` con `SqlParameter`).
+- Cero concatenacion de strings en construccion de consultas SQL.
+- Operaciones batch implementadas con `OPENJSON` (T-SQL nativo), no con construccion dinamica de SQL.
+
+## Seguridad en Docker
+
+- Imagen runtime **Alpine** (`aspnet:10.0-alpine`) con superficie de ataque minima.
+- Ejecucion con **usuario no-root** en el contenedor.
+- Sin utilidades de shell innecesarias (sin `curl`, sin `bash` completo).
+- Healthcheck implementado con `wget` (incluido en Alpine por defecto).
+
+## Gestion de secretos
+
+- Todas las credenciales y claves gestionadas via variables de entorno (archivo `.env`).
+- `.env` excluido de control de versiones via `.gitignore`.
+- `.env.example` proporcionado con descripciones y reglas de validacion, sin valores reales.
+- Cero secretos hardcodeados en el codigo fuente.
+
+## CORS
+
+- Restringido por lista explicita de origenes permitidos (`Cors:AllowedOrigins`).
+- Sin origenes configurados, ningun origen web puede acceder a la API.
+
+## Seguridad en el cliente movil (Flutter)
+
+- Token JWT almacenado en `flutter_secure_storage` (EncryptedSharedPreferences en Android, Keychain en iOS).
+- Nunca almacenado en `SharedPreferences` ni en variables de texto plano.
+- Cierre de sesion automatico ante respuestas `401` (token expirado).
+- URLs de API inyectadas via `--dart-define`, nunca hardcodeadas.
+
+## Ver tambien
+
+- [authentication.md](./authentication.md) -- flujo detallado de login y JWT.
+- [error-handling.md](./error-handling.md) -- catalogo de codigos de error.
+- [api-reference.md](./api-reference.md) -- referencia completa de endpoints.

@@ -1,78 +1,89 @@
 # Getting Started
 
-Cómo levantar el backend de CosechaClima desde cero, en cualquier máquina del equipo.
+Guia rapida para levantar el entorno completo de CosechaClima.
 
-## Requisitos
+## Prerequisitos
 
-- Docker y Docker Compose
-- (Opcional, solo si vas a tocar código C# fuera de Docker) SDK de .NET 10
+- [Docker + Docker Compose](https://www.docker.com/) instalados.
 
-## Levantar el proyecto
+## Inicio rapido
 
 ```bash
 git clone https://github.com/Abemilek/CosechaClima.git
-cd CosechaClima/backend
+cd CosechaClima
 cp .env.example .env
 ```
 
-Abrí `.env` y completá tus propios valores locales (contraseña de SQL Server, clave secreta de JWT). Nunca subas este archivo con valores reales — ya está excluido en `.gitignore`.
+Editar `.env` con valores propios (ver comentarios en `.env.example` para guia detallada de cada variable).
 
 ```bash
-docker compose up --build
+docker compose up --build -d
 ```
 
-Esto levanta dos contenedores: `db` (SQL Server 2022) y `api` (la aplicación .NET). El esquema y los catálogos base se aplican automáticamente al iniciar por primera vez.
-
-La API queda disponible en:
-- **Swagger (documentación interactiva):** `http://localhost:8080/swagger`
-- **Health check:** `http://localhost:8080/health`
-
-## Primeros pasos después de levantar el proyecto
-
-El árbol de reglas de decisión no viene poblado por defecto — hay que sembrarlo una sola vez, y necesita un usuario administrador:
+Verificar que todo esta corriendo:
 
 ```bash
-# 1. Registrar un usuario
+curl http://localhost:8080/health
+```
+
+Esperado: `200 OK` con `Healthy`.
+
+> [!WARNING]
+> `DB_SA_PASSWORD` debe cumplir la politica de complejidad de SQL Server: minimo 8 caracteres combinando al menos 3 de 4 categorias (mayusculas, minusculas, digitos, simbolos).
+
+## Que levanta `compose.yaml`
+
+| Contenedor | Descripcion | Orden |
+|---|---|---|
+| `cosechaclima-db` | SQL Server 2022 | Primero (con healthcheck) |
+| `cosechaclima-db-init` | Ejecuta esquema SQL y seed de catalogos | Segundo (espera a que db este healthy) |
+| `cosechaclima-api` | API ASP.NET Core 10 en http://localhost:8080 | Tercero (espera a que db-init termine) |
+
+> [!NOTE]
+> El archivo `compose.yaml` esta en la **raiz del proyecto**, no dentro de `/backend`. Todas las variables se leen del `.env` en la raiz.
+
+## Primer uso de la API
+
+### 1. Registrar un usuario
+
+```bash
 curl -X POST http://localhost:8080/api/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"nombre":"Admin","telefono":"88880000","pin":"0000"}'
-
-# 2. Otorgarle rol de administrador (paso manual, una sola vez)
-#    conectate a la base y corré:
-#    UPDATE Usuarios SET EsAdmin = 1 WHERE Telefono = '88880000';
-
-# 3. Iniciar sesion con ese usuario para obtener un token con rol Admin
-curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"telefono":"88880000","pin":"0000"}'
-
-# 4. Sembrar el arbol de reglas (con el token del paso 3)
-curl -X POST http://localhost:8080/api/reglas/sembrar \
-  -H "Authorization: Bearer <token>"
-
-curl -X POST http://localhost:8080/api/reglas/aplicar-contenido-preliminar \
-  -H "Authorization: Bearer <token>"
+  -d '{"nombre": "Juan Perez", "telefono": "88887777", "pin": "1234"}'
 ```
 
-A partir de acá, cualquier usuario nuevo que se registre ya puede usar el flujo completo de la app.
-
-## Probar desde un celular físico (no el emulador)
-
-`localhost` solo funciona en la misma máquina donde corre Docker. Para un celular real en la misma red wifi, usá la IP local de esa laptop:
+### 2. Iniciar sesion
 
 ```bash
-# Linux/Mac
-ip addr show | grep "inet " | grep -v 127.0.0.1
-
-# Windows
-ipconfig
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"telefono": "88887777", "pin": "1234"}'
 ```
 
-Y usá `http://<esa-ip>:8080` como base URL en la app.
+Copiar el `token` de la respuesta.
 
-## Siguiente lectura
+### 3. Usar el token en endpoints protegidos
 
-- [`architecture.md`](./architecture.md) — cómo está organizado el backend por dentro.
-- [`authentication.md`](./authentication.md) — cómo funciona el login y el token.
-- [`api-reference.md`](./api-reference.md) — referencia completa de endpoints.
-- [`mobile-integration-guide.md`](./mobile-integration-guide.md) — guía práctica para el equipo de Flutter.
+```bash
+curl http://localhost:8080/api/parcelas/mias \
+  -H "Authorization: Bearer <token>"
+```
+
+## Swagger
+
+Abrir `http://localhost:8080/swagger` en el navegador. Usar el boton **Authorize** (arriba a la derecha) para pegar `Bearer <token>` y probar los endpoints protegidos interactivamente.
+
+## Desarrollo local sin Docker
+
+Ver [backend/README.md](../backend/README.md) para instrucciones de ejecucion local con `dotnet run`.
+
+## App movil Flutter
+
+Ver [mobile/README.md](../mobile/README.md) para instrucciones de instalacion, configuracion de entorno con `--dart-define`, y compilacion.
+
+## Siguientes pasos
+
+- [api-reference.md](./api-reference.md) -- referencia completa de todos los endpoints.
+- [architecture.md](./architecture.md) -- arquitectura del sistema.
+- [security.md](./security.md) -- decisiones de seguridad.
+- [changelog.md](./changelog.md) -- historial de cambios.

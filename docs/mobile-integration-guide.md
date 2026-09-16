@@ -1,119 +1,163 @@
-# CosechaClima — Guía de endpoints para la integracion de la aplicacion
+# Mobile Integration Guide
 
-> Ver también: [`authentication.md`](./authentication.md) (detalle del token JWT) y [`api-reference.md`](./api-reference.md) (referencia exhaustiva de cada endpoint, con el flujo interno explicado).
+Guia tecnica para la integracion entre la app movil Flutter y el backend ASP.NET Core 10 de CosechaClima.
 
-Esto es lo único que necesitás saber para conectar la app con el backend: qué endpoint llamar, para qué sirve en la app, y en qué orden. No hace falta entender nada de lo que pasa "detrás" (base de datos, C#, etc.) — la API es una caja negra que recibe JSON y devuelve JSON.
+## Configuracion de entorno
 
-## Cómo se comunican un backend y un frontend
+La app usa `--dart-define` para inyectar la URL de la API en tiempo de build:
 
-El backend expone endpoints, el frontend los consume. Ninguno de los dos necesita saber cómo está construido el otro por dentro — solo necesitan ponerse de acuerdo en **el contrato**: qué URL, qué se manda, qué se recibe. Eso es justo lo que describe este documento. Cuando algo cambie de este contrato, backend avisa antes de mergear — así nunca se rompe algo sin que el otro lado se entere.
+```bash
+# Desarrollo (emulador Android)
+flutter run --dart-define=API_URL=http://10.0.2.2:8080
 
-**Base URL:** `http://localhost:8080` (emulador) o `http://IP-de-la-laptop:8080` (celular físico, misma wifi)
-**Explorar en vivo:** `http://localhost:8080/swagger`
+# Desarrollo (dispositivo fisico)
+flutter run --dart-define=API_URL=http://192.168.1.100:8080
 
-## Autenticación — leelo una sola vez, aplica a todo lo demás
-
-Después de iniciar sesión, la API te da un `token`. Guardalo (con `flutter_secure_storage`) y mandalo en **todos** los demás endpoints, en este header:
-
-```
-Authorization: Bearer <token>
+# Produccion
+flutter run --release --dart-define=API_URL=https://api.cosechaclima.example.com
 ```
 
-Sin token válido, la API responde `401` → mandá al usuario a login. El token vence a las 24 horas.
+La configuracion se lee desde `lib/core/config/environment.dart` usando `String.fromEnvironment`.
 
----
+> [!WARNING]
+> Nunca hardcodear URLs de API en el codigo fuente.
 
-## Los endpoints
-
-### Registro y login (sin token)
-
-| Endpoint | Qué hace en la app |
-|---|---|
-| `POST /api/auth/register` | Crea la cuenta del productor (nombre, teléfono, PIN de 4 dígitos). Pantalla: registro. |
-| `POST /api/auth/login` | Verifica teléfono+PIN y devuelve el `token`. Pantalla: login. Llamalo cada vez que el usuario abre sesión. |
-
-### Parcela (requiere token)
-
-| Endpoint | Qué hace en la app |
-|---|---|
-| `POST /api/parcelas` | Registra una parcela nueva: cultivo, suelo, etapa, coordenadas GPS. Pantalla: "agregar parcela". |
-| `GET /api/parcelas/mias` | Lista las parcelas del usuario logueado. Pantalla: inicio / selector de parcelas. |
-| `GET /api/parcelas/{id}` | Trae el detalle de una parcela específica. Pantalla: detalle de parcela. |
-| `PUT /api/parcelas/{id}/etapa/{etapaId}` | Actualiza en qué etapa de crecimiento está el cultivo. Llamalo cuando el usuario indique que su cultivo avanzó de etapa. |
-| `DELETE /api/parcelas/{id}` | Elimina una parcela. |
-
-### Umbrales (requiere token)
-
-| Endpoint | Qué hace en la app |
-|---|---|
-| `POST /api/umbrales` | Guarda a partir de qué cantidad de lluvia/viento el usuario quiere ser alertado. Pantalla: configuración (puede tener valores por defecto, es opcional para el usuario tocarla). |
-| `GET /api/umbrales/mios` | Trae la configuración actual del usuario. |
-
-### Clima y semáforo — el corazón de la app (requiere token)
-
-| Endpoint | Qué hace en la app |
-|---|---|
-| `POST /api/clima/actualizar/{parcelaId}` | Trae el clima real y actual de esa parcela (usando sus coordenadas). Llamalo **antes** del siguiente endpoint. |
-| `GET /api/motor/semaforo?parcelaId={id}` | Calcula el semáforo de riesgo (Alto/Medio/Bajo/Sin riesgo) + 3 acciones recomendadas. Pantalla principal de la app — esto es lo que el productor vino a ver. |
-
-### Bitácora de campo (requiere token)
-
-| Endpoint | Qué hace en la app |
-|---|---|
-| `POST /api/logs` | Registra que el usuario tomó nota del semáforo de un día. Pantalla: "guardar en bitácora" (después de ver el semáforo). |
-| `GET /api/logs/mias` | Lista el historial de bitácora del usuario. Pantalla: historial. |
-| `PUT /api/logs/{entradaId}/action/{numeroAccion}` | Marca una de las 3 acciones recomendadas como completada (`numeroAccion` = 1, 2 o 3). Pantalla: checkbox en el detalle de una entrada. |
-| `GET /api/logs/mias/summary` | Devuelve un texto listo para compartir por WhatsApp con el resumen de los últimos días. Botón: "compartir". |
-
----
-
-## El flujo completo, con ejemplo
-
-Así es como un usuario nuevo recorre la app la primera vez — seguí este orden:
+## Flujo de autenticacion
 
 ```
-1. Registrarse           → POST /api/auth/register
-     { "nombre": "Juan Perez", "telefono": "88887777", "pin": "1234" }
-
-2. Iniciar sesion         → POST /api/auth/login
-     { "telefono": "88887777", "pin": "1234" }
-     ← devuelve el token. Guardalo.
-
-3. Crear su parcela       → POST /api/parcelas
-     { "cultivoId": 1, "tipoSueloId": 1, "fechaSiembra": "2026-05-01",
-       "areaMzs": 2.5, "latitud": 11.89, "longitud": -86.19 }
-     ← devuelve el id de la parcela. Guardalo.
-
-4. Configurar umbrales    → POST /api/umbrales
-     (opcional, puede usar los valores por defecto)
-
-5. Ver el semaforo:
-   5a. Traer clima real   → POST /api/clima/actualizar/{parcelaId}
-   5b. Calcular semaforo  → GET  /api/motor/semaforo?parcelaId={id}
-     ← devuelve nivelRiesgo + 3 acciones. Esta es la pantalla principal.
-
-6. Guardar en bitacora    → POST /api/logs
-     (con los mismos datos que devolvio el paso 5b)
-
-7. Marcar accion hecha    → PUT /api/logs/{entradaId}/action/1
+1. POST /api/auth/register   -> Crea la cuenta
+2. POST /api/auth/login      -> Devuelve { token, nombre }
+3. Almacenar token            -> flutter_secure_storage (EncryptedSharedPreferences / Keychain)
+4. Cada request posterior     -> Header Authorization: Bearer <token>
+5. Si respuesta 401           -> Cerrar sesion automaticamente
 ```
 
-Los pasos 5a y 5b siempre van juntos — cuando el usuario entra a ver una parcela, llamalos uno después del otro, con un loading en el medio.
+> [!IMPORTANT]
+> Nunca almacenar el token en `SharedPreferences` ni en variables de texto plano. Usar exclusivamente `flutter_secure_storage`.
 
-## Errores
+## Flujo tipico del usuario
 
-Todos los errores vienen así:
-```json
-{ "status": 400, "title": "mensaje explicando que paso" }
+### 1. Login
+
+```
+POST /api/auth/login
+Body: { "telefono": "88887777", "pin": "1234" }
+Response: { "token": "eyJ...", "nombre": "Juan Perez" }
 ```
 
-| Código | Qué hacer |
-|---|---|
-| `401` | Mandar al usuario a login (no hay token, o venció) |
-| `403` | No debería pasar nunca (estás pidiendo datos que no son tuyos) — si aparece, es un bug, avisá |
-| `404` | Falta un paso previo del flujo, o el dato no existe — leé el `title` |
-| `429` | Demasiados intentos de login seguidos, mostrar "esperá un momento" |
+### 2. Cargar catalogos
 
-## Si algo no funciona
+```
+GET /api/catalogos/cultivos
+GET /api/catalogos/tipos-suelo
+GET /api/catalogos/etapas-fenologicas
+GET /api/catalogos/eventos-climaticos
+```
 
-Probalo primero en Swagger (`/swagger`). Si ahí también falla, es tema de backend, no tuyo. Si en Swagger funciona pero en Flutter no, revisá el header `Authorization` y la URL base.
+Todos requieren header `Authorization: Bearer <token>`.
+
+### 3. Crear parcela
+
+```
+POST /api/parcelas
+Body: { "cultivoId": 1, "tipoSueloId": 2, "fechaSiembra": "2026-06-01", "areaMzs": 2.5, "latitud": 11.83, "longitud": -86.18 }
+```
+
+### 4. Configurar umbrales (si es la primera vez)
+
+```
+POST /api/umbrales
+Body: { "lluviaIntensaMm": 100, "vientoFuerteKmh": 40, "caniculaDias": 7, "horarioSms": "06:00" }
+```
+
+Si `GET /api/umbrales/mios` devuelve `404`, significa que el usuario no ha configurado umbrales todavia. Flutter debe interpretar esto como "mostrar pantalla de configuracion", no como un error.
+
+### 5. Ver detalle de parcela (pantalla principal)
+
+Este es el flujo que se ejecuta al entrar a la pantalla de detalle de una parcela:
+
+**Paso A -- Actualizar datos climaticos:**
+
+```
+POST /api/clima/actualizar/{parcelaId}
+Response: DatosClimaticos (temperaturaMax, temperaturaMin, precipitacion, vientoVelocidad, humedadRelativa)
+```
+
+**Paso B -- Obtener semaforo de riesgo:**
+
+```
+POST /api/motor/semaforo
+Body: { "parcelaId": 5 }
+Response: { "nivelRiesgo": "Alto", "descripcionAlerta": "...", "acciones": ["Accion 1", "Accion 2", "Accion 3"], "fecha": "2026-09-16" }
+```
+
+**Paso C -- Mostrar resultado:**
+
+Tarjeta de riesgo con color segun nivel:
+
+| Nivel | Color | Variante |
+|---|---|---|
+| Alto | Rojo (`AppColors.red`) | `AppPillVariant.red` |
+| Medio | Ambar (`AppColors.amber`) | `AppPillVariant.warn` |
+| Bajo | Verde (`AppColors.green`) | - |
+| Sin riesgo | Gris (`AppColors.muted`) | - |
+
+> [!IMPORTANT]
+> Los cambios de estado de riesgo se comunican exclusivamente mediante color solido y texto en negrita. Cero animaciones, cero transiciones, cero opacidades.
+
+### 6. Registrar en bitacora
+
+```
+POST /api/logs
+Body: { "parcelaId": 5, "fecha": "2026-09-16", "eventoClimaticoId": 1, "nivelRiesgo": "Alto", "accion1Texto": "...", "accion2Texto": "...", "accion3Texto": "..." }
+```
+
+## Manejo de errores HTTP
+
+El `ApiClient` traduce respuestas HTTP a excepciones tipadas:
+
+| Excepcion | Cuando se lanza | Accion recomendada |
+|---|---|---|
+| `ApiException` | Errores 4xx del servidor | Mostrar `e.message` al usuario |
+| `NetworkException` | Sin conexion a internet | Mostrar mensaje de conectividad |
+| `TimeoutApiException` | Timeout de la peticion | Sugerir reintentar |
+
+Para errores `404` del motor de decisiones, leer siempre el campo `title` del `ProblemDetails` ya que puede indicar un paso faltante del flujo (no umbrales, no datos climaticos) en lugar de un recurso inexistente.
+
+## Rendimiento
+
+### Parseo JSON en segundo plano
+
+Para colecciones grandes (bitacora, catalogos), el parseo se delega a isolates usando `compute`:
+
+```dart
+List<BitacoraEntry> _parseBitacoras(List<dynamic> json) {
+  return json
+      .map((e) => BitacoraEntry.fromJson(e as Map<String, dynamic>))
+      .toList();
+}
+
+Future<List<BitacoraEntry>> obtenerMias() async {
+  final json = await _client.get('/logs/mias') as List<dynamic>;
+  return compute(_parseBitacoras, json);
+}
+```
+
+### Consumo granular de estado
+
+- Usar `Selector<ViewModel, T>` para observar campos especificos.
+- Usar `Consumer<ViewModel>` limitado al subarbol mas pequeno.
+- Usar `context.read<ViewModel>()` para lecturas unicas en event handlers.
+- Evitar `context.watch<ViewModel>()` a nivel raiz del metodo `build`.
+
+## Politica de Cero Animaciones
+
+**Prohibido:** `AnimatedContainer`, `AnimatedOpacity`, `AnimatedSwitcher`, `animateToPage`, cualquier transicion visual.
+
+**Requerido:** `jumpToPage` para PageView, `Container` estatico para cambios de estado, colores solidos para niveles de riesgo.
+
+## Ver tambien
+
+- [api-reference.md](./api-reference.md) -- referencia completa de endpoints.
+- [authentication.md](./authentication.md) -- flujo de login detallado.
+- [error-handling.md](./error-handling.md) -- catalogo de errores.
