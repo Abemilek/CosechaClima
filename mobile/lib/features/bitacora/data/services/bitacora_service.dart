@@ -1,5 +1,13 @@
+import 'package:flutter/foundation.dart';
+
 import '../../../../core/network/api_client.dart';
 import '../models/bitacora.dart';
+
+List<BitacoraEntry> _parseBitacoras(List<dynamic> json) {
+  return json
+      .map((e) => BitacoraEntry.fromJson(e as Map<String, dynamic>))
+      .toList();
+}
 
 class BitacoraService {
   final ApiClient _client;
@@ -8,9 +16,8 @@ class BitacoraService {
 
   Future<List<BitacoraEntry>> obtenerMias() async {
     final json = await _client.get('/logs/mias') as List<dynamic>;
-    return json
-        .map((e) => BitacoraEntry.fromJson(e as Map<String, dynamic>))
-        .toList();
+
+    return compute(_parseBitacoras, json);
   }
 
   Future<int> crear(BitacoraRequest request) async {
