@@ -26,7 +26,7 @@ void main() {
     };
     WidgetsFlutterBinding.ensureInitialized();
 
-    await Environment.initialize();
+    Environment.validate();
 
     await initializeDateFormatting('es');
     runApp(const CosechaClimaApp());
