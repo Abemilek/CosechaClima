@@ -1,43 +1,29 @@
-<p align="center">
-  <img src="./docs/assets/cosechaclima-logo.svg" alt="CosechaClima" width="160">
-</p>
+![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4)
+![C#](https://img.shields.io/badge/C%23-13-239120)
+![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B)
+![SQL Server 2022](https://img.shields.io/badge/SQL_Server-2022-CC2927)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED)
+![License MIT](https://img.shields.io/badge/license-MIT-green)
 
-<h1 align="center">CosechaClima</h1>
-<p align="center"><strong>Sistema de alerta agroclimática temprana para pequeños productores de granos básicos en Carazo, Nicaragua.</strong></p>
+# CosechaClima
 
-Cruza datos climáticos en tiempo real contra un árbol de decisión agronómico para traducir el clima en tres acciones concretas que un productor puede tomar hoy — sin costo, sin conexión constante, sin depender de un técnico presente.
+**Sistema de alerta agroclimatica temprana para pequenos productores de granos basicos en Carazo, Nicaragua.**
 
-<p align="center">
-  <img alt=".NET" src="https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white">
-  <img alt="SQL Server" src="https://img.shields.io/badge/SQL_Server-2022-CC2927?logo=microsoftsqlserver&logoColor=white">
-  <img alt="Docker" src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white">
-  <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
-  <img alt="Status" src="https://img.shields.io/badge/status-en%20desarrollo-yellow">
-  <img alt="Cost" src="https://img.shields.io/badge/costo%20de%20infraestructura-%240-brightgreen">
-  <br>
-  <img alt="Backend Build" src="https://img.shields.io/github/actions/workflow/status/Abemilek/CosechaClima/backend-ci.yml?branch=main&label=backend%20build">
-  <img alt="Mobile Build" src="https://img.shields.io/github/actions/workflow/status/Abemilek/CosechaClima/mobile-ci.yml?branch=main&label=mobile%20build">
-  <img alt="Last Commit" src="https://img.shields.io/github/last-commit/Abemilek/CosechaClima">
-  <img alt="Issues" src="https://img.shields.io/github/issues/Abemilek/CosechaClima">
-  <img alt="Repo Size" src="https://img.shields.io/github/repo-size/Abemilek/CosechaClima">
-</p>
+Cruza datos climaticos en tiempo real contra un arbol de decision agronomico para traducir el clima en tres acciones concretas que un productor puede tomar hoy -- sin costo, sin conexion constante, sin depender de un tecnico presente.
 
 ---
 
 ## Tabla de contenido
 
 - [El problema](#el-problema)
-- [Cómo funciona](#cómo-funciona)
+- [Como funciona](#como-funciona)
 - [Arquitectura](#arquitectura)
-- [Stack tecnológico](#stack-tecnológico)
+- [Stack tecnologico](#stack-tecnologico)
 - [Estructura del repositorio](#estructura-del-repositorio)
 - [Puesta en marcha](#puesta-en-marcha)
-- [API — endpoints principales](#api--endpoints-principales)
-- [Estado del proyecto](#estado-del-proyecto)
 - [Seguridad](#seguridad)
 - [Costo de infraestructura](#costo-de-infraestructura)
-- [Cómo contribuir](#cómo-contribuir)
-- [Roadmap](#roadmap)
+- [Como contribuir](#como-contribuir)
 - [Agradecimientos](#agradecimientos)
 - [Licencia](#licencia)
 
@@ -45,100 +31,123 @@ Cruza datos climáticos en tiempo real contra un árbol de decisión agronómico
 
 ## El problema
 
-En Carazo, los granos básicos como maíz y frijol que ocupan el **62% del área agrícola del departamento**, muy por encima del café y otros cultivos permanentes. Los pequeños productores toman decisiones críticas de manejo —regar, drenar, proteger del viento— basándose en la observación directa del cielo, sin acceso a pronósticos localizados ni a un técnico agrónomo disponible todos los días.
+En Carazo, los granos basicos como maiz y frijol ocupan el 62% del area agricola del departamento. Los pequenos productores toman decisiones criticas de manejo -- regar, drenar, proteger del viento -- basandose en la observacion directa del cielo, sin acceso a pronosticos localizados ni a un tecnico agronomo disponible todos los dias.
 
-CosechaClima traduce datos climáticos abiertos en una recomendación accionable de 3 pasos, adaptada al cultivo, la etapa fenológica y el tipo de suelo de cada parcela específica — pensado para funcionar en condiciones reales de conectividad intermitente y sin ningún costo de licenciamiento.
+CosechaClima traduce datos climaticos abiertos en una recomendacion accionable de 3 pasos, adaptada al cultivo, la etapa fenologica y el tipo de suelo de cada parcela especifica.
 
-## Cómo funciona
+## Como funciona
 
-1. El productor registra su parcela: cultivo, etapa fenológica (opcional — si no la fija, el sistema la calcula sola a partir de la fecha de siembra), tipo de suelo y coordenadas GPS.
-2. Configura sus propios umbrales de riesgo (mm de lluvia, km/h de viento, días de canícula).
-3. El sistema consulta datos climáticos reales de la zona vía Open-Meteo.
-4. El **motor de decisiones** cruza evento climático × cultivo × etapa × suelo contra un árbol de **216 reglas agronómicas** (180 de eventos de riesgo + 36 de "sin riesgo") y calcula un semáforo de riesgo (🔴 Alto / 🟡 Medio / 🟢 Bajo / ⚪ Sin riesgo) con 3 acciones recomendadas.
-5. El productor registra en su bitácora de campo qué acciones completó, y puede compartir un resumen de texto simple.
+1. El productor registra su parcela: cultivo, etapa fenologica, tipo de suelo y coordenadas GPS.
+2. Configura sus propios umbrales de riesgo (mm de lluvia, km/h de viento, dias de canicula).
+3. El sistema consulta datos climaticos reales de la zona via Open-Meteo.
+4. El **motor de decisiones** evalua todos los eventos climaticos activos simultaneamente contra un arbol de **216 reglas agronomicas** (180 de eventos de riesgo + 36 de "sin riesgo") y selecciona la alerta con el nivel de riesgo mas severo (Alto / Medio / Bajo / Sin riesgo) con 3 acciones recomendadas.
+5. El productor registra en su bitacora de campo que acciones completo, y puede compartir un resumen de texto simple.
 
 ## Arquitectura
 
-<p align="center">
-  <img src="./docs/assets/architecture.svg" alt="Diagrama de arquitectura de CosechaClima" width="700">
-</p>
+```mermaid
+flowchart TD
+    A["Flutter Mobile App"] -->|"HTTPS + JWT"| B["ASP.NET Core 10 API"]
+    B --> C["Motor de Decisiones"]
+    C --> D["Arbol de 216 Reglas Agronomicas"]
+    B --> E["Open-Meteo API"]
+    B --> F["SQL Server 2022"]
+    F --> G["ADO.NET - Queries optimizadas con OPENJSON"]
+    B --> H["Rate Limiting + JWT Auth con Jti"]
+```
 
-Arquitectura en capas estricta: cada capa solo conoce a la inmediatamente inferior a través de una interfaz — el motor de decisiones, por ejemplo, no sabe si los datos climáticos vienen de Open-Meteo, de NASA POWER, o de una base de datos local; solo conoce `IProveedorClimaticoService`.
+Arquitectura en capas estricta: cada capa solo conoce a la inmediatamente inferior a traves de una interfaz. El motor de decisiones, por ejemplo, no sabe si los datos climaticos vienen de Open-Meteo o de cualquier otra fuente; solo conoce `IProveedorClimaticoService`.
 
-## Stack tecnológico
+## Stack tecnologico
 
-| Capa | Tecnología | Por qué |
+| Capa | Tecnologia | Justificacion |
 |---|---|---|
-| Backend | ASP.NET Core (.NET 10) | LTS vigente, tipado fuerte, rendimiento |
-| Base de datos | SQL Server 2022 (Docker) | Edición Developer, gratuita para uso no comercial |
-| Acceso a datos | ADO.NET puro | Control total sobre las consultas, sin overhead de un ORM para el tamaño de este proyecto |
-| Autenticación | JWT Bearer + PIN con hash PBKDF2 + salt | Sin dependencias externas de identidad |
-| Datos climáticos | [Open-Meteo](https://open-meteo.com) | Pronóstico real hasta 16 días, sin API key, gratuito |
-| Documentación de API | Swagger / OpenAPI | Generada automáticamente desde el código, con botón "Authorize" para JWT |
-| Contenerización | Docker Compose | Un solo comando levanta API + base de datos con seed automático |
-| Cliente móvil | Flutter | Desde una sola base de código |
+| Backend | ASP.NET Core 10 | LTS vigente, tipado fuerte, rendimiento |
+| Base de datos | SQL Server 2022 (Docker) | Developer Edition, gratuita |
+| Acceso a datos | ADO.NET con OPENJSON | Control total sobre consultas, batch updates optimizados |
+| Autenticacion | JWT Bearer + PIN PBKDF2 + salt + Jti | Sin dependencias externas de identidad |
+| Datos climaticos | [Open-Meteo](https://open-meteo.com) | Pronostico real hasta 16 dias, sin API key, gratuito |
+| Contenedorizacion | Docker multi-stage (Alpine) | Imagen optimizada, usuario no-root |
+| Cliente movil | Flutter | Codigo unico multiplataforma |
+| CI/CD | GitHub Actions | Build y test automatizados |
 
 ## Estructura del repositorio
 
 ```
 CosechaClima/
-├── backend/
-│   ├── WebApi/                    
-│   ├── WebApi.Models/           
-│   ├── Services/
-│   │   ├── WebApi.Interface/        
-│   │   └── WebApi.Implementation/   
-│   ├── Scripts/                     
-│   ├── docker-compose.yml
-│   ├── Dockerfile
-│   └── .env.example
-├── mobile/                          
-├── docs/                         
-│   └── assets/             
-└── README.md
+|-- backend/
+|   |-- WebApi/                    # API: controladores, DTOs, Program.cs
+|   |-- WebApi.Models/             # Entidades de dominio
+|   |-- Services/
+|   |   |-- WebApi.Interface/      # Contratos de servicio
+|   |   |-- WebApi.Implementation/ # Logica de negocio + ADO.NET
+|   |-- Scripts/                   # Esquema SQL, seed, reglas JSON
+|   |-- Dockerfile                 # Build multi-stage (SDK -> Alpine)
+|-- mobile/                        # App Flutter
+|-- docs/                          # Documentacion tecnica
+|-- compose.yaml                   # Docker Compose (raiz del proyecto)
+|-- .env.example                   # Plantilla de variables de entorno (raiz)
+|-- .github/workflows/             # Pipelines CI/CD
+|-- README.md
 ```
 
-## Ejecucion
+## Puesta en marcha
 
-Guía rápida — la referencia completa (incluyendo ejecución local sin Docker, variables opcionales, y solución de problemas) está en [`backend/README.md`](./backend/README.md).
+Todo el entorno se ejecuta desde la raiz del proyecto con Docker Compose.
 
+**Prerequisitos:** Docker + Docker Compose instalados.
+
+```bash
+git clone https://github.com/Abemilek/CosechaClima.git
+cd CosechaClima
+cp .env.example .env
+# Editar .env con tus valores (ver comentarios en .env.example)
+docker compose up --build -d
+```
+
+Verificacion:
+
+```bash
+curl http://localhost:8080/health
+```
+
+Esperado: `200 OK` con `Healthy`.
+
+> [!WARNING]
+> `DB_SA_PASSWORD` debe cumplir la politica de complejidad de SQL Server: minimo 8 caracteres combinando al menos 3 de 4 categorias (mayusculas, minusculas, digitos, simbolos).
+
+> [!NOTE]
+> `compose.yaml` inicia automaticamente: SQL Server, scripts de esquema y seed, y construye la API con Dockerfile multi-stage. Ver [backend/README.md](backend/README.md) y [mobile/README.md](mobile/README.md) para instrucciones detalladas de cada componente.
 
 ## Seguridad
 
-- Autenticación JWT con expiración configurable.
-- PIN almacenado exclusivamente como hash PBKDF2 + salt individual por usuario — nunca en texto plano.
-- Control de acceso por propietario (*ownership*) en todos los recursos: un usuario solo puede ver y modificar sus propias parcelas, umbrales y bitácoras.
-- Rol `Admin` separado para operaciones administrativas (sembrar/aplicar reglas), otorgado por seed de configuración — nunca por un endpoint HTTP.
-- Rate limiting en los endpoints de autenticación para mitigar fuerza bruta.
-- Validación de entrada declarativa (DataAnnotations) y de existencia de claves foráneas en todos los endpoints de escritura.
-- CORS restringido por lista explícita de orígenes permitidos (`Cors:AllowedOrigins`).
-- Secretos gestionados por variables de entorno (`.env`, excluido de control de versiones); nunca hardcodeados en el código fuente.
+- Autenticacion JWT con expiracion configurable y claim `Jti` para unicidad de token.
+- PIN almacenado exclusivamente como hash PBKDF2 + salt individual por usuario.
+- Comparacion de hash en tiempo constante (`CryptographicOperations.FixedTimeEquals`).
+- Control de acceso por propietario (ownership) en todos los recursos, derivado del token.
+- Rol `Admin` separado para operaciones administrativas, otorgado solo via seed de base de datos.
+- Rate Limiting en endpoints de autenticacion y en el motor de decisiones.
+- Manejador global de errores con estandar RFC 7807 (`ProblemDetails`).
+- CORS restringido por lista explicita de origenes permitidos.
+- Secretos gestionados por variables de entorno (`.env`), nunca hardcodeados.
+- Runtime Docker con imagen Alpine, usuario no-root.
 
-Este proyecto pasó por varias rondas de revisión de seguridad alineadas al [OWASP API Security Top 10](https://owasp.org/API-Security/editions/2023/en/0x00-header/) — el detalle de hallazgos y correcciones está documentado en `docs/`.
+Detalle completo en [docs/security.md](docs/security.md).
 
 ## Costo de infraestructura
 
-**$0.** SQL Server Developer Edition, Open-Meteo, ASP.NET Core y todo el resto del stack son gratuitos para este caso de uso. El proyecto corre completo en una laptop vía Docker Compose, sin necesidad de ningún servicio pagado ni dominio, para efectos de demostración.
+**$0.** SQL Server Developer Edition, Open-Meteo, ASP.NET Core y todo el stack son gratuitos para este caso de uso. El proyecto corre completo en una laptop via Docker Compose.
 
-## Cómo contribuir
+## Como contribuir
 
-Este repositorio usa ramas de feature protegidas contra `main` y [Conventional Commits](https://www.conventionalcommits.org/):
-
-```
-tipo(alcance): descripción breve en presente
-```
-
-Convención de nombres de rama: `tipo/descripcion-corta` (ej. `fix/canicula-detection-connectivity-gaps`, `feat/add-catalog-endpoints`). Cada rama se mergea a `main` vía Pull Request.
-
+Este repositorio usa ramas de feature protegidas contra `main` y [Conventional Commits](https://www.conventionalcommits.org/). Detalle en [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Agradecimientos
 
-- [Open-Meteo](https://open-meteo.com) por el acceso gratuito a datos meteorológicos de alta resolución.
-- INTA Nicaragua y FAO por las guías técnicas públicas de manejo de maíz y frijol usadas como base agronómica preliminar.
-- [OWASP API Security Project](https://owasp.org/www-project-api-security/) como marco de referencia para el endurecimiento de seguridad de la API.
+- [Open-Meteo](https://open-meteo.com) por el acceso gratuito a datos meteorologicos de alta resolucion.
+- INTA Nicaragua y FAO por las guias tecnicas publicas de manejo de maiz y frijol.
+- [OWASP API Security Project](https://owasp.org/www-project-api-security/) como marco de referencia para el endurecimiento de seguridad.
 
 ## Licencia
 
-Este proyecto se distribuye bajo licencia MIT — ver [`LICENSE`](./LICENSE).
-
----
+Este proyecto se distribuye bajo licencia MIT -- ver [LICENSE](LICENSE).
