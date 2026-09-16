@@ -1,243 +1,422 @@
 ---
-const currentYear = new Date().getFullYear();
+import Layout from '../layouts/Layout.astro';
 ---
-<!doctype html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="CosechaClima — alerta agroclimática temprana para pequeños productores de maíz y frijol en Carazo, Nicaragua." />
-  <link rel="icon" href="/CosechaClima/favicon.svg" />
-  <title>CosechaClima — Tu semáforo climático para el campo</title>
-</head>
-<body>
-  <header class="nav">
-    <div class="nav-inner">
-      <div class="brand">
-        <span>CosechaClima</span>
+
+<Layout title="CosechaClima - Tu semáforo climático para el campo">
+  <!-- HEADER -->
+  <header class="header">
+    <div class="container header-content">
+      <div class="logo-group">
+        <h1 class="logo">Cosecha<span>Clima</span></h1>
+        <span class="badge">Proyecto Open Source</span>
       </div>
-      <span class="pill pill-status">En desarrollo</span>
+      
+      <div class="nav-actions">
+        <a href="https://github.com/Abemilek/CosechaClima" target="_blank" rel="noopener noreferrer" class="icon-link" aria-label="Repositorio GitHub">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+          </svg>
+        </a>
+        <button id="themeToggle" class="icon-button" aria-label="Alternar tema claro/oscuro">
+          <!-- Sol -->
+          <svg id="sun-icon" class="theme-icon" viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+          <!-- Luna -->
+          <svg id="moon-icon" class="theme-icon" viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+      </div>
     </div>
   </header>
 
-  <main>
-    <section class="hero">
-      <div class="hero-inner">
-        <p class="eyebrow">Carazo, Nicaragua</p>
-        <h1>Tu semáforo de decisiones climáticas para el campo</h1>
-        <p class="lede">
-          CosechaClima traduce el clima en 3 acciones concretas para tu parcela
-          — sin necesidad de un técnico agrónomo presente todos los días.
-        </p>
-        <span class="pill pill-status hero-badge">Estamos construyéndola — todavía no hay versión para descargar</span>
-      </div>
-    </section>
-
-    <section class="section">
-      <h2>¿Qué hace?</h2>
-      <div class="grid">
-        <article class="card">
-          <h3>Semáforo de riesgo</h3>
-          <p>Cruza clima real, cultivo, etapa y tipo de suelo contra un motor de reglas agronómicas, y te dice si hoy hay riesgo bajo, medio o alto.</p>
-        </article>
-        <article class="card">
-          <h3>3 acciones por alerta</h3>
-          <p>Nada de reportes técnicos largos. Cada alerta llega con exactamente 3 cosas concretas que podés hacer hoy en tu parcela.</p>
-        </article>
-        <article class="card">
-          <h3>GPS automático</h3>
-          <p>Registrás tu parcela con un toque — la app detecta tu ubicación sola para consultar el clima real de ese punto exacto.</p>
-        </article>
-        <article class="card">
-          <h3>Bitácora de campo</h3>
-          <p>Marcá qué acciones cumpliste y consultá el historial de alertas de tu parcela cuando quieras, incluso días después.</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="section section-alt">
-      <h2>Cómo está hecha</h2>
-      <div class="stack">
-        <span class="pill">Flutter</span>
-        <span class="pill">ASP.NET Core</span>
-        <span class="pill">SQL Server</span>
-        <span class="pill">Open-Meteo</span>
-        <span class="pill">JWT + PIN</span>
-      </div>
-      <p class="stack-note">
-        Backend en capas con motor de reglas agronómicas propio, autenticación
-        por teléfono + PIN con hash seguro, y una app móvil con arquitectura
-        feature-first / MVVM.
+  <!-- HERO SECTION -->
+  <section class="hero">
+    <div class="container hero-container">
+      <p class="location-tag">📍 Carazo, Nicaragua · Monitoreo Agrícola</p>
+      <h2 class="hero-title">Tu semáforo de decisiones climáticas para el campo</h2>
+      <p class="hero-subtitle">
+        CosechaClima traduce el clima en 3 acciones concretas para tu parcela — sin necesidad de un técnico agronómico presente todos los días.
       </p>
-    </section>
-  </main>
+      
+      <div class="hero-actions">
+        <a href="#descarga" class="btn btn-primary btn-disabled" onclick="event.preventDefault();" title="Disponible muy pronto">Descargar APK (Próximamente)</a>
+        <a href="https://github.com/Abemilek/CosechaClima" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+          </svg>
+          Ver código fuente
+        </a>
+      </div>
+    </div>
+  </section>
 
+  <!-- FEATURES SECTION -->
+  <section class="features">
+    <div class="container">
+      <div class="features-grid">
+        
+        <article class="feature-card">
+          <div class="card-icon">🚦</div>
+          <h3>Semáforo de riesgo</h3>
+          <p>Cruza clima real, cultivo, etapa y tipo de suelo contra un motor de reglas agronómicas y te indica riesgo bajo, medio o alto.</p>
+        </article>
+        
+        <article class="feature-card">
+          <div class="card-icon">✅</div>
+          <h3>3 acciones por alerta</h3>
+          <p>Sin reportes técnicos largos. Cada alerta entrega exactamente 3 acciones prácticas a ejecutar hoy en la parcela.</p>
+        </article>
+        
+        <article class="feature-card">
+          <div class="card-icon">📍</div>
+          <h3>GPS automático</h3>
+          <p>Registra la parcela con un toque; la app detecta la ubicación para consultar el clima exacto de ese punto.</p>
+        </article>
+        
+        <article class="feature-card">
+          <div class="card-icon">📓</div>
+          <h3>Bitácora de campo</h3>
+          <p>Registro de acciones cumplidas e historial de alertas de la parcela consultables en cualquier momento.</p>
+        </article>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- TRANSPARENCY SECTION -->
+  <section class="transparency">
+    <div class="container transparency-content">
+      <h2>Transparencia y Open Source</h2>
+      <p>
+        CosechaClima es un proyecto <strong>100% de código abierto</strong>, auditado, seguro y diseñado para funcionar de forma ultra eficiente en entornos rurales. 
+        No contiene rastreadores innecesarios ni telemetría invasiva; tus datos de campo te pertenecen.
+      </p>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
   <footer class="footer">
-    <p>© {currentYear} CosechaClima — proyecto académico.</p>
-    <a href="https://github.com/Abemilek/CosechaClima" target="_blank" rel="noopener">Ver en GitHub</a>
+    <div class="container footer-content">
+      <p>&copy; {new Date().getFullYear()} CosechaClima.</p>
+      <p>Desarrollo abierto en <a href="https://github.com/Abemilek/CosechaClima" target="_blank" rel="noopener noreferrer">GitHub</a>.</p>
+    </div>
   </footer>
 
-  <style>
-    :root {
-      --cream: #fbf4ec;
-      --paper: #fffaf4;
-      --paper-2: #f6eadf;
-      --ink: #241d18;
-      --muted: #6d6259;
-      --soft: #e8ddd2;
-      --green: #007437;
-      --green-2: #0a8a46;
-      --green-dark: #005c2c;
-      --mint: #eaf8eb;
-      --mint-2: #bceec8;
-      --amber-bg: #fff6d7;
-      --shadow-soft: 0 8px 20px rgba(45, 33, 21, 0.09);
-      --radius: 22px;
+  <!-- SCRIPT PARA EL TOGGLE -->
+  <script is:inline>
+    const themeBtn = document.getElementById('themeToggle');
+    const sunIcon = document.getElementById('sun-icon');
+    const moonIcon = document.getElementById('moon-icon');
+
+    // Inicializar íconos según el estado actual del HTML (seteado por Layout.astro)
+    const isDark = document.documentElement.classList.contains('dark');
+    if (isDark) {
+      sunIcon.style.display = 'block';
+      moonIcon.style.display = 'none';
+    } else {
+      sunIcon.style.display = 'none';
+      moonIcon.style.display = 'block';
     }
 
-    * { box-sizing: border-box; }
+    themeBtn.addEventListener('click', () => {
+      const element = document.documentElement;
+      element.classList.toggle('dark');
+      
+      const isDarkNow = element.classList.contains('dark');
+      localStorage.setItem('theme', isDarkNow ? 'dark' : 'light');
+      
+      if (isDarkNow) {
+        sunIcon.style.display = 'block';
+        moonIcon.style.display = 'none';
+      } else {
+        sunIcon.style.display = 'none';
+        moonIcon.style.display = 'block';
+      }
+    });
+  </script>
+</Layout>
 
-    body {
-      margin: 0;
-      background: var(--cream);
-      color: var(--ink);
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-      line-height: 1.5;
-    }
+<style>
+  /* ============================
+     VARIABLES LOCALES Y UTILS
+  ============================= */
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
 
-    h1, h2, h3 {
-      font-family: Georgia, "Times New Roman", serif;
-      font-weight: 800;
-      line-height: 1.08;
-      margin: 0 0 12px;
-    }
+  /* ============================
+     HEADER
+  ============================= */
+  .header {
+    border-bottom: 1px solid var(--border);
+    background-color: var(--bg-color);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+  }
 
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 7px 14px;
-      border-radius: 999px;
-      font-size: 13px;
-      font-weight: 800;
-      background: rgba(0, 116, 55, 0.1);
-      color: var(--green-dark);
-    }
-    .pill-status {
-      background: var(--amber-bg);
-      color: #a56800;
-    }
+  .header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 4.5rem;
+  }
 
-    .nav {
-      position: sticky;
-      top: 0;
-      background: var(--cream);
-      border-bottom: 1px solid var(--soft);
-      z-index: 10;
-    }
-    .nav-inner {
-      max-width: 1000px;
-      margin: 0 auto;
-      padding: 16px 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-family: Georgia, serif;
-      font-weight: 800;
-      font-size: 20px;
-    }
+  .logo-group {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
 
-    .hero {
-      background: var(--green-dark);
-      color: white;
-      padding: 90px 24px 70px;
-    }
-    .hero-inner {
-      max-width: 720px;
-      margin: 0 auto;
-      text-align: center;
-    }
-    .eyebrow {
-      color: var(--mint-2);
-      font-size: 13px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-      margin-bottom: 8px;
-    }
-    .hero h1 {
-      color: white;
-      font-size: clamp(32px, 5vw, 46px);
-      margin-bottom: 18px;
-    }
-    .lede {
-      font-size: 18px;
-      color: rgba(255, 255, 255, 0.78);
-      margin-bottom: 26px;
-    }
-    .hero-badge {
-      background: rgba(255, 255, 255, 0.12);
-      color: white;
-    }
+  .logo {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+  
+  .logo span {
+    color: var(--accent);
+  }
 
-    .section {
-      max-width: 1000px;
-      margin: 0 auto;
-      padding: 64px 24px;
-    }
-    .section-alt {
-      background: var(--paper-2);
-      max-width: 100%;
-      text-align: center;
-    }
-    .section-alt > * {
-      max-width: 700px;
-      margin-left: auto;
-      margin-right: auto;
-    }
+  .badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    background-color: var(--surface-alt);
+    color: var(--accent);
+    border: 1px solid var(--border);
+  }
 
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 18px;
-      margin-top: 28px;
-    }
-    .card {
-      background: var(--paper);
-      border: 1px solid var(--soft);
-      border-radius: var(--radius);
-      padding: 24px;
-      box-shadow: var(--shadow-soft);
-    }
-    .card h3 { font-size: 18px; margin-bottom: 8px; }
-    .card p { color: var(--muted); font-size: 14px; margin: 0; }
+  .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
 
-    .stack {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: center;
-      margin: 24px 0 18px;
-    }
-    .stack-note { color: var(--muted); font-size: 15px; }
+  .icon-link, .icon-button {
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease, background-color 0.2s ease;
+  }
 
-    .footer {
-      text-align: center;
-      padding: 32px 24px 48px;
-      color: var(--muted);
-      font-size: 14px;
+  .icon-link:hover, .icon-button:hover {
+    color: var(--text-primary);
+    background-color: var(--surface-alt);
+  }
+
+  /* ============================
+     HERO
+  ============================= */
+  .hero {
+    padding: 5rem 0;
+    text-align: center;
+  }
+
+  .hero-container {
+    max-width: 800px;
+  }
+
+  .location-tag {
+    display: inline-block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .hero-title {
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    font-weight: 800;
+    line-height: 1.1;
+    margin: 0 0 1.5rem 0;
+    letter-spacing: -0.02em;
+  }
+
+  .hero-subtitle {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+    margin: 0 auto 2.5rem auto;
+    max-width: 600px;
+    line-height: 1.7;
+  }
+
+  .hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+  }
+
+  .btn-primary {
+    background-color: var(--accent);
+    color: #FFFFFF;
+    border: 1px solid var(--accent);
+  }
+
+  .btn-primary:hover:not(.btn-disabled) {
+    background-color: var(--accent-hover);
+    border-color: var(--accent-hover);
+  }
+
+  .btn-disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  .btn-secondary {
+    background-color: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+  }
+
+  .btn-secondary:hover {
+    background-color: var(--surface-color);
+    border-color: var(--text-secondary);
+  }
+
+  /* ============================
+     FEATURES
+  ============================= */
+  .features {
+    padding: 4rem 0;
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .feature-card {
+    background-color: var(--surface-color);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .feature-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  }
+
+  .card-icon {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    display: inline-block;
+  }
+
+  .feature-card h3 {
+    margin: 0 0 0.75rem 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  .feature-card p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+  }
+
+  /* ============================
+     TRANSPARENCY
+  ============================= */
+  .transparency {
+    padding: 4rem 0;
+    background-color: var(--surface-alt);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .transparency-content {
+    text-align: center;
+    max-width: 700px;
+  }
+
+  .transparency h2 {
+    margin: 0 0 1rem 0;
+    font-size: 1.75rem;
+  }
+
+  .transparency p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 1.05rem;
+  }
+
+  /* ============================
+     FOOTER
+  ============================= */
+  .footer {
+    padding: 3rem 0;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+  }
+
+  .footer-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .footer a {
+    color: var(--accent);
+  }
+  
+  .footer a:hover {
+    text-decoration: underline;
+  }
+
+  @media (max-width: 600px) {
+    .logo-group {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.25rem;
     }
-    .footer a {
-      color: var(--green-dark);
-      font-weight: 700;
-      text-decoration: none;
+    .badge {
+      font-size: 0.6rem;
     }
-    .footer a:hover { text-decoration: underline; }
-  </style>
-</body>
-</html>
+    .header-content {
+      height: auto;
+      padding: 1rem 0;
+    }
+  }
+</style>

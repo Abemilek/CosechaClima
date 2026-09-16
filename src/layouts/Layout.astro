@@ -1,0 +1,85 @@
+---
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="es" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="icon" type="image/svg+xml" href="/CosechaClima/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="description" content="Tu semáforo de decisiones climáticas para el campo" />
+    <title>{title}</title>
+    <script is:inline>
+      const theme = (() => {
+        if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
+          return localStorage.getItem('theme');
+        }
+        return 'dark'; // Dark mode por defecto
+      })();
+      
+      if (theme === 'light') {
+        document.documentElement.classList.remove('dark');
+      } else {
+        document.documentElement.classList.add('dark');
+      }
+      window.localStorage.setItem('theme', theme);
+    </script>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --bg-color: #F9FAFB;
+    --surface-color: #FFFFFF;
+    --surface-alt: #F3F4F6;
+    --text-primary: #111827;
+    --text-secondary: #4B5563;
+    --accent: #059669; /* Verde esmeralda */
+    --accent-hover: #047857;
+    --border: #E5E7EB;
+  }
+  
+  html.dark {
+    --bg-color: #0D1117; /* Fondo slate/mate */
+    --surface-color: #161B22; /* Superficie de tarjetas */
+    --surface-alt: #0F281E; /* Verde bosque profundo para acentos sutiles */
+    --text-primary: #F9FAFB;
+    --text-secondary: #9CA3AF;
+    --accent: #10B981; /* Esmeralda más brillante en dark */
+    --accent-hover: #34D399;
+    --border: #30363D;
+  }
+
+  html {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    background: var(--bg-color);
+    color: var(--text-primary);
+    scroll-behavior: smooth;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  
+  body {
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  
+  * {
+    box-sizing: border-box;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+</style>
