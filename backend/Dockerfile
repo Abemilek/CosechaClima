@@ -16,9 +16,12 @@ RUN dotnet publish "WebApi/WebApi.csproj" -c Release -o /app/publish --no-restor
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS final
 WORKDIR /app
 
+RUN apk add --no-cache icu-libs icu-data-full
+
 COPY --from=build /app/publish .
 
 EXPOSE 8080
 ENV ASPNETCORE_URLS=http://+:8080
+ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
 ENTRYPOINT ["dotnet", "WebApi.dll"]
