@@ -20,8 +20,37 @@ class LocationException implements Exception {
 class LocationService {
   LocationService._();
 
+  static Future<bool> serviciosActivos() {
+    return Geolocator.isLocationServiceEnabled();
+  }
+
+  static Future<bool> abrirAjustesUbicacion() {
+    return Geolocator.openLocationSettings();
+  }
+
+  static Future<bool> abrirAjustesApp() {
+    return Geolocator.openAppSettings();
+  }
+
+  static Future<LocationPermission> permisoActual() {
+    return Geolocator.checkPermission();
+  }
+
+  static Future<LocationPermission> solicitarPermiso() {
+    return Geolocator.requestPermission();
+  }
+
+  static Future<Position> obtenerCoordenadas() {
+    return Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 15),
+      ),
+    );
+  }
+
   static Future<Position> obtenerUbicacionActual() async {
-    final servicioActivo = await Geolocator.isLocationServiceEnabled();
+    final servicioActivo = await serviciosActivos();
     if (!servicioActivo) {
       throw const LocationException(
         LocationFailureReason.servicioDesactivado,
@@ -29,9 +58,9 @@ class LocationService {
       );
     }
 
-    var permiso = await Geolocator.checkPermission();
+    var permiso = await permisoActual();
     if (permiso == LocationPermission.denied) {
-      permiso = await Geolocator.requestPermission();
+      permiso = await solicitarPermiso();
       if (permiso == LocationPermission.denied) {
         throw const LocationException(
           LocationFailureReason.permisoDenegado,
@@ -50,12 +79,7 @@ class LocationService {
     }
 
     try {
-      return await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
-        ),
-      );
+      return await obtenerCoordenadas();
     } catch (_) {
       throw const LocationException(
         LocationFailureReason.desconocido,
