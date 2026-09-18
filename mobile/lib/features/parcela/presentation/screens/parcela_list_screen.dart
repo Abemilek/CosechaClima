@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../routing/auth_gate.dart';
+import '../../../../routing/no_animation_route.dart';
 import '../../../../shared/widgets/app_avatar.dart';
-import '../../../admin/presentation/screens/admin_panel_screen.dart';
-import '../../../auth/presentation/screens/login_screen.dart';
+import '../../../../shared/widgets/app_loading_message.dart';
 import '../../../auth/presentation/view_models/auth_view_model.dart';
 import '../../../bitacora/presentation/screens/bitacora_screen.dart';
 import '../../../umbral/presentation/screens/umbrales_screen.dart';
@@ -37,7 +38,7 @@ class _ParcelaListScreenState extends State<ParcelaListScreen> {
     await context.read<AuthViewModel>().cerrarSesion();
     if (!mounted) return;
     await Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+      noAnimationRoute<void>((_) => const AuthGate()),
       (route) => false,
     );
   }
@@ -88,9 +89,7 @@ class _ParcelaListScreenState extends State<ParcelaListScreen> {
                     icon: const Icon(Icons.menu_book_outlined),
                     color: AppColors.greenDark,
                     onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const BitacoraScreen(),
-                      ),
+                      noAnimationRoute<void>((_) => const BitacoraScreen()),
                     ),
                   ),
                   IconButton(
@@ -98,22 +97,9 @@ class _ParcelaListScreenState extends State<ParcelaListScreen> {
                     icon: const Icon(Icons.tune),
                     color: AppColors.greenDark,
                     onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const UmbralesScreen(),
-                      ),
+                      noAnimationRoute<void>((_) => const UmbralesScreen()),
                     ),
                   ),
-                  if (context.watch<AuthViewModel>().esAdmin)
-                    IconButton(
-                      tooltip: 'Panel de administrador',
-                      icon: const Icon(Icons.admin_panel_settings_outlined),
-                      color: AppColors.soil,
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const AdminPanelScreen(),
-                        ),
-                      ),
-                    ),
                   IconButton(
                     tooltip: 'Cerrar sesión',
                     icon: const Icon(Icons.logout),
@@ -123,12 +109,7 @@ class _ParcelaListScreenState extends State<ParcelaListScreen> {
                 ],
               ),
             ),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: provider.cargarParcelas,
-                child: _buildBody(provider),
-              ),
-            ),
+            Expanded(child: _buildBody(provider)),
           ],
         ),
       ),
@@ -138,9 +119,7 @@ class _ParcelaListScreenState extends State<ParcelaListScreen> {
         label: const Text('Nueva parcela'),
         onPressed: () async {
           final creada = await Navigator.of(context).push<bool>(
-            MaterialPageRoute<bool>(
-              builder: (_) => const CrearParcelaWizardScreen(),
-            ),
+            noAnimationRoute<bool>((_) => const CrearParcelaWizardScreen()),
           );
           if (creada == true) unawaited(provider.cargarParcelas());
         },
@@ -150,7 +129,7 @@ class _ParcelaListScreenState extends State<ParcelaListScreen> {
 
   Widget _buildBody(ParcelaViewModel provider) {
     if (provider.cargando && provider.parcelas.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingMessage(message: 'Cargando tus parcelas...');
     }
 
     if (provider.error != null && provider.parcelas.isEmpty) {
@@ -201,9 +180,7 @@ class _ParcelaCard extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(AppRadius.cardSmall),
         onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => DetalleParcelaScreen(parcela: parcela),
-          ),
+          noAnimationRoute<void>((_) => DetalleParcelaScreen(parcela: parcela)),
         ),
         child: Container(
           constraints: const BoxConstraints(minHeight: 96),

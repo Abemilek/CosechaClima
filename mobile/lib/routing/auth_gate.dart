@@ -3,7 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../features/auth/presentation/view_models/auth_view_model.dart';
 import '../features/onboarding/presentation/screens/splash_screen.dart';
-import '../features/parcela/presentation/screens/parcela_list_screen.dart';
+import '../shared/widgets/app_loading_message.dart';
+import 'role_home_screen.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -15,15 +16,10 @@ class AuthGate extends StatelessWidget {
     switch (estado) {
       case EstadoSesion.desconocido:
         return const Scaffold(
-          body: Center(
-            child: Text(
-              'Cargando...',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
+          body: AppLoadingMessage(message: 'Preparando la app...'),
         );
       case EstadoSesion.autenticado:
-        return const ParcelaListScreen();
+        return const RoleHomeScreen();
       case EstadoSesion.invitado:
         return const SplashScreen();
     }
