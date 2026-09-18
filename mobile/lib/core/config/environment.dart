@@ -6,7 +6,7 @@ class Environment {
   static const String _envApiUrl = String.fromEnvironment('API_URL');
 
   static void validate() {
-    if (_envApiUrl.isEmpty) {
+    if (_envApiUrl.trim().isEmpty) {
       throw Exception(
         'API_URL is required. '
         'Run with: flutter run --dart-define-from-file=.env\n'
@@ -15,5 +15,6 @@ class Environment {
     }
   }
 
-  static String get apiBaseUrl => _envApiUrl;
+  static String get apiBaseUrl =>
+      _envApiUrl.trim().replaceFirst(RegExp(r'/+$'), '');
 }
