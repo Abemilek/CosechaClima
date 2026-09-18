@@ -7,7 +7,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../routing/no_animation_route.dart';
 import '../../../../shared/widgets/app_avatar.dart';
+import '../../../../shared/widgets/app_loading_message.dart';
 import '../../../../shared/widgets/app_pill.dart';
 import '../../../auth/presentation/view_models/auth_view_model.dart';
 import '../../../bitacora/data/models/bitacora.dart';
@@ -180,8 +182,8 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
 
   Future<void> _editarParcela() async {
     final actualizada = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => EditarParcelaScreen(parcela: widget.parcela),
+      noAnimationRoute<bool>(
+        (_) => EditarParcelaScreen(parcela: widget.parcela),
       ),
     );
     if (actualizada == true) unawaited(_cargarTodo());
@@ -312,9 +314,7 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
                   IconButton(
                     onPressed: () async {
                       final guardado = await Navigator.of(context).push<bool>(
-                        MaterialPageRoute<bool>(
-                          builder: (_) => const UmbralesScreen(),
-                        ),
+                        noAnimationRoute<bool>((_) => const UmbralesScreen()),
                       );
                       if (guardado == true) unawaited(_cargarTodo());
                     },
@@ -378,9 +378,7 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
                     onReintentar: _cargarTodo,
                     onIrAUmbrales: () async {
                       final guardado = await Navigator.of(context).push<bool>(
-                        MaterialPageRoute<bool>(
-                          builder: (_) => const UmbralesScreen(),
-                        ),
+                        noAnimationRoute<bool>((_) => const UmbralesScreen()),
                       );
                       if (guardado == true) unawaited(_cargarTodo());
                     },
@@ -517,7 +515,9 @@ class _HomeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (cargando) return const Center(child: CircularProgressIndicator());
+    if (cargando) {
+      return const AppLoadingMessage(message: 'Consultando clima...');
+    }
 
     if (error != null) {
       return ListView(
@@ -552,68 +552,71 @@ class _HomeTab extends StatelessWidget {
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: onReintentar,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
-        children: [
-          if (clima != null)
-            _SummaryCard(clima: clima!, parcela: parcela, semaforo: semaforo),
-          const SizedBox(height: 16),
-          if (semaforo != null) ...[
-            _RiskCard(semaforo: semaforo!, color: colorRiesgo),
-            const SizedBox(height: 20),
-            const Text(
-              'Tus 3 acciones de hoy',
-              style: TextStyle(
-                fontFamily: 'Georgia',
-                fontFamilyFallback: ['Times New Roman', 'serif'],
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: AppColors.ink,
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
+      children: [
+        if (clima != null)
+          _SummaryCard(clima: clima!, parcela: parcela, semaforo: semaforo),
+        const SizedBox(height: 16),
+        if (semaforo != null) ...[
+          _RiskCard(semaforo: semaforo!, color: colorRiesgo),
+          const SizedBox(height: 20),
+          const Text(
+            'Tus 3 acciones de hoy',
+            style: TextStyle(
+              fontFamily: 'Georgia',
+              fontFamilyFallback: ['Times New Roman', 'serif'],
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: AppColors.ink,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...semaforo!.acciones.asMap().entries.map(
+            (entry) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _ActionTile(
+                numero: entry.key + 1,
+                texto: entry.value,
+                completada: accionesRegistradas.contains(entry.key),
+                onTap: () => onToggleAccion(entry.key),
               ),
             ),
-            const SizedBox(height: 10),
-            ...semaforo!.acciones.asMap().entries.map(
-              (entry) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _ActionTile(
-                  numero: entry.key + 1,
-                  texto: entry.value,
-                  completada: accionesRegistradas.contains(entry.key),
-                  onTap: () => onToggleAccion(entry.key),
+          ),
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            onPressed: onGuardarBitacora,
+            icon: const Icon(Icons.menu_book_outlined, size: 18),
+            label: const Text('Guardar en mi bitácora'),
+          ),
+          const SizedBox(height: 20),
+          OutlinedButton.icon(
+            onPressed: onReintentar,
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Actualizar clima'),
+          ),
+          const SizedBox(height: 20),
+          const Row(
+            children: [
+              Expanded(
+                child: _SourceCard(
+                  icon: Icons.cloud_outlined,
+                  titulo: 'Open-Meteo',
+                  detalle: 'Clima horario en tiempo real.',
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
-            FilledButton.icon(
-              onPressed: onGuardarBitacora,
-              icon: const Icon(Icons.menu_book_outlined, size: 18),
-              label: const Text('Guardar en mi bitácora'),
-            ),
-            const SizedBox(height: 20),
-            const Row(
-              children: [
-                Expanded(
-                  child: _SourceCard(
-                    icon: Icons.cloud_outlined,
-                    titulo: 'Open-Meteo',
-                    detalle: 'Clima horario en tiempo real.',
-                  ),
+              SizedBox(width: 12),
+              Expanded(
+                child: _SourceCard(
+                  icon: Icons.rule_outlined,
+                  titulo: 'Motor de reglas',
+                  detalle: 'Acciones según cultivo y etapa.',
                 ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: _SourceCard(
-                    icon: Icons.rule_outlined,
-                    titulo: 'Motor de reglas',
-                    detalle: 'Acciones según cultivo y etapa.',
-                  ),
-                ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ],
-      ),
+      ],
     );
   }
 }

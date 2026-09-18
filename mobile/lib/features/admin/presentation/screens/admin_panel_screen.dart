@@ -1,11 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/app_loading_message.dart';
 import '../../../../shared/widgets/app_pill.dart';
+import '../../../auth/presentation/view_models/auth_view_model.dart';
 import '../../data/models/regla_decision.dart';
 import '../../data/services/regla_decision_service.dart';
 
@@ -92,143 +95,161 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final esAdmin = context.select<AuthViewModel, bool>((auth) => auth.esAdmin);
+    if (!esAdmin) {
+      return Scaffold(
+        backgroundColor: AppColors.cream,
+        appBar: AppBar(title: const Text('Acceso restringido')),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+              'Esta herramienta es solo para administradores.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.ink,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.cream,
       appBar: AppBar(title: const Text('Panel de administrador')),
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _cargarReglas,
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              const Text(
-                'MOTOR DE DECISIONES',
-                style: TextStyle(
-                  color: AppColors.soil,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                ),
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            const Text(
+              'MOTOR DE DECISIONES',
+              style: TextStyle(
+                color: AppColors.soil,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
               ),
-              const SizedBox(height: 6),
-              const Text(
-                'Mantenimiento de reglas',
-                style: TextStyle(
-                  fontFamily: 'Georgia',
-                  fontFamilyFallback: ['Times New Roman', 'serif'],
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.ink,
-                ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Mantenimiento de reglas',
+              style: TextStyle(
+                fontFamily: 'Georgia',
+                fontFamilyFallback: ['Times New Roman', 'serif'],
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: AppColors.ink,
               ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.paper,
-                  borderRadius: BorderRadius.circular(AppRadius.cardSmall),
-                  border: Border.all(color: const Color(0xFFE8D8C8)),
-                ),
-                child: _cargando
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(12),
-                          child: CircularProgressIndicator(),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.paper,
+                borderRadius: BorderRadius.circular(AppRadius.cardSmall),
+                border: Border.all(color: const Color(0xFFE8D8C8)),
+              ),
+              child: _cargando
+                  ? const AppLoadingMessage(
+                      message: 'Cargando reglas...',
+                      icon: Icons.rule_outlined,
+                    )
+                  : _error != null
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _error!,
+                          style: const TextStyle(color: AppColors.red),
                         ),
-                      )
-                    : _error != null
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _error!,
-                            style: const TextStyle(color: AppColors.red),
-                          ),
-                          const SizedBox(height: 8),
-                          OutlinedButton(
-                            onPressed: _cargarReglas,
-                            child: const Text('Reintentar'),
-                          ),
-                        ],
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.rule_outlined,
-                                color: AppColors.greenDark,
+                        const SizedBox(height: 8),
+                        OutlinedButton(
+                          onPressed: _cargarReglas,
+                          child: const Text('Reintentar'),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.rule_outlined,
+                              color: AppColors.greenDark,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${_reglas.length} reglas cargadas',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '${_reglas.length} reglas cargadas',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (_reglas.isNotEmpty) ...[
-                            const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: _conteoPorNivel.entries
-                                  .map(
-                                    (e) =>
-                                        AppPill(text: '${e.key}: ${e.value}'),
-                                  )
-                                  .toList(),
                             ),
                           ],
+                        ),
+                        if (_reglas.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _conteoPorNivel.entries
+                                .map(
+                                  (e) => AppPill(text: '${e.key}: ${e.value}'),
+                                )
+                                .toList(),
+                          ),
                         ],
-                      ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Estas acciones modifican el árbol de reglas para TODOS los '
-                'usuarios de la app. Usalas solo durante la configuración '
-                'inicial o una migración de contenido.',
-                style: TextStyle(color: AppColors.muted, fontSize: 13),
-              ),
+                      ],
+                    ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Estas acciones modifican el árbol de reglas para TODOS los '
+              'usuarios de la app. Usalas solo durante la configuración '
+              'inicial o una migración de contenido.',
+              style: TextStyle(color: AppColors.muted, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: _ejecutandoAccion
+                  ? null
+                  : () => _confirmarYEjecutar(
+                      titulo: '¿Sembrar reglas iniciales?',
+                      contenido:
+                          'Genera las reglas placeholder si todavía no existen. '
+                          'No duplica las que ya estén cargadas.',
+                      accion: _service.sembrarReglasIniciales,
+                      mensajeExito:
+                          'Reglas iniciales sembradas (o ya existían).',
+                    ),
+              icon: const Icon(Icons.grass_outlined, size: 18),
+              label: const Text('Sembrar reglas iniciales'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _ejecutandoAccion
+                  ? null
+                  : () => _confirmarYEjecutar(
+                      titulo: '¿Aplicar contenido preliminar?',
+                      contenido:
+                          'Sobrescribe un conjunto representativo de reglas con '
+                          'contenido agronómico preliminar.',
+                      accion: _service.aplicarContenidoPreliminar,
+                      mensajeExito: 'Contenido preliminar aplicado.',
+                    ),
+              icon: const Icon(Icons.auto_fix_high_outlined, size: 18),
+              label: const Text('Aplicar contenido preliminar'),
+            ),
+            if (_ejecutandoAccion) ...[
               const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: _ejecutandoAccion
-                    ? null
-                    : () => _confirmarYEjecutar(
-                        titulo: '¿Sembrar reglas iniciales?',
-                        contenido:
-                            'Genera las reglas placeholder si todavía no existen. '
-                            'No duplica las que ya estén cargadas.',
-                        accion: _service.sembrarReglasIniciales,
-                        mensajeExito:
-                            'Reglas iniciales sembradas (o ya existían).',
-                      ),
-                icon: const Icon(Icons.grass_outlined, size: 18),
-                label: const Text('Sembrar reglas iniciales'),
+              const AppLoadingMessage(
+                message: 'Aplicando cambios...',
+                icon: Icons.hourglass_empty,
               ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: _ejecutandoAccion
-                    ? null
-                    : () => _confirmarYEjecutar(
-                        titulo: '¿Aplicar contenido preliminar?',
-                        contenido:
-                            'Sobrescribe un conjunto representativo de reglas con '
-                            'contenido agronómico preliminar.',
-                        accion: _service.aplicarContenidoPreliminar,
-                        mensajeExito: 'Contenido preliminar aplicado.',
-                      ),
-                icon: const Icon(Icons.auto_fix_high_outlined, size: 18),
-                label: const Text('Aplicar contenido preliminar'),
-              ),
-              if (_ejecutandoAccion) ...[
-                const SizedBox(height: 16),
-                const Center(child: CircularProgressIndicator()),
-              ],
             ],
-          ),
+          ],
         ),
       ),
     );

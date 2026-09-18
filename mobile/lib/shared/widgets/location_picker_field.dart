@@ -106,11 +106,7 @@ class _LocationPickerFieldState extends State<LocationPickerField> {
                 child: OutlinedButton.icon(
                   onPressed: _detectando ? null : _detectarUbicacion,
                   icon: _detectando
-                      ? const SizedBox(
-                          height: 16,
-                          width: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                      ? const Icon(Icons.hourglass_empty, size: 18)
                       : Icon(
                           _tieneCoordenadas ? Icons.refresh : Icons.my_location,
                           size: 18,

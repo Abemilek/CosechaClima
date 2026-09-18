@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../routing/no_animation_route.dart';
+import '../../../../routing/role_home_screen.dart';
 import '../../../../shared/widgets/app_avatar.dart';
 import '../../../../shared/widgets/pin_input.dart';
-import '../../../parcela/presentation/screens/parcela_list_screen.dart';
 import '../view_models/auth_view_model.dart';
 import 'register_screen.dart';
 
@@ -36,7 +37,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final ok = await auth.login(telefono: _telefonoCtrl.text.trim(), pin: _pin);
     if (ok && mounted) {
       await Navigator.of(context).pushAndRemoveUntil<void>(
-        MaterialPageRoute<void>(builder: (_) => const ParcelaListScreen()),
+        noAnimationRoute<void>((_) => const RoleHomeScreen()),
         (route) => false,
       );
     }
@@ -142,9 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Center(
                 child: TextButton(
                   onPressed: () => Navigator.of(context).push<void>(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const RegisterScreen(),
-                    ),
+                    noAnimationRoute<void>((_) => const RegisterScreen()),
                   ),
                   child: const Text('¿No tenés cuenta? Registrate'),
                 ),

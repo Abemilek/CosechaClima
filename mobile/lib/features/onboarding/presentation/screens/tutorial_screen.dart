@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../routing/no_animation_route.dart';
 import '../../../../shared/widgets/progress_dots.dart';
 import '../../../auth/presentation/screens/login_screen.dart';
 
@@ -59,7 +60,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
 
   void _goToLogin() {
     Navigator.of(context).pushReplacement<void, void>(
-      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+      noAnimationRoute<void>((_) => const LoginScreen()),
     );
   }
 
@@ -68,10 +69,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
       _goToLogin();
       return;
     }
-    _pageController.nextPage(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-    );
+    _pageController.jumpToPage(_index + 1);
   }
 
   void _back() {
@@ -79,10 +77,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
       Navigator.of(context).pop();
       return;
     }
-    _pageController.previousPage(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-    );
+    _pageController.jumpToPage(_index - 1);
   }
 
   @override
