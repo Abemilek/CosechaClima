@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/app_loading_message.dart';
 import '../../../../shared/widgets/app_pill.dart';
 import '../../data/models/bitacora.dart';
 import '../../data/services/bitacora_service.dart';
@@ -115,7 +116,7 @@ class _BitacoraScreenState extends State<BitacoraScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final body = RefreshIndicator(onRefresh: _cargar, child: _buildBody());
+    final body = _buildBody();
     if (!widget.mostrarAppBar) return body;
 
     return Scaffold(
@@ -123,6 +124,11 @@ class _BitacoraScreenState extends State<BitacoraScreen> {
       appBar: AppBar(
         title: const Text('Bitácora de campo'),
         actions: [
+          IconButton(
+            tooltip: 'Actualizar bitácora',
+            icon: const Icon(Icons.refresh),
+            onPressed: _cargar,
+          ),
           IconButton(
             tooltip: 'Ver resumen para compartir',
             icon: const Icon(Icons.ios_share_outlined),
@@ -136,7 +142,7 @@ class _BitacoraScreenState extends State<BitacoraScreen> {
 
   Widget _buildBody() {
     if (_cargando) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingMessage(message: 'Cargando bitácora...');
     }
     if (_error != null) {
       return ListView(

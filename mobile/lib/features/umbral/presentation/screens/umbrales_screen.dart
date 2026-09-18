@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/app_loading_message.dart';
 import '../../data/models/umbral.dart';
 import '../../data/services/umbral_service.dart';
 
@@ -124,7 +125,7 @@ class _UmbralesScreenState extends State<UmbralesScreen> {
       backgroundColor: AppColors.cream,
       appBar: AppBar(title: const Text('Umbrales')),
       body: _cargando
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppLoadingMessage(message: 'Cargando umbrales...')
           : SafeArea(
               child: ListView(
                 padding: const EdgeInsets.all(20),
@@ -239,16 +240,9 @@ class _UmbralesScreenState extends State<UmbralesScreen> {
                   const SizedBox(height: 24),
                   FilledButton(
                     onPressed: _guardando ? null : _guardar,
-                    child: _guardando
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text('Guardar umbrales'),
+                    child: Text(
+                      _guardando ? 'Guardando...' : 'Guardar umbrales',
+                    ),
                   ),
                 ],
               ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../routing/no_animation_route.dart';
 import 'tutorial_screen.dart';
 
 class SplashScreen extends StatelessWidget {
@@ -95,8 +96,8 @@ class SplashScreen extends StatelessWidget {
                       ),
                       onPressed: () =>
                           Navigator.of(context).pushReplacement<void, void>(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const TutorialScreen(),
+                            noAnimationRoute<void>(
+                              (_) => const TutorialScreen(),
                             ),
                           ),
                       child: const Row(

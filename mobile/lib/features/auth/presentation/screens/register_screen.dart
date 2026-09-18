@@ -192,16 +192,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: (auth.cargando || !_formValido) ? null : _submit,
-                child: auth.cargando
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('Registrarme'),
+                child: Text(auth.cargando ? 'Guardando...' : 'Registrarme'),
               ),
             ],
           ),

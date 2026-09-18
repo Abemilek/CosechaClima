@@ -182,16 +182,9 @@ class _EditarParcelaScreenState extends State<EditarParcelaScreen> {
               const SizedBox(height: 28),
               FilledButton(
                 onPressed: provider.cargando ? null : _guardar,
-                child: provider.cargando
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('Guardar cambios'),
+                child: Text(
+                  provider.cargando ? 'Guardando...' : 'Guardar cambios',
+                ),
               ),
             ],
           ),

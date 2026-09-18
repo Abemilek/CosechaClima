@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/app_avatar.dart';
 import '../../../../shared/widgets/app_choice_card.dart';
+import '../../../../shared/widgets/app_loading_message.dart';
 import '../../../../shared/widgets/location_picker_field.dart';
 import '../../../../shared/widgets/progress_dots.dart';
 import '../../../catalogo/data/models/catalogo.dart';
@@ -202,14 +203,7 @@ class _CrearParcelaWizardScreenState extends State<CrearParcelaWizardScreen> {
                           ? _submit
                           : () => _goTo(_step + 1)),
                 child: provider.cargando
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
+                    ? const Text('Guardando...')
                     : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -292,7 +286,7 @@ class _CultivoStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (cultivos.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingMessage(message: 'Cargando cultivos...');
     }
     return SingleChildScrollView(
       child: Column(
@@ -361,7 +355,7 @@ class _SueloStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (tiposSuelo.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingMessage(message: 'Cargando tipos de suelo...');
     }
     return SingleChildScrollView(
       child: Column(
