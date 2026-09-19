@@ -5,7 +5,6 @@ import '../../core/services/location_service.dart';
 
 enum LocationPickerStatus {
   idle,
-  rationale,
   checkingHardware,
   openingLocationSettings,
   requestingPermission,
@@ -52,28 +51,14 @@ class LocationPickerController extends ChangeNotifier {
   bool get requiereAjustesGps =>
       status == LocationPickerStatus.openingLocationSettings;
 
-  void mostrarContextoPrevio() {
-    if (estaTrabajando) return;
-    status = LocationPickerStatus.rationale;
-    message =
-        'Para brindarte el clima exacto de tu cultivo necesitamos ubicar '
-        'la parcela. Solo se usa para calcular alertas agroclimáticas.';
-    notifyListeners();
-  }
-
-  void ingresarMunicipioManual() {
-    mostrarManual = true;
-    if (!tieneCoordenadas) {
-      status = LocationPickerStatus.idle;
-      message =
-          'Podés continuar ingresando municipio y comunidad. Si después '
-          'agregás coordenadas, el clima será más preciso.';
-    }
-    notifyListeners();
-  }
-
   void cambiarManualVisible() {
     mostrarManual = !mostrarManual;
+    if (mostrarManual && !tieneCoordenadas) {
+      status = LocationPickerStatus.idle;
+      message =
+          'Podés continuar con municipio y comunidad. Si después agregás '
+          'coordenadas, el clima será más preciso.';
+    }
     notifyListeners();
   }
 

@@ -21,6 +21,7 @@ import '../../../clima/data/services/clima_service.dart';
 import '../../../clima/data/services/motor_service.dart';
 import '../../../umbral/presentation/screens/umbrales_screen.dart';
 import '../../data/models/parcela.dart';
+import '../../data/services/parcela_service.dart';
 import '../view_models/parcela_view_model.dart';
 import 'editar_parcela_screen.dart';
 
@@ -37,6 +38,8 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
   late final ClimaService _climaService;
   late final MotorService _motorService;
   late final BitacoraService _bitacoraService;
+  late final ParcelaService _parcelaService;
+  late Parcela _parcelaActual;
 
   int _tab = 0;
 
@@ -55,30 +58,37 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
     _climaService = ClimaService(client);
     _motorService = MotorService(client);
     _bitacoraService = BitacoraService(client);
+    _parcelaService = ParcelaService(client);
+    _parcelaActual = widget.parcela;
     unawaited(_cargarTodo());
   }
 
   Future<void> _cargarTodo() async {
-    if (!widget.parcela.tieneCoordenadas) {
-      setState(() {
-        _cargando = false;
-        _error =
-            'Esta parcela no tiene coordenadas GPS registradas.\n'
-            'Editala para poder consultar el clima.';
-      });
-      return;
-    }
-
     setState(() {
       _cargando = true;
       _error = null;
       _requiereUmbrales = false;
+      _clima = null;
+      _semaforo = null;
     });
 
     try {
-      final clima = await _climaService.actualizar(widget.parcela.id);
+      final parcela = await _parcelaService.obtenerPorId(_parcelaActual.id);
       if (!mounted) return;
-      final semaforo = await _motorService.obtenerSemaforo(widget.parcela.id);
+      setState(() => _parcelaActual = parcela);
+
+      if (!parcela.tieneCoordenadas) {
+        setState(() {
+          _error =
+              'Esta parcela no tiene coordenadas GPS registradas.\n'
+              'Editala para poder consultar el clima.';
+        });
+        return;
+      }
+
+      final clima = await _climaService.actualizar(parcela.id);
+      if (!mounted) return;
+      final semaforo = await _motorService.obtenerSemaforo(parcela.id);
       if (!mounted) return;
       setState(() {
         _clima = clima;
@@ -119,7 +129,7 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
     try {
       await _bitacoraService.crear(
         BitacoraRequest(
-          parcelaId: widget.parcela.id,
+          parcelaId: _parcelaActual.id,
           fecha: semaforo.fecha,
           eventoClimaticoId: eventoId,
           nivelRiesgo: semaforo.nivelRiesgo,
@@ -183,7 +193,7 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
   Future<void> _editarParcela() async {
     final actualizada = await Navigator.of(context).push<bool>(
       noAnimationRoute<bool>(
-        (_) => EditarParcelaScreen(parcela: widget.parcela),
+        (_) => EditarParcelaScreen(parcela: _parcelaActual),
       ),
     );
     if (actualizada == true) unawaited(_cargarTodo());
@@ -213,7 +223,7 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
     if (confirmar != true || !mounted) return;
 
     final ok = await context.read<ParcelaViewModel>().eliminarParcela(
-      widget.parcela.id,
+      _parcelaActual.id,
     );
     if (!mounted) return;
     if (ok) {
@@ -269,6 +279,7 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
   @override
   Widget build(BuildContext context) {
     final nombre = context.watch<AuthViewModel>().nombre;
+    final parcela = _parcelaActual;
 
     return Scaffold(
       backgroundColor: AppColors.cream,
@@ -369,10 +380,10 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
                     cargando: _cargando,
                     error: _error,
                     requiereUmbrales: _requiereUmbrales,
-                    sinCoordenadas: !widget.parcela.tieneCoordenadas,
+                    sinCoordenadas: !parcela.tieneCoordenadas,
                     clima: _clima,
                     semaforo: _semaforo,
-                    parcela: widget.parcela,
+                    parcela: parcela,
                     colorRiesgo: _colorRiesgo,
                     accionesRegistradas: _accionesRegistradas,
                     onReintentar: _cargarTodo,
@@ -393,14 +404,23 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
                     onGuardarBitacora: _registrarEnBitacora,
                   ),
                   _AlertasTab(
+                    cargando: _cargando,
+                    error: _error,
+                    requiereUmbrales: _requiereUmbrales,
+                    sinCoordenadas: !parcela.tieneCoordenadas,
                     semaforo: _semaforo,
                     colorRiesgo: _colorRiesgo,
+                    onReintentar: _cargarTodo,
+                    onIrAUmbrales: () async {
+                      final guardado = await Navigator.of(context).push<bool>(
+                        noAnimationRoute<bool>((_) => const UmbralesScreen()),
+                      );
+                      if (guardado == true) unawaited(_cargarTodo());
+                    },
+                    onEditar: _editarParcela,
                     onAbrirSms: _abrirSms,
                   ),
-                  BitacoraScreen(
-                    parcelaId: widget.parcela.id,
-                    mostrarAppBar: false,
-                  ),
+                  BitacoraScreen(parcelaId: parcela.id, mostrarAppBar: false),
                 ],
               ),
             ),
@@ -450,6 +470,7 @@ class _BottomNav extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         items[i].$1,
@@ -552,6 +573,27 @@ class _HomeTab extends StatelessWidget {
       );
     }
 
+    if (clima == null && semaforo == null) {
+      return ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          const SizedBox(height: 40),
+          _DetailStateMessage(
+            icon: Icons.cloud_off_outlined,
+            title: 'Aún no hay clima calculado',
+            message:
+                'No encontramos datos de clima o semáforo para esta parcela. '
+                'Actualizá para pedir un nuevo cálculo al servidor.',
+            action: OutlinedButton.icon(
+              onPressed: onReintentar,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Actualizar clima'),
+            ),
+          ),
+        ],
+      );
+    }
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
       children: [
@@ -616,6 +658,49 @@ class _HomeTab extends StatelessWidget {
             ],
           ),
         ],
+      ],
+    );
+  }
+}
+
+class _DetailStateMessage extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
+  final Widget action;
+
+  const _DetailStateMessage({
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.action,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(icon, size: 48, color: AppColors.muted),
+        const SizedBox(height: 14),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontFamily: 'Georgia',
+            fontFamilyFallback: ['Times New Roman', 'serif'],
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: AppColors.ink,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: AppColors.muted),
+        ),
+        const SizedBox(height: 22),
+        action,
       ],
     );
   }
@@ -889,28 +974,88 @@ class _SourceCard extends StatelessWidget {
 }
 
 class _AlertasTab extends StatelessWidget {
+  final bool cargando;
+  final String? error;
+  final bool requiereUmbrales;
+  final bool sinCoordenadas;
   final Semaforo? semaforo;
   final Color colorRiesgo;
+  final Future<void> Function() onReintentar;
+  final VoidCallback onIrAUmbrales;
+  final VoidCallback onEditar;
   final Future<void> Function() onAbrirSms;
 
   const _AlertasTab({
+    required this.cargando,
+    required this.error,
+    required this.requiereUmbrales,
+    required this.sinCoordenadas,
     required this.semaforo,
     required this.colorRiesgo,
+    required this.onReintentar,
+    required this.onIrAUmbrales,
+    required this.onEditar,
     required this.onAbrirSms,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (semaforo == null) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text(
-            'Todavía no hay una alerta calculada para esta parcela.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.muted),
+    if (cargando) {
+      return const AppLoadingMessage(message: 'Calculando alertas...');
+    }
+
+    if (error != null) {
+      return ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          const SizedBox(height: 40),
+          _DetailStateMessage(
+            icon: sinCoordenadas ? Icons.my_location : Icons.info_outline,
+            title: sinCoordenadas
+                ? 'Faltan coordenadas'
+                : requiereUmbrales
+                ? 'Faltan umbrales'
+                : 'No se pudo calcular',
+            message: error!,
+            action: sinCoordenadas
+                ? FilledButton.icon(
+                    onPressed: onEditar,
+                    icon: const Icon(Icons.my_location, size: 18),
+                    label: const Text('Agregar coordenadas'),
+                  )
+                : requiereUmbrales
+                ? FilledButton(
+                    onPressed: onIrAUmbrales,
+                    child: const Text('Configurar umbrales'),
+                  )
+                : OutlinedButton.icon(
+                    onPressed: onReintentar,
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: const Text('Reintentar'),
+                  ),
           ),
-        ),
+        ],
+      );
+    }
+
+    if (semaforo == null) {
+      return ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          const SizedBox(height: 40),
+          _DetailStateMessage(
+            icon: Icons.warning_amber_outlined,
+            title: 'Sin alerta calculada',
+            message:
+                'Todavía no hay una alerta para esta parcela. Actualizá para '
+                'consultar clima y reglas de decisión.',
+            action: OutlinedButton.icon(
+              onPressed: onReintentar,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Actualizar alerta'),
+            ),
+          ),
+        ],
       );
     }
 
