@@ -69,7 +69,7 @@ class _LocationPickerFieldState extends State<LocationPickerField> {
           label: Text(
             _controller.mostrarManual
                 ? 'Ocultar entrada manual'
-                : 'Ingresar municipio manualmente',
+                : 'Editar coordenadas manualmente',
           ),
         ),
         if (_controller.mostrarManual) ...[
@@ -102,9 +102,6 @@ class _LocationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tieneCoordenadas = controller.tieneCoordenadas;
-    final esperandoConfirmacion =
-        controller.status == LocationPickerStatus.rationale;
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -145,32 +142,29 @@ class _LocationCard extends StatelessWidget {
             style: const TextStyle(color: AppColors.muted, fontSize: 13),
           ),
           const SizedBox(height: 14),
-          if (esperandoConfirmacion)
-            _RationaleActions(controller: controller)
-          else
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: controller.estaTrabajando
-                    ? null
-                    : controller.mostrarContextoPrevio,
-                icon: Icon(
-                  controller.estaTrabajando
-                      ? Icons.hourglass_empty
-                      : tieneCoordenadas
-                      ? Icons.refresh
-                      : Icons.my_location,
-                  size: 18,
-                ),
-                label: Text(
-                  controller.estaTrabajando
-                      ? _workingLabel(controller.status)
-                      : tieneCoordenadas
-                      ? 'Detectar de nuevo'
-                      : 'Detectar mi ubicación',
-                ),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: controller.estaTrabajando
+                  ? null
+                  : controller.continuarConGps,
+              icon: Icon(
+                controller.estaTrabajando
+                    ? Icons.hourglass_empty
+                    : tieneCoordenadas
+                    ? Icons.refresh
+                    : Icons.my_location,
+                size: 18,
+              ),
+              label: Text(
+                controller.estaTrabajando
+                    ? _workingLabel(controller.status)
+                    : tieneCoordenadas
+                    ? 'Detectar de nuevo'
+                    : 'Detectar mi ubicación',
               ),
             ),
+          ),
         ],
       ),
     );
@@ -193,7 +187,6 @@ class _LocationCard extends StatelessWidget {
       case LocationPickerStatus.requestingPermission:
         return Icons.hourglass_empty;
       case LocationPickerStatus.idle:
-      case LocationPickerStatus.rationale:
       case LocationPickerStatus.success:
         return Icons.my_location;
     }
@@ -205,8 +198,6 @@ class _LocationCard extends StatelessWidget {
   ) {
     if (tieneCoordenadas) return 'Ubicación detectada';
     switch (status) {
-      case LocationPickerStatus.rationale:
-        return 'Antes de pedir permiso';
       case LocationPickerStatus.openingLocationSettings:
         return 'GPS apagado';
       case LocationPickerStatus.requestingPermission:
@@ -237,39 +228,12 @@ class _LocationCard extends StatelessWidget {
       case LocationPickerStatus.locating:
         return 'Detectando ubicación...';
       case LocationPickerStatus.idle:
-      case LocationPickerStatus.rationale:
       case LocationPickerStatus.permissionDenied:
       case LocationPickerStatus.permissionDeniedForever:
       case LocationPickerStatus.success:
       case LocationPickerStatus.error:
         return 'Detectar mi ubicación';
     }
-  }
-}
-
-class _RationaleActions extends StatelessWidget {
-  final LocationPickerController controller;
-
-  const _RationaleActions({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        FilledButton.icon(
-          onPressed: controller.continuarConGps,
-          icon: const Icon(Icons.my_location, size: 18),
-          label: const Text('Permitir y detectar'),
-        ),
-        const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: controller.ingresarMunicipioManual,
-          icon: const Icon(Icons.edit_location_alt_outlined, size: 18),
-          label: const Text('Ingresar municipio manualmente'),
-        ),
-      ],
-    );
   }
 }
 
@@ -364,12 +328,6 @@ class _ManualLocationFields extends StatelessWidget {
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 10),
-        OutlinedButton.icon(
-          onPressed: controller.ingresarMunicipioManual,
-          icon: const Icon(Icons.location_city_outlined, size: 18),
-          label: const Text('Continuar con municipio y comunidad'),
         ),
       ],
     );

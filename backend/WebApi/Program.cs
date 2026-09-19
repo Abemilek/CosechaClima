@@ -113,6 +113,22 @@ builder.Services.AddRateLimiter(opciones =>
             });
     });
 
+    opciones.AddPolicy("motor", contexto =>
+    {
+        var usuarioId = contexto.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? contexto.Connection.RemoteIpAddress?.ToString()
+            ?? "usuario-desconocido";
+
+        return RateLimitPartition.GetSlidingWindowLimiter(usuarioId, _ =>
+            new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                SegmentsPerWindow = 2,
+                QueueLimit = 0
+            });
+    });
+
     opciones.OnRejected = async (contexto, cancellationToken) =>
     {
         contexto.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
@@ -199,6 +215,18 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         app.Logger.LogError(ex, "fallo el seed del admin inicial -- la app continua sin crearlo");
+    }
+
+    try
+    {
+        var reglaDecisionService = scope.ServiceProvider.GetRequiredService<IReglaDecisionService>();
+        await reglaDecisionService.SembrarReglasIniciales();
+        await reglaDecisionService.AplicarContenidoPreliminar();
+        app.Logger.LogInformation("Reglas de decision iniciales verificadas");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "fallo el seed de reglas de decision -- la app continua sin actualizarlas");
     }
 }
 
