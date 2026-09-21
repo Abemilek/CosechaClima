@@ -11,17 +11,16 @@ class AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final estado = context.watch<AuthViewModel>().estado;
+    final auth = context.watch<AuthViewModel>();
 
-    switch (estado) {
-      case EstadoSesion.desconocido:
-        return const Scaffold(
-          body: AppLoadingMessage(message: 'Preparando la app...'),
-        );
-      case EstadoSesion.autenticado:
-        return const RoleHomeScreen();
-      case EstadoSesion.invitado:
-        return const SplashScreen();
+    if (auth.estado == EstadoSesion.desconocido) {
+      return const Scaffold(
+        body: AppLoadingMessage(message: 'Preparando la app...'),
+      );
     }
+
+    if (!auth.onboardingVisto) return const SplashScreen();
+
+    return const RoleHomeScreen();
   }
 }

@@ -5,6 +5,9 @@ GO
 USE BD_CosechaClima;
 GO
 
+SET QUOTED_IDENTIFIER ON;
+GO
+
 IF OBJECT_ID(N'dbo.TipoSuelo', N'U') IS NULL
 CREATE TABLE TipoSuelo (
     Id INT PRIMARY KEY IDENTITY(1,1),
@@ -42,13 +45,30 @@ IF OBJECT_ID(N'dbo.Usuarios', N'U') IS NULL
 CREATE TABLE Usuarios (
     Id INT PRIMARY KEY IDENTITY(1,1),
     Nombre NVARCHAR(100) NOT NULL,
-    Telefono NVARCHAR(20) NOT NULL UNIQUE,
-    PinHash NVARCHAR(200) NOT NULL,
-    PinSalt NVARCHAR(100) NOT NULL,
+    Email NVARCHAR(256) NOT NULL UNIQUE,
+    GoogleUid NVARCHAR(128) NULL,
+    PasswordHash NVARCHAR(200) NULL,
+    PasswordSalt NVARCHAR(100) NULL,
+    Proveedor TINYINT NOT NULL DEFAULT 0,
+    FotoUrl NVARCHAR(500) NULL,
     FechaRegistro DATETIME DEFAULT GETDATE(),
     Activo BIT DEFAULT 1,
-    EsAdmin BIT NOT NULL DEFAULT 0
+    EsAdmin BIT NOT NULL DEFAULT 0,
+    CONSTRAINT CK_Usuarios_Credenciales CHECK (
+        (Proveedor = 0 AND PasswordHash IS NOT NULL AND PasswordSalt IS NOT NULL)
+        OR
+        (Proveedor = 1 AND GoogleUid IS NOT NULL)
+    )
 );
+GO
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes
+    WHERE name = N'UQ_Usuarios_GoogleUid'
+      AND object_id = OBJECT_ID(N'dbo.Usuarios')
+)
+CREATE UNIQUE INDEX UQ_Usuarios_GoogleUid ON Usuarios(GoogleUid)
+WHERE GoogleUid IS NOT NULL;
 GO
 
 IF OBJECT_ID(N'dbo.Parcelas', N'U') IS NULL
@@ -148,7 +168,11 @@ CREATE TABLE ReglasDecision (
 );
 GO
 
-IF OBJECT_ID(N'dbo.UK_ReglasDecision_Clave', N'U') IS NULL
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes
+    WHERE name = N'UK_ReglasDecision_Clave'
+      AND object_id = OBJECT_ID(N'dbo.ReglasDecision')
+)
 CREATE UNIQUE INDEX UK_ReglasDecision_Clave
     ON ReglasDecision (EventoClimaticoId, CultivoId, EtapaFenologicaId, TipoSueloId);
 GO

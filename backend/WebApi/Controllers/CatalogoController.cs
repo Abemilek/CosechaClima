@@ -6,7 +6,7 @@ namespace WebApi.Controllers;
 
 [ApiController]
 [Route("api/catalogos")]
-[Authorize]
+[AllowAnonymous]
 public class CatalogoController : ControllerBase
 {
     private readonly ICatalogoService _catalogoService;

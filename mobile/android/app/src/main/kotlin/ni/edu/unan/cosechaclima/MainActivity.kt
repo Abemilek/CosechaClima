@@ -1,4 +1,4 @@
-package com.example.mobile
+package ni.edu.unan.cosechaclima
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -45,5 +45,14 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Requerido por el boton "Preparar SMS" (url_launcher con
+             scheme sms:). Desde Android 11 (API 30) rige la visibilidad
+             de paquetes: sin declarar este intent, launchUrl() devuelve
+             false y el boton falla en silencio en dispositivos reales.
+             https://developer.android.com/training/package-visibility -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="sms"/>
+        </intent>
     </queries>
 </manifest>

@@ -63,7 +63,7 @@ class _CosechaClimaAppState extends State<CosechaClimaApp> {
       _navigatorKey.currentState?.popUntil((route) => route.isFirst);
       _scaffoldMessengerKey.currentState?.showSnackBar(
         const SnackBar(
-          content: Text('Tu sesión expiró. Iniciá sesión de nuevo.'),
+          content: Text('Tu sesión expiró. Volviste al modo público.'),
         ),
       );
     };

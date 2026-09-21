@@ -27,6 +27,24 @@ public class ClimaController : ControllerBase
         _datosClimaticoService = datosClimaticoService;
     }
 
+    [AllowAnonymous]
+    [HttpGet("pronostico")]
+    public async Task<IActionResult> ObtenerPronosticoPublico(
+        [FromQuery] decimal latitud,
+        [FromQuery] decimal longitud)
+    {
+        if (latitud < -90 || latitud > 90 || longitud < -180 || longitud > 180)
+            return BadRequest(new { mensaje = "coordenadas fuera de rango" });
+
+        var pronostico = await _proveedorClimaticoService
+            .ObtenerPronosticoPublico(latitud, longitud);
+
+        if (pronostico.Count == 0)
+            return StatusCode(503, new { mensaje = "el servicio de clima no esta disponible por el momento" });
+
+        return Ok(pronostico);
+    }
+
     [HttpPost("actualizar/{parcelaId}")]
     public async Task<IActionResult> ActualizarClima(int parcelaId)
     {

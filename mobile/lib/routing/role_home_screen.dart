@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../features/admin/presentation/screens/admin_home_screen.dart';
 import '../features/auth/presentation/view_models/auth_view_model.dart';
+import '../features/onboarding/presentation/screens/public_home_screen.dart';
 import '../features/parcela/presentation/screens/parcela_list_screen.dart';
 
 class RoleHomeScreen extends StatelessWidget {
@@ -10,7 +11,10 @@ class RoleHomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final esAdmin = context.select<AuthViewModel, bool>((auth) => auth.esAdmin);
-    return esAdmin ? const AdminHomeScreen() : const ParcelaListScreen();
+    final auth = context.watch<AuthViewModel>();
+
+    if (!auth.estaAutenticado) return const PublicHomeScreen();
+
+    return auth.esAdmin ? const AdminHomeScreen() : const ParcelaListScreen();
   }
 }

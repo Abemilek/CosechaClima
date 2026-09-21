@@ -3,9 +3,10 @@ using WebApi.Models;
 namespace WebApi.Interface;
 
 public interface IUsuarioService {
-    Task<int> Registrar(Usuario usuario, string pinEnTextoPlano);
-    Task<Usuario?> Autenticar(string telefono, string pin);
-    Task<Usuario?> ObtenerPorId (int id);
-    Task<Usuario?> ObtenerPorTelefono (string telefono);
+    Task<int> RegistrarConEmail(Usuario usuario, string passwordEnTextoPlano);
+    Task<Usuario?> AutenticarConEmail(string email, string password);
+    Task<Usuario> ObtenerOCrearDesdeGoogle(UsuarioGoogle datosGoogle);
+    Task<Usuario?> ObtenerPorId(int id);
+    Task<Usuario?> ObtenerPorEmail(string email);
     Task MarcarComoAdmin(int usuarioId);
 }
