@@ -48,6 +48,8 @@ CosechaClima traduce datos climaticos abiertos en una recomendacion accionable d
 4. El **motor de decisiones** evalua todos los eventos climaticos activos simultaneamente contra un arbol de **216 reglas agronomicas** (180 de eventos de riesgo + 36 de "sin riesgo") y selecciona la alerta con el nivel de riesgo mas severo (Alto / Medio / Bajo / Sin riesgo) con 3 acciones recomendadas.
 5. El productor registra en su bitacora de campo que acciones completo, y puede compartir un resumen de texto simple.
 
+**Sin cuenta tambien sirve.** La app abre en un inicio publico con el pronostico de 5 dias de la zona (Carazo, o la ubicacion del telefono) y solo pide iniciar sesion al hacer algo privado, como guardar una parcela. Se puede entrar con **Google** (un toque, sin recordar contrasena) o con **correo y contrasena**.
+
 ## Arquitectura
 
 ```mermaid
@@ -59,6 +61,8 @@ flowchart TD
     B --> F["SQL Server 2022"]
     F --> G["ADO.NET - Queries optimizadas con OPENJSON"]
     B --> H["Rate Limiting + JWT Auth con Jti"]
+    A -->|"Login con Google"| I["Google Sign-In"]
+    B -->|"Valida el ID Token"| I
 ```
 
 Arquitectura en capas estricta: cada capa solo conoce a la inmediatamente inferior a traves de una interfaz. El motor de decisiones, por ejemplo, no sabe si los datos climaticos vienen de Open-Meteo o de cualquier otra fuente; solo conoce `IProveedorClimaticoService`.
@@ -70,7 +74,7 @@ Arquitectura en capas estricta: cada capa solo conoce a la inmediatamente inferi
 | Backend | ASP.NET Core 10 | LTS vigente, tipado fuerte, rendimiento |
 | Base de datos | SQL Server 2022 (Docker) | Developer Edition, gratuita |
 | Acceso a datos | ADO.NET con OPENJSON | Control total sobre consultas, batch updates optimizados |
-| Autenticacion | JWT Bearer + PIN PBKDF2 + salt + Jti | Sin dependencias externas de identidad |
+| Autenticacion | JWT Bearer + correo/contrasena (PBKDF2 + salt) + Google Sign-In + Jti | Google Sign-In es gratuito: sin SMS ni servicios de pago |
 | Datos climaticos | [Open-Meteo](https://open-meteo.com) | Pronostico real hasta 16 dias, sin API key, gratuito |
 | Contenedorizacion | Docker multi-stage (Alpine) | Imagen optimizada, usuario no-root |
 | Cliente movil | Flutter | Codigo unico multiplataforma |
@@ -121,21 +125,32 @@ Esperado: `200 OK` con `Healthy`.
 > [!WARNING]
 > `DB_SA_PASSWORD` debe cumplir la politica de complejidad de SQL Server: minimo 8 caracteres combinando al menos 3 de 4 categorias (mayusculas, minusculas, digitos, simbolos).
 
+> [!WARNING]
+> SQL Server solo aplica `DB_SA_PASSWORD` la primera vez que crea el volumen. Si la cambias despues, `db` queda `unhealthy` con `Login failed for user 'sa'`. En desarrollo: `docker compose down -v && docker compose up --build` (borra los datos).
+
+> [!NOTE]
+> `ASPNETCORE_ENVIRONMENT` es `Production` por defecto (Swagger oculto). Para desarrollo local poner `ASPNETCORE_ENVIRONMENT=Development` en `.env` y abrir `http://localhost:8080/swagger`.
+
+> [!NOTE]
+> **Google Sign-In es opcional.** Sin Client IDs, la app sigue funcionando con correo y contrasena. Para activarlo ver [docs/google-sign-in-setup.md](docs/google-sign-in-setup.md). La app movil tiene su propio `mobile/.env` (`API_URL` y `GOOGLE_SERVER_CLIENT_ID`).
+
 > [!NOTE]
 > `compose.yaml` inicia automaticamente: SQL Server, scripts de esquema y seed, y construye la API con Dockerfile multi-stage. Ver [backend/README.md](backend/README.md) y [mobile/README.md](mobile/README.md) para instrucciones detalladas de cada componente.
 
 ## Seguridad
 
 - Autenticacion JWT con expiracion configurable y claim `Jti` para unicidad de token.
-- PIN almacenado exclusivamente como hash PBKDF2 + salt individual por usuario.
+- Inicio de sesion con Google: el ID Token se valida siempre en el servidor (firma, audiencia, expiracion y correo verificado).
+- Contrasenas almacenadas exclusivamente como hash PBKDF2-SHA256 + salt individual por usuario (minimo 8 caracteres). Las cuentas de Google no tienen contrasena local.
 - Comparacion de hash en tiempo constante (`CryptographicOperations.FixedTimeEquals`).
+- Modo invitado acotado: solo `/api/auth/*`, el pronostico por coordenadas, los catalogos y `/health` son publicos; todo lo demas exige JWT.
 - Control de acceso por propietario (ownership) en todos los recursos, derivado del token.
 - Rol `Admin` separado para operaciones administrativas, otorgado solo via seed de base de datos.
-- Rate Limiting en endpoints de autenticacion y en el motor de decisiones.
+- Rate Limiting en endpoints de autenticacion (register, login y Google) y en el motor de decisiones.
 - Manejador global de errores con estandar RFC 7807 (`ProblemDetails`).
 - CORS restringido por lista explicita de origenes permitidos.
 - Secretos gestionados por variables de entorno (`.env`), nunca hardcodeados.
-- Runtime Docker con imagen Alpine, usuario no-root.
+- Runtime Docker con imagen Alpine, usuario no-root. Entorno `Production` por defecto.
 
 Detalle completo en [docs/security.md](docs/security.md).
 
