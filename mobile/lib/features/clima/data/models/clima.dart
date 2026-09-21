@@ -57,3 +57,28 @@ class Semaforo {
     fecha: DateTime.parse(json['fecha'] as String),
   );
 }
+
+class PronosticoPublico {
+  final DateTime fecha;
+  final double? temperaturaMax;
+  final double? temperaturaMin;
+  final double? precipitacion;
+  final double? vientoVelocidad;
+
+  PronosticoPublico({
+    required this.fecha,
+    this.temperaturaMax,
+    this.temperaturaMin,
+    this.precipitacion,
+    this.vientoVelocidad,
+  });
+
+  factory PronosticoPublico.fromJson(Map<String, dynamic> json) =>
+      PronosticoPublico(
+        fecha: DateTime.parse(json['fecha'] as String),
+        temperaturaMax: (json['temperaturaMax'] as num?)?.toDouble(),
+        temperaturaMin: (json['temperaturaMin'] as num?)?.toDouble(),
+        precipitacion: (json['precipitacion'] as num?)?.toDouble(),
+        vientoVelocidad: (json['vientoVelocidad'] as num?)?.toDouble(),
+      );
+}
