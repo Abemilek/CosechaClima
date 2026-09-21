@@ -4,46 +4,86 @@ Guia tecnica para la integracion entre la app movil Flutter y el backend ASP.NET
 
 ## Configuracion de entorno
 
-La app usa `--dart-define` para inyectar la URL de la API en tiempo de build:
+La app usa `--dart-define` para inyectar variables en tiempo de build. Lo recomendado es un archivo `mobile/.env` (copia de `mobile/.env.example`):
 
 ```bash
-# Desarrollo (emulador Android)
-flutter run --dart-define=API_URL=http://10.0.2.2:8080
-
-# Desarrollo (dispositivo fisico)
-flutter run --dart-define=API_URL=http://192.168.1.100:8080
-
-# Produccion
-flutter run --release --dart-define=API_URL=https://api.cosechaclima.example.com
+flutter run --dart-define-from-file=.env
 ```
 
-La configuracion se lee desde `lib/core/config/environment.dart` usando `String.fromEnvironment`.
+| Variable | Obligatoria | Descripcion |
+|---|---|---|
+| `API_URL` | Si | **Solo la base de la API**, sin ruta: `http://10.0.2.2:8080` (emulador), `http://192.168.1.100:8080` (dispositivo fisico) o `https://api.cosechaclima.example.com` (produccion) |
+| `GOOGLE_SERVER_CLIENT_ID` | No | Client ID **Web** de Google Cloud. Si esta vacio, la app oculta el boton "Continuar con Google" |
+
+O sin archivo:
+
+```bash
+flutter run --dart-define=API_URL=http://10.0.2.2:8080 --dart-define=GOOGLE_SERVER_CLIENT_ID=<client id web>
+```
+
+La configuracion se lee desde `lib/core/config/environment.dart` usando `String.fromEnvironment`. Como se resuelve en **compilacion**, cambiar el `.env` exige detener la app y volver a lanzarla (un hot restart no basta).
 
 > [!WARNING]
 > Nunca hardcodear URLs de API en el codigo fuente.
 
-## Flujo de autenticacion
+> [!IMPORTANT]
+> `API_URL` no debe incluir rutas. La app agrega `/api` y el endpoint (`API_URL` + `/api` + `/auth/login`). Un valor como `https://host/swagger/index.html` o `https://host/api` produce un `404` en todas las pantallas.
+
+> [!NOTE]
+> Android bloquea `http://` por defecto. El manifest de **debug** lo permite para desarrollo local; los builds de release exigen `https://`.
+
+## Modo invitado y flujo de autenticacion
+
+La app **no obliga a tener cuenta**. El onboarding se muestra una sola vez y despues se entra siempre al inicio: un **inicio publico** para quien no tiene sesion, o el inicio normal (lista de parcelas, o panel de administrador) para quien si.
+
+| Area | Sin cuenta (invitado) | Con cuenta |
+|---|---|---|
+| Onboarding / tutorial | Si | Si |
+| Pronostico de 5 dias de la zona | Si -- `GET /api/clima/pronostico` (Carazo aproximado, o "Usar mi ubicacion") | Si |
+| Catalogos de referencia | Publicos en la API | Si |
+| Parcelas, umbrales, clima de parcela, semaforo, bitacora | No -- pide iniciar sesion | Si |
+| Panel de administracion | No | Solo rol `Admin` |
+
+**La sesion se pide en un solo punto.** Al tocar "Mis parcelas" en el inicio publico, la app abre el login contextual (`mostrarLoginContextual`) con el motivo ("Para guardar tu parcela necesitas una cuenta") y, si el login sale bien, continua a lo que el usuario queria hacer. Cancelar deja al usuario donde estaba.
 
 ```
-1. POST /api/auth/register   -> Crea la cuenta
-2. POST /api/auth/login      -> Devuelve { token, nombre }
-3. Almacenar token            -> flutter_secure_storage (EncryptedSharedPreferences / Keychain)
-4. Cada request posterior     -> Header Authorization: Bearer <token>
-5. Si respuesta 401           -> Cerrar sesion automaticamente
+1. Abrir la app            -> onboarding (solo la primera vez) -> inicio publico
+2. Tocar algo privado      -> login contextual (Google o correo)
+3a. Continuar con Google   -> SDK de Google -> idToken -> POST /api/auth/google
+3b. Correo y contrasena    -> POST /api/auth/register  o  POST /api/auth/login
+4. Respuesta de las tres   -> { token, nombre, email, fotoUrl, esAdmin }
+5. Guardar el token         -> flutter_secure_storage (EncryptedSharedPreferences / Keychain)
+6. Cada request posterior   -> Header Authorization: Bearer <token>
+7. Si respuesta 401         -> Cerrar sesion y volver al inicio publico (aviso: "Volviste al modo publico")
 ```
 
 > [!IMPORTANT]
-> Nunca almacenar el token en `SharedPreferences` ni en variables de texto plano. Usar exclusivamente `flutter_secure_storage`.
+> Nunca almacenar el token en `SharedPreferences` ni en variables de texto plano. Usar exclusivamente `flutter_secure_storage`. En `SharedPreferences` solo van datos **no sensibles** para mostrar la UI: nombre, correo, URL de la foto y el indicador de onboarding visto.
+
+Reglas de la pantalla de correo (`EmailAuthScreen`): pestanas "Soy nuevo" (nombre, correo, contrasena) y "Ya tengo cuenta" (correo, contrasena); correo con formato valido y contrasena de al menos 8 caracteres. Los mismos limites los valida el backend.
+
+Google en Android requiere que el `serverClientId` sea el Client ID **Web** y que el paquete y el SHA-1 esten registrados en Google Cloud. Ver [google-sign-in-setup.md](./google-sign-in-setup.md).
 
 ## Flujo tipico del usuario
+
+### 0. Inicio publico (sin cuenta)
+
+```
+GET /api/clima/pronostico?latitud=11.85&longitud=-86.199
+Response: [ { "fecha": "2026-09-20T00:00:00", "temperaturaMax": 31.2, "temperaturaMin": 21.4, "precipitacion": 6.1, "vientoVelocidad": 18.0 }, ... ]
+```
+
+No requiere token. Si responde `503`, la app muestra un error con boton "Reintentar" (Open-Meteo no disponible). Por defecto se consulta un punto de Carazo (Jinotepe); al tocar "Usar mi ubicacion" se pide el GPS y, si el usuario lo niega o falla, se conserva el punto por defecto.
 
 ### 1. Login
 
 ```
 POST /api/auth/login
-Body: { "telefono": "88887777", "pin": "1234" }
-Response: { "token": "eyJ...", "nombre": "Juan Perez" }
+Body: { "email": "juan@example.com", "password": "una-clave-larga" }
+Response: { "token": "eyJ...", "nombre": "Juan Perez", "email": "juan@example.com", "fotoUrl": null, "esAdmin": false }
 ```
+
+Registro (`POST /api/auth/register`, body `{ nombre, email, password }`) y Google (`POST /api/auth/google`, body `{ idToken }`) devuelven la misma respuesta.
 
 ### 2. Cargar catalogos
 
@@ -54,7 +94,7 @@ GET /api/catalogos/etapas-fenologicas
 GET /api/catalogos/eventos-climaticos
 ```
 
-Todos requieren header `Authorization: Bearer <token>`.
+Son publicos: no requieren token (la app igual lo envia si hay sesion).
 
 ### 3. Crear parcela
 
@@ -122,6 +162,8 @@ El `ApiClient` traduce respuestas HTTP a excepciones tipadas:
 | `NetworkException` | Sin conexion a internet | Mostrar mensaje de conectividad |
 | `TimeoutApiException` | Timeout de la peticion | Sugerir reintentar |
 
+Para los errores de autenticacion y del pronostico publico el mensaje viene en `mensaje` en vez de `title`; el `ApiClient` lee ambos y los expone en `e.message`.
+
 Para errores `404` del motor de decisiones, leer siempre el campo `title` del `ProblemDetails` ya que puede indicar un paso faltante del flujo (no umbrales, no datos climaticos) en lugar de un recurso inexistente.
 
 ## Rendimiento
@@ -160,4 +202,5 @@ Future<List<BitacoraEntry>> obtenerMias() async {
 
 - [api-reference.md](./api-reference.md) -- referencia completa de endpoints.
 - [authentication.md](./authentication.md) -- flujo de login detallado.
+- [google-sign-in-setup.md](./google-sign-in-setup.md) -- configuracion de Google Sign-In.
 - [error-handling.md](./error-handling.md) -- catalogo de errores.

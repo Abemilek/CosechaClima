@@ -1,6 +1,6 @@
 # CosechaClima API -- Referencia tecnica
 
-> Ver tambien: [authentication.md](./authentication.md) para el detalle del flujo de login, y [error-handling.md](./error-handling.md) para el catalogo completo de codigos de error.
+> Ver tambien: [authentication.md](./authentication.md) para el detalle del flujo de login (correo y Google), [google-sign-in-setup.md](./google-sign-in-setup.md) para configurar Google, y [error-handling.md](./error-handling.md) para el catalogo completo de codigos de error.
 
 Documentacion completa de todos los endpoints. Complementa a Swagger (`/swagger`) -- Swagger es la fuente de verdad en vivo, este documento explica el por que y el flujo interno de cada endpoint.
 
@@ -19,7 +19,9 @@ Todos los endpoints, salvo los marcados como **Publico**, requieren el header:
 Authorization: Bearer <token>
 ```
 
-El token se obtiene de `POST /api/auth/login`, expira en 24 horas (configurable) y contiene un claim `Jti` para unicidad. Si falta o expiro, el endpoint devuelve `401`.
+El token se obtiene de `POST /api/auth/register`, `POST /api/auth/login` o `POST /api/auth/google`, expira en 24 horas (configurable) y contiene un claim `Jti` para unicidad. Si falta o expiro, el endpoint devuelve `401`.
+
+Endpoints **Publicos** (no piden token): `/api/auth/*`, `GET /api/clima/pronostico`, `GET /api/catalogos/*` y `/health`. Todo lo demas es protegido por defecto.
 
 ### Formato de errores
 
@@ -28,6 +30,8 @@ Todos los errores siguen el estandar RFC 7807 (`ProblemDetails`):
 ```json
 { "status": 400, "title": "Descripcion del error", "instance": "/api/ruta" }
 ```
+
+Excepcion: los endpoints de autenticacion y el pronostico publico responden sus errores `401`, `409`, `400` (coordenadas) y `503` como `{ "mensaje": "..." }`. Un cliente debe leer `title` y, si no existe, `mensaje` (el `ApiClient` de la app ya lo hace). Los `400` de validacion de DTOs (correo invalido, contrasena corta) siguen el formato estandar de validacion de ASP.NET Core.
 
 ### Codigos de estado
 
@@ -38,7 +42,7 @@ Todos los errores siguen el estandar RFC 7807 (`ProblemDetails`):
 | `401` | Falta el token, o no es valido/expiro |
 | `403` | Token valido, pero el recurso no pertenece al usuario autenticado |
 | `404` | El recurso no existe, o falta un paso previo del flujo de negocio |
-| `409` | Recurso duplicado |
+| `409` | Recurso duplicado (ej. correo ya registrado) |
 | `429` | Rate limiting excedido |
 | `503` | Servicio externo no disponible y sin dato de respaldo |
 
@@ -65,53 +69,97 @@ Ningun endpoint acepta un `usuarioId` como parametro. Siempre se deriva del clai
 ## 1. Autenticacion
 
 **Controlador:** `UsuarioController` -- **Ruta base:** `/api/auth` -- **Acceso:** Publico
-**Rate limit:** politica `auth` (5 peticiones/minuto por IP, ventana deslizante)
+**Rate limit:** politica `auth` (5 peticiones/minuto por IP, ventana deslizante) en los tres endpoints
+
+Los tres endpoints devuelven la misma respuesta (`LoginResponseDto`):
+
+```json
+{
+  "token": "eyJhbGci...",
+  "nombre": "Juan Perez",
+  "email": "juan@example.com",
+  "fotoUrl": null,
+  "esAdmin": false
+}
+```
+
+| Campo | Tipo | Descripcion |
+|---|---|---|
+| `token` | string | JWT para el header `Authorization: Bearer` |
+| `nombre` | string | Nombre a mostrar |
+| `email` | string | Correo de la cuenta, en minusculas |
+| `fotoUrl` | string? | Avatar de Google; `null` en cuentas de correo |
+| `esAdmin` | bool | Informativo para la UI; la autorizacion la decide el servidor con el claim `Role` |
 
 ### POST /api/auth/register
 
-Crea una cuenta nueva. Genera un salt aleatorio, calcula el hash PBKDF2 del PIN, y guarda solo el hash.
+Crea una cuenta con correo y contrasena y **deja la sesion iniciada** (devuelve el token). La contrasena se guarda solo como hash PBKDF2-SHA256 con salt individual.
 
 **Request body (`RegisterDto`):**
 
 | Campo | Tipo | Requerido | Validacion |
 |---|---|---|---|
 | `nombre` | string | Si | max 100 caracteres |
-| `telefono` | string | Si | exactamente 8 digitos (`^\d{8}$`) |
-| `pin` | string | Si | exactamente 4 digitos (`^\d{4}$`) |
+| `email` | string | Si | formato de correo valido, max 256 caracteres. Se normaliza a minusculas |
+| `password` | string | Si | entre 8 y 128 caracteres |
 
 ```json
-{ "nombre": "Juan Perez", "telefono": "88887777", "pin": "1234" }
+{ "nombre": "Juan Perez", "email": "juan@example.com", "password": "una-clave-larga" }
 ```
 
 **Respuestas:**
 
 | Codigo | Cuerpo |
 |---|---|
-| `200` | `{ "id": 1, "mensaje": "usuario registrado correctamente" }` |
-| `409` | Telefono ya registrado |
+| `200` | `LoginResponseDto` |
+| `400` | Validacion fallida (correo invalido, contrasena de menos de 8 caracteres) |
+| `409` | `{ "mensaje": "ya existe una cuenta con este correo" }` |
 | `429` | Rate limit excedido |
 
 ### POST /api/auth/login
 
-Autentica al usuario por telefono + PIN. Si coincide, genera un JWT firmado con HMAC-SHA256 conteniendo claims de identidad, rol y Jti.
+Autentica con correo y contrasena. Si coinciden, genera un JWT firmado con HMAC-SHA256 con claims de identidad, rol y Jti.
 
 **Request body (`LoginDto`):**
 
 | Campo | Tipo | Requerido | Validacion |
 |---|---|---|---|
-| `telefono` | string | Si | exactamente 8 digitos |
-| `pin` | string | Si | exactamente 4 digitos |
+| `email` | string | Si | formato de correo valido |
+| `password` | string | Si | -- |
 
 ```json
-{ "telefono": "88887777", "pin": "1234" }
+{ "email": "juan@example.com", "password": "una-clave-larga" }
 ```
 
 **Respuestas:**
 
 | Codigo | Cuerpo |
 |---|---|
-| `200` | `{ "token": "eyJhbGci...", "nombre": "Juan Perez" }` |
-| `401` | Telefono o PIN incorrectos (mensaje generico deliberado) |
+| `200` | `LoginResponseDto` |
+| `401` | `{ "mensaje": "correo o contrasena incorrectos" }` (mensaje generico deliberado: mismo texto si el correo no existe, la contrasena falla, la cuenta esta desactivada o es solo de Google) |
+| `429` | Rate limit excedido |
+
+### POST /api/auth/google
+
+Inicio de sesion con Google. La app manda el **ID Token** que obtuvo del SDK de Google Sign-In; el backend lo valida (firma, emisor, expiracion, audiencia y correo verificado) con `Google.Apis.Auth` antes de confiar en su contenido. Si la cuenta no existe la crea; si ya existe una cuenta de correo con el mismo email, las vincula. Ver [authentication.md](./authentication.md#3-login-con-google).
+
+**Request body (`GoogleLoginDto`):**
+
+| Campo | Tipo | Requerido | Descripcion |
+|---|---|---|---|
+| `idToken` | string | Si | ID Token emitido por Google para el Client ID Web de la app |
+
+```json
+{ "idToken": "eyJhbGciOiJSUzI1NiIs..." }
+```
+
+**Respuestas:**
+
+| Codigo | Cuerpo |
+|---|---|
+| `200` | `LoginResponseDto` |
+| `400` | Falta el `idToken` |
+| `401` | `{ "mensaje": "no se pudo validar la cuenta de Google" }` (token invalido, expirado, de otra app, correo sin verificar, o Client IDs sin configurar) o `{ "mensaje": "esta cuenta esta desactivada" }` |
 | `429` | Rate limit excedido |
 
 ---
@@ -211,7 +259,43 @@ Crea o actualiza (upsert) los umbrales de riesgo del usuario. Cada usuario tiene
 
 ## 4. Clima
 
-**Controlador:** `ClimaController` -- **Ruta base:** `/api/clima` -- **Acceso:** JWT requerido
+**Controlador:** `ClimaController` -- **Ruta base:** `/api/clima` -- **Acceso:** JWT requerido, salvo `GET /api/clima/pronostico` (Publico)
+
+### GET /api/clima/pronostico
+
+**Acceso: Publico.** Pronostico de 5 dias por coordenadas para el modo invitado de la app: el productor ve el clima de su zona sin tener cuenta. **No guarda nada** ni se asocia a ninguna parcela; consulta Open-Meteo en cada llamada y, si esta no responde, no hay dato de respaldo.
+
+**Query params:**
+
+| Parametro | Tipo | Requerido | Validacion |
+|---|---|---|---|
+| `latitud` | decimal | Si | -90 a 90 |
+| `longitud` | decimal | Si | -180 a 180 |
+
+```
+GET /api/clima/pronostico?latitud=11.85&longitud=-86.199
+```
+
+**Respuestas:**
+
+| Codigo | Significado |
+|---|---|
+| `200` | Array de `PronosticoPublico` (un elemento por dia) |
+| `400` | `{ "mensaje": "coordenadas fuera de rango" }` |
+| `503` | `{ "mensaje": "el servicio de clima no esta disponible por el momento" }` -- Open-Meteo no respondio |
+
+**Modelo `PronosticoPublico`:**
+
+| Campo | Tipo |
+|---|---|
+| `fecha` | datetime (solo fecha) |
+| `temperaturaMax` | decimal? |
+| `temperaturaMin` | decimal? |
+| `precipitacion` | decimal? |
+| `vientoVelocidad` | decimal? |
+
+> [!NOTE]
+> A diferencia de `DatosClimaticos`, este modelo no tiene `id`, `parcelaId` ni `humedadRelativa`/`radiacionSolar`: es informacion publica de consulta. El semaforo de riesgo **no** usa este endpoint; requiere una parcela y sesion.
 
 ### POST /api/clima/actualizar/{parcelaId}
 
@@ -385,7 +469,9 @@ Aplica el contenido agronomico real desde `Scripts/reglas-preliminares-completas
 
 ## 8. Catalogos
 
-**Controlador:** `CatalogoController` -- **Ruta base:** `/api/catalogos` -- **Acceso:** JWT requerido
+**Controlador:** `CatalogoController` -- **Ruta base:** `/api/catalogos` -- **Acceso:** Publico
+
+Son datos de referencia agricola (cultivos, suelos, etapas, eventos), sin informacion de ningun usuario. Se dejan abiertos para que un usuario anonimo pueda explorar antes de decidir crear una cuenta.
 
 | Endpoint | Respuesta |
 |---|---|

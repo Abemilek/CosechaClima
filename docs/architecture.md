@@ -33,7 +33,7 @@ CosechaClima/
 |   |   |-- WebApi.Interface/
 |   |   |-- WebApi.Implementation/
 |   |       |-- Connection/        # ConnectionBD (Singleton factory)
-|   |       |-- Security/          # HashPin, TokenGenerator
+|   |       |-- Security/          # HashPassword, TokenGenerator, GoogleTokenValidator
 |   |       |-- Exceptions/        # Excepciones de dominio
 |   |-- Scripts/
 |   |-- Dockerfile                 # Multi-stage (SDK -> Alpine runtime)
@@ -50,13 +50,23 @@ CosechaClima/
 | Backend | ASP.NET Core 10 | LTS vigente, tipado fuerte |
 | Base de datos | SQL Server 2022 (Docker) | Developer Edition, gratuita |
 | Acceso a datos | ADO.NET con OPENJSON | Control explicito de queries, optimizacion batch |
-| Autenticacion | JWT Bearer + PIN (PBKDF2 + salt) + Jti | Sin dependencias externas de identidad |
+| Autenticacion | JWT Bearer + correo/contrasena (PBKDF2 + salt) + Google Sign-In (ID Token validado en el servidor) + Jti | Google es gratuito: sin SMS ni servicios de pago |
 | Autorizacion | Basada en claims + rol Admin | Ownership por usuario en cada recurso |
 | Datos climaticos | [Open-Meteo](https://open-meteo.com) | Pronostico real, sin API key, gratuito |
 | Documentacion de API | Swagger / OpenAPI | Generada automaticamente desde el codigo |
 | Contenedorizacion | Docker multi-stage (Alpine) | Imagen minima, usuario no-root |
 | CI/CD | GitHub Actions | Build y test automatizados |
 | Cliente movil | Flutter | Codigo unico multiplataforma |
+
+## Autenticacion y modo invitado
+
+Hay dos formas de tener cuenta -- correo + contrasena o Google -- y las dos terminan en el mismo JWT. La logica vive detras de interfaces, igual que el resto de las capas:
+
+- `ITokenGenerator` (`TokenGenerator`): emite el JWT con los claims de identidad, rol y `Jti`.
+- `IGoogleTokenValidator` (`GoogleTokenValidator`): valida el ID Token contra las claves publicas de Google con la libreria oficial `Google.Apis.Auth`. Devuelve un `UsuarioGoogle` ya verificado, nunca datos que mande la app sin comprobar.
+- `IUsuarioService` (`UsuarioService`): registra, autentica y resuelve la cuenta de Google (por UID, por correo o nueva).
+
+La app movil funciona **sin cuenta**: entra a un inicio publico con el pronostico de 5 dias de la zona (`GET /api/clima/pronostico`, que no persiste nada) y solo pide iniciar sesion al acceder a lo privado, como guardar una parcela. En el backend eso se traduce en que todo controlador es `[Authorize]` por defecto y solo se abren de forma explicita `/api/auth/*`, el pronostico publico, los catalogos y `/health`. Detalle en [authentication.md](./authentication.md).
 
 ## El motor de decisiones
 
@@ -69,6 +79,7 @@ El contenido del arbol vive en un archivo JSON externo (`Scripts/reglas-prelimin
 ## Ver tambien
 
 - [security.md](./security.md) -- decisiones de seguridad y hallazgos resueltos.
-- [authentication.md](./authentication.md) -- flujo de login y JWT en detalle.
+- [authentication.md](./authentication.md) -- flujo de login (correo y Google), modo invitado y JWT en detalle.
+- [google-sign-in-setup.md](./google-sign-in-setup.md) -- configuracion de Google Sign-In.
 - [api-reference.md](./api-reference.md) -- referencia completa de endpoints.
 - [changelog.md](./changelog.md) -- registro de cambios.

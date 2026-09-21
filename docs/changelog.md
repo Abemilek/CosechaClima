@@ -5,7 +5,43 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), vers
 
 ## [Unreleased]
 
+### Added
+- Inicio de sesion con **Google**: `POST /api/auth/google` valida el ID Token en el servidor (`Google.Apis.Auth`: firma, emisor, expiracion, audiencia y correo verificado). Si ya existe una cuenta de correo con el mismo email, las vincula.
+- Registro y login con **correo + contrasena** (`POST /api/auth/register`, `POST /api/auth/login`). El registro devuelve el token directamente.
+- **Modo invitado**: `GET /api/clima/pronostico` (publico, 5 dias por coordenadas, sin persistencia) y catalogos abiertos (`[AllowAnonymous]`). La app entra a un inicio publico y solo pide cuenta al acceder a lo privado.
+- Esquema de `Usuarios` con `Email`, `GoogleUid`, `PasswordHash`, `PasswordSalt`, `Proveedor` y `FotoUrl`. La unicidad de `GoogleUid` es un indice unico filtrado (`WHERE GoogleUid IS NOT NULL`), porque una restriccion `UNIQUE` comun de SQL Server solo admite un `NULL` y bloquearia el segundo registro por correo.
+- Script `Scripts/migracion-v2-auth.sql` para migrar bases existentes de telefono + PIN al esquema nuevo (con respaldo en `Usuarios_Respaldo_v1`).
+- Variables `ADMIN_SEED_EMAIL`, `ADMIN_SEED_PASSWORD`, `GOOGLE_CLIENT_ID_ANDROID`, `GOOGLE_CLIENT_ID_IOS` y `GOOGLE_CLIENT_ID_WEB` (backend), y `GOOGLE_SERVER_CLIENT_ID` (app movil).
+- Interfaces `ITokenGenerator` e `IGoogleTokenValidator`.
+- App movil: pantallas `EmailAuthScreen`, `LoginSheet` (login contextual) y `PublicHomeScreen`; el onboarding se muestra una sola vez.
+- Documentacion: [google-sign-in-setup.md](./google-sign-in-setup.md).
+
+### Changed
+- **BREAKING:** el identificador de cuenta pasa de `Telefono` a `Email`. `POST /api/auth/register` ya no devuelve `{ id, mensaje }` sino `LoginResponseDto` (`token`, `nombre`, `email`, `fotoUrl`, `esAdmin`), igual que `login` y `google`.
+- **BREAKING:** el claim `MobilePhone` del JWT se reemplaza por `Email`.
+- Las contrasenas se hashean con PBKDF2-HMAC-SHA256 (600.000 iteraciones, salt individual) en `HashPassword`.
+- La politica de rate limiting `auth` (5/min por IP) ahora tambien cubre `POST /api/auth/google`.
+- `CatalogoController` pasa de `[Authorize]` a `[AllowAnonymous]`; `ClimaController` sigue protegido salvo `GET /pronostico`.
+- El admin inicial se define con `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD` (antes telefono + PIN).
+- `compose.yaml`: `ASPNETCORE_ENVIRONMENT` tiene por defecto `Production` (Swagger oculto y redireccion HTTPS activa); para desarrollo local se pisa desde `.env` con `Development`.
+- La API valida `Jwt:SecretKey` al arrancar: falla si falta, es menor a 32 bytes o conserva el texto de relleno de `.env.example`.
+- App movil: cuando expira la sesion se vuelve al modo publico en vez de forzar el login.
+
+### Fixed
+- `BD-CosechaClima.sql` es idempotente al recrear el indice `UK_ReglasDecision_Clave`: `OBJECT_ID` no reconoce indices, por lo que se intentaba recrearlo en cada `docker compose up`.
+
+### Removed
+- Login por telefono + PIN: `HashPin`, `LoginDto` anterior, columnas `Telefono`, `PinHash` y `PinSalt`, y en la app las pantallas de login/registro con PIN y el widget `PinInput`.
+
+### Security
+- Los ID Tokens de Google se validan siempre en el servidor; el backend nunca confia en el correo que declare la app.
+- Cuentas de Google sin contrasena local: el login por correo responde el mismo `401` generico para no revelar que correos existen.
+- Contrasenas de al menos 8 caracteres (OWASP / NIST SP 800-63B) en lugar de un PIN de 4 digitos.
+
 ### Pendiente
+- Verificacion del correo al registrarse con contrasena (hoy la vinculacion con Google confia en que Google verifico el correo, pero el registro por correo no lo verifica).
+- Rate limiting y cache para `GET /api/clima/pronostico` (hoy es publico y consulta Open-Meteo en cada llamada).
+- Leer la IP real del cliente (`ForwardedHeaders`) cuando la API corra detras de un proxy o tunel; sin eso el rate limit por IP se comparte entre todos los usuarios.
 - Validacion tecnica formal del arbol de reglas completo (INTA/MARENA).
 - Alertas proactivas usando el pronostico multi-dia de Open-Meteo (no solo el dia actual).
 - Reportes comunitarios geolocalizados (fase 2).
