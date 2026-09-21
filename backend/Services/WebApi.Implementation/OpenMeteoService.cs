@@ -88,6 +88,56 @@ public class OpenMeteoService : IProveedorClimaticoService
         }
     }
 
+    public async Task<List<PronosticoPublico>> ObtenerPronosticoPublico(decimal latitud, decimal longitud)
+    {
+        var url = $"?latitude={latitud.ToString(CultureInfo.InvariantCulture)}" +
+                   $"&longitude={longitud.ToString(CultureInfo.InvariantCulture)}" +
+                   "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max" +
+                   "&timezone=America%2FManagua&forecast_days=5";
+
+        try
+        {
+            var respuesta = await _httpClient.GetFromJsonAsync<OpenMeteoRespuesta>(url);
+            var diario = respuesta?.Daily;
+
+            if (diario?.Time is null || diario.Time.Count == 0)
+            {
+                _logger.LogWarning(
+                    "Open-Meteo respondio sin datos para pronostico publico ({Lat},{Lon})",
+                    latitud, longitud);
+                return [];
+            }
+
+            var pronostico = new List<PronosticoPublico>();
+
+            for (var indice = 0; indice < diario.Time.Count; indice++)
+            {
+                pronostico.Add(new PronosticoPublico
+                {
+                    Fecha = DateTime.Parse(diario.Time[indice]).Date,
+                    TemperaturaMax = ObtenerValor(diario.Temperature2mMax, indice),
+                    TemperaturaMin = ObtenerValor(diario.Temperature2mMin, indice),
+                    Precipitacion = ObtenerValor(diario.PrecipitationSum, indice),
+                    VientoVelocidad = ObtenerValor(diario.Windspeed10mMax, indice)
+                });
+            }
+
+            return pronostico;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex,
+                "Fallo de red consultando pronostico publico ({Lat},{Lon})", latitud, longitud);
+            return [];
+        }
+        catch (TaskCanceledException ex)
+        {
+            _logger.LogWarning(ex,
+                "Timeout consultando pronostico publico ({Lat},{Lon})", latitud, longitud);
+            return [];
+        }
+    }
+
     private async Task<DatosClimaticos?> UsarUltimoDatoGuardado(int parcelaId)
     {
         var ultimos = await _datosClimaticoService.ObtenerUltimosDatos(parcelaId, dias: 1);
@@ -102,7 +152,6 @@ public class OpenMeteoService : IProveedorClimaticoService
         return lista[indice];
     }
 
-    // deserializar el json de open meteo
     internal class OpenMeteoRespuesta
     {
         public OpenMeteoDaily? Daily { get; set; }
