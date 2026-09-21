@@ -3,11 +3,12 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using WebApi.Interface;
 using WebApi.Models;
 
 namespace WebApi.Implementation.Security;
 
-public class TokenGenerator
+public class TokenGenerator : ITokenGenerator
 {
     private readonly IConfiguration _configuration;
 
@@ -30,7 +31,7 @@ public class TokenGenerator
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
-            new(ClaimTypes.MobilePhone, usuario.Telefono),
+            new(ClaimTypes.Email, usuario.Email),
             new(ClaimTypes.Name, usuario.Nombre),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };

@@ -34,7 +34,6 @@ builder.Services.AddSwaggerGen(opciones =>
     });
 });
 
-// politica de cors para el frontend
 builder.Services.AddCors(opciones =>
 {
     opciones.AddPolicy("FrontendPolicy", politica =>
@@ -50,7 +49,30 @@ builder.Services.AddCors(opciones =>
 });
 
 var jwtConfig = builder.Configuration.GetSection("Jwt");
-var secretKey = jwtConfig["SecretKey"]!;
+var secretKey = jwtConfig["SecretKey"];
+
+const string claveDeRelleno = "pon-aqui-una-clave-secreta-y-larga-minimo-32-caracteres";
+
+if (string.IsNullOrWhiteSpace(secretKey))
+{
+    throw new InvalidOperationException(
+        "Jwt:SecretKey no esta configurada. Defini la variable de entorno " +
+        "JWT_SECRET_KEY antes de levantar la API (ver .env.example).");
+}
+
+if (secretKey == claveDeRelleno)
+{
+    throw new InvalidOperationException(
+        "Jwt:SecretKey todavia tiene el valor de relleno de .env.example. " +
+        "Generá una clave real, por ejemplo con: openssl rand -base64 48");
+}
+
+if (Encoding.UTF8.GetByteCount(secretKey) < 32)
+{
+    throw new InvalidOperationException(
+        "Jwt:SecretKey es demasiado corta: HMAC-SHA256 requiere al menos " +
+        "32 bytes (256 bits). Generá una con: openssl rand -base64 48");
+}
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -68,17 +90,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 
-// registro del http client
 builder.Services.AddHttpClient<IProveedorClimaticoService, OpenMeteoService>(cliente =>
 {
     cliente.BaseAddress = new Uri("https://api.open-meteo.com/v1/forecast");
     cliente.Timeout = TimeSpan.FromSeconds(10);
 });
 
-// conexion a la base de datos
 builder.Services.AddSingleton<ConnectionBD>();
 
-// cada servicio registrado, por cada interfaz que exista
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<IParcelaService, ParcelaService>();
 builder.Services.AddScoped<IUmbralConfiguracionService, UmbralConfiguracionService>();
@@ -90,7 +109,8 @@ builder.Services.AddScoped<IReglaDecisionService, ReglaDecisionService>();
 builder.Services.AddScoped<IEtapaFenologicaService, EtapaFenologicaService>();
 builder.Services.AddScoped<ICatalogoService, CatalogoService>();
 builder.Services.AddAuthorization();
-builder.Services.AddScoped<TokenGenerator>();
+builder.Services.AddScoped<ITokenGenerator, TokenGenerator>();
+builder.Services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
 builder.Services.AddExceptionHandler<ManejadorErroresGlobal>();
 builder.Services.AddProblemDetails();
 
@@ -171,43 +191,43 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
-        var telefonoAdmin = config["AdminSeed:Telefono"];
-        var pinAdmin = config["AdminSeed:Pin"];
+        var emailAdmin = config["AdminSeed:Email"];
+        var passwordAdmin = config["AdminSeed:Password"];
 
-        var seedConfigurado = !string.IsNullOrWhiteSpace(telefonoAdmin)
-            || !string.IsNullOrWhiteSpace(pinAdmin);
+        var seedConfigurado = !string.IsNullOrWhiteSpace(emailAdmin)
+            || !string.IsNullOrWhiteSpace(passwordAdmin);
 
         if (seedConfigurado)
         {
-            var telefonoValido = !string.IsNullOrWhiteSpace(telefonoAdmin)
-                && Regex.IsMatch(telefonoAdmin, "^[0-9]{8}$");
-            var pinValido = !string.IsNullOrWhiteSpace(pinAdmin)
-                && Regex.IsMatch(pinAdmin, "^[0-9]{4}$");
+            var emailValido = !string.IsNullOrWhiteSpace(emailAdmin)
+                && Regex.IsMatch(emailAdmin, @"^[^@\s]+@[^@\s]+\.[^@\s]+$");
+            var passwordValida = !string.IsNullOrWhiteSpace(passwordAdmin)
+                && passwordAdmin.Length >= 8;
 
-            if (!telefonoValido || !pinValido)
+            if (!emailValido || !passwordValida)
             {
                 app.Logger.LogWarning(
-                    "AdminSeed configurado con formato invalido (telefono debe tener 8 digitos, " +
-                    "pin debe tener 4 digitos) -- se omite el seed del admin inicial");
+                    "AdminSeed configurado con formato invalido (email debe ser valido, " +
+                    "password debe tener al menos 8 caracteres) -- se omite el seed del admin");
             }
             else
             {
                 var usuarioService = scope.ServiceProvider.GetRequiredService<IUsuarioService>();
-                var existente = await usuarioService.ObtenerPorTelefono(telefonoAdmin!);
+                var existente = await usuarioService.ObtenerPorEmail(emailAdmin!);
 
                 if (existente is null)
                 {
                     var nombreAdmin = config["AdminSeed:Nombre"] ?? "Admin";
-                    var id = await usuarioService.Registrar(
-                        new Usuario { Nombre = nombreAdmin, Telefono = telefonoAdmin! }, pinAdmin!);
+                    var id = await usuarioService.RegistrarConEmail(
+                        new Usuario { Nombre = nombreAdmin, Email = emailAdmin! }, passwordAdmin!);
                     await usuarioService.MarcarComoAdmin(id);
-                    app.Logger.LogInformation("Admin inicial creado: {Telefono}", telefonoAdmin);
+                    app.Logger.LogInformation("Admin inicial creado: {Email}", emailAdmin);
                 }
                 else if (!existente.EsAdmin)
                 {
                     await usuarioService.MarcarComoAdmin(existente.Id);
                     app.Logger.LogInformation(
-                        "Rol Admin otorgado a usuario existente: {Telefono}", telefonoAdmin);
+                        "Rol Admin otorgado a usuario existente: {Email}", emailAdmin);
                 }
             }
         }
