@@ -197,8 +197,8 @@ class _PintorLogoGoogle extends CustomPainter {
     }
 
     arco(-15, -75, const Color(0xFFEA4335));
-    arco(-90, -100, const Color(0xFFFBBC05)); 
-    arco(170, -80, const Color(0xFF34A853)); 
+    arco(-90, -100, const Color(0xFFFBBC05));
+    arco(170, -80, const Color(0xFF34A853));
     arco(90, -80, const Color(0xFF4285F4));
 
     final barra = Paint()..color = const Color(0xFF4285F4);

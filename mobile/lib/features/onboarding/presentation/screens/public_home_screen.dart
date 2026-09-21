@@ -22,7 +22,6 @@ class PublicHomeScreen extends StatefulWidget {
 }
 
 class _PublicHomeScreenState extends State<PublicHomeScreen> {
-
   static const _latPorDefecto = 11.8500;
   static const _lonPorDefecto = -86.1990;
 

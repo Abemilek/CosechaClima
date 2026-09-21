@@ -95,8 +95,7 @@ class AuthService {
   Future<void> cerrarSesion() async {
     try {
       await _construirGoogleSignIn().signOut();
-    } catch (_) {
-    }
+    } catch (_) {}
 
     await SecureStorage.delete(SecureStorageKeys.token);
 
