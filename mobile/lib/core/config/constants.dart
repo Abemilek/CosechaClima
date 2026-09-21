@@ -14,6 +14,8 @@ class StorageKeys {
   StorageKeys._();
 
   static const String nombreUsuario = 'auth_nombre';
+  static const String emailUsuario = 'auth_email';
+  static const String fotoUsuario = 'auth_foto';
 }
 
 class SecureStorageKeys {

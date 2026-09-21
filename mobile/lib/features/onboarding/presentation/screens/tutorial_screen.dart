@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../routing/no_animation_route.dart';
+import '../../../../routing/role_home_screen.dart';
 import '../../../../shared/widgets/progress_dots.dart';
-import '../../../auth/presentation/screens/login_screen.dart';
+import '../../../auth/presentation/view_models/auth_view_model.dart';
 
 class _TutorialStep {
   final IconData icon;
@@ -58,15 +62,20 @@ class _TutorialScreenState extends State<TutorialScreen> {
     super.dispose();
   }
 
-  void _goToLogin() {
-    Navigator.of(context).pushReplacement<void, void>(
-      noAnimationRoute<void>((_) => const LoginScreen()),
+  Future<void> _terminarOnboarding() async {
+    await context.read<AuthViewModel>().marcarOnboardingVisto();
+    if (!mounted) return;
+
+    unawaited(
+      Navigator.of(context).pushReplacement<void, void>(
+        noAnimationRoute<void>((_) => const RoleHomeScreen()),
+      ),
     );
   }
 
   void _next() {
     if (_index == _steps.length - 1) {
-      _goToLogin();
+      unawaited(_terminarOnboarding());
       return;
     }
     _pageController.jumpToPage(_index + 1);
@@ -130,7 +139,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
                 ),
               ),
               TextButton(
-                onPressed: _goToLogin,
+                onPressed: () => unawaited(_terminarOnboarding()),
                 child: const Text('Omitir tutorial'),
               ),
             ],
