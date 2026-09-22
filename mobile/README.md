@@ -1,97 +1,103 @@
-# CosechaClima -- App Movil
+# CosechaClima -- Mobile App
 
-Cliente movil Flutter para el sistema de alerta agroclimatica CosechaClima. Consume la API REST del backend ASP.NET Core 10 y presenta alertas de riesgo climatico con acciones recomendadas para productores agricolas.
+<!-- README-I18N:START -->
 
----
+**English** | [Español](./README.es.md)
 
-## Tabla de contenidos
+<!-- README-I18N:END -->
 
-- [Requisitos previos](#requisitos-previos)
-- [Instalacion](#instalacion)
-- [Configuracion de entorno](#configuracion-de-entorno)
-- [Estructura del proyecto](#estructura-del-proyecto)
-- [Filosofia de renderizado: Cero Animaciones](#filosofia-de-renderizado-cero-animaciones)
-- [Optimizaciones de rendimiento](#optimizaciones-de-rendimiento)
-- [Gestion de estado](#gestion-de-estado)
-- [Modo invitado y autenticacion](#modo-invitado-y-autenticacion)
-- [Seguridad](#seguridad)
-- [Integracion con la API](#integracion-con-la-api)
-- [Compilacion para release](#compilacion-para-release)
-- [Problemas comunes](#problemas-comunes)
+Flutter mobile client for the CosechaClima agroclimatic alert system. It consumes the ASP.NET Core 10 backend REST API and presents weather risk alerts with recommended actions for agricultural producers.
 
 ---
 
-## Requisitos previos
+## Table of Contents
 
-- Flutter SDK (canal estable)
-- Dart SDK (incluido con Flutter)
-- Android Studio o VS Code con extension Flutter
-- Dispositivo fisico o emulador (Android/iOS)
-- Backend API ejecutandose (ver [../backend/README.md](../backend/README.md) o `compose.yaml` en la raiz)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Environment configuration](#environment-configuration)
+- [Project structure](#project-structure)
+- [Rendering philosophy: Zero Animations](#rendering-philosophy-zero-animations)
+- [Performance optimizations](#performance-optimizations)
+- [State management](#state-management)
+- [Guest mode and authentication](#guest-mode-and-authentication)
+- [Security](#security)
+- [API integration](#api-integration)
+- [Release build](#release-build)
+- [Troubleshooting](#troubleshooting)
 
-## Instalacion
+---
+
+## Prerequisites
+
+- Flutter SDK (stable channel)
+- Dart SDK (bundled with Flutter)
+- Android Studio or VS Code with the Flutter extension
+- Physical device or emulator (Android/iOS)
+- Backend API running (see [../backend/README.md](../backend/README.md) or root `compose.yaml`)
+
+## Installation
 
 ```bash
 cd mobile
 flutter pub get
 ```
 
-## Configuracion de entorno
+## Environment configuration
 
-La app inyecta variables de entorno en **tiempo de compilacion** mediante `--dart-define-from-file` o `--dart-define`. La configuracion se lee desde `lib/core/config/environment.dart` usando `String.fromEnvironment`.
+The app injects environment variables at **build time** via `--dart-define-from-file` or `--dart-define`. Configuration is read from `lib/core/config/environment.dart` using `String.fromEnvironment`.
 
-### Paso 1 -- Crear el archivo `.env`
+### Step 1 -- Create the `.env` file
 
 ```bash
 cd mobile
 cp .env.example .env
 ```
 
-Editar `.env` con la URL del backend segun el entorno:
+Edit `.env` with the backend URL for your environment:
 
 ```bash
-# Emulador Android
+# Android emulator
 API_URL=http://10.0.2.2:8080
 
-# Dispositivo fisico (usar la IP local de la maquina)
+# Physical device (use the machine's local IP)
 API_URL=http://192.168.1.100:8080
 
-# Produccion
+# Production
 API_URL=https://api.cosechaclima.example.com
 
-# Google Sign-In (opcional): Client ID de tipo WEB, no el de Android
+# Google Sign-In (optional): WEB-type Client ID, not the Android one
 GOOGLE_SERVER_CLIENT_ID=
 ```
 
-| Variable | Obligatoria | Descripcion |
+| Variable | Required | Description |
 |---|---|---|
-| `API_URL` | Si | Base de la API. **Solo dominio y puerto, sin rutas** |
-| `GOOGLE_SERVER_CLIENT_ID` | No | Client ID Web de Google Cloud. Si esta vacio, la app oculta el boton "Continuar con Google" y solo ofrece correo y contrasena. Ver [../docs/google-sign-in-setup.md](../docs/google-sign-in-setup.md) |
+| `API_URL` | Yes | API base. **Domain and port only, no paths** |
+| `GOOGLE_SERVER_CLIENT_ID` | No | Google Cloud Web Client ID. If empty, the app hides the "Continue with Google" button and only offers email and password. See [../docs/google-sign-in-setup.md](../docs/google-sign-in-setup.md) |
 
 > [!NOTE]
-> `10.0.2.2` es el alias del emulador Android para el localhost de la maquina host. Para dispositivos fisicos, usar la IP local real.
+> `10.0.2.2` is the Android emulator's alias for the host machine's localhost. For physical devices, use the real local IP.
 
 > [!IMPORTANT]
-> `API_URL` **no debe llevar ruta**. La app arma cada peticion como `API_URL` + `/api` + el endpoint. Un valor como `https://host/swagger/index.html` o `https://host/api` hace que todas las pantallas fallen con `Error inesperado (404)`.
+> `API_URL` **must not include a path**. The app builds each request as `API_URL` + `/api` + the endpoint. A value like `https://host/swagger/index.html` or `https://host/api` makes every screen fail with `Error inesperado (404)`.
 
 > [!NOTE]
-> Android 9+ bloquea `http://` por defecto. El manifest de **debug** lo permite para desarrollo local (por ejemplo `http://10.0.2.2:8080`); los builds de release exigen `https://`.
+> Android 9+ blocks `http://` by default. The **debug** manifest allows it for local development (e.g. `http://10.0.2.2:8080`); release builds require `https://`.
 
-### Paso 2 -- Ejecutar con el archivo `.env`
+### Step 2 -- Run with the `.env` file
 
 ```bash
 flutter run --dart-define-from-file=.env
 ```
 
-**Alternativa sin archivo** (pasando la variable directamente):
+**Alternative without a file** (passing the variable directly):
 
 ```bash
 flutter run --dart-define=API_URL=http://10.0.2.2:8080
 ```
 
-### Comportamiento si falta `API_URL`
+### Behavior when `API_URL` is missing
 
-La app **no arranca** si `API_URL` no esta definida. Al iniciar, `Environment.validate()` lanza una excepcion explicita:
+The app **won't start** if `API_URL` is not defined. On launch, `Environment.validate()` throws an explicit exception:
 
 ```
 Exception: API_URL is required.
@@ -99,12 +105,12 @@ Run with: flutter run --dart-define-from-file=.env
 See mobile/.env.example for setup instructions.
 ```
 
-Como los valores se resuelven en **compilacion**, cada cambio en `.env` exige detener la app y volver a lanzarla; un hot reload o hot restart no lo aplica.
+Because values are resolved at **compile time**, every `.env` change requires stopping the app and relaunching it; a hot reload or hot restart won't apply it.
 
 > [!WARNING]
-> No existe fallback a ninguna URL por defecto. Siempre crear el archivo `.env` antes de ejecutar. El archivo `.env` no debe subirse a control de versiones.
+> There is no fallback to any default URL. Always create the `.env` file before running. The `.env` file must not be committed to version control.
 
-## Estructura del proyecto
+## Project structure
 
 ```
 mobile/
@@ -130,35 +136,35 @@ mobile/
 |-- pubspec.yaml
 ```
 
-## Filosofia de renderizado: Cero Animaciones
+## Rendering philosophy: Zero Animations
 
-Esta aplicacion sigue una politica estricta de **Cero Animaciones**. El objetivo es rendimiento puro y UX directa para usuarios agricolas en entornos de recursos limitados.
+This app follows a strict **Zero Animations** policy. The goal is pure performance and straightforward UX for farming users in resource-constrained environments.
 
-**Prohibido:**
+**Forbidden:**
 
-- `AnimatedContainer`, `AnimatedOpacity`, `AnimatedSwitcher`, o cualquier widget `Animated*`
-- `animateToPage` o cualquier transicion animada de pagina
-- Alertas flotantes dinamicas o animaciones de toast
-- Transiciones de opacidad o animaciones de expansion
-- `CircularProgressIndicator` con apariencia animada
+- `AnimatedContainer`, `AnimatedOpacity`, `AnimatedSwitcher`, or any `Animated*` widget
+- `animateToPage` or any animated page transition
+- Dynamic floating alerts or toast animations
+- Opacity transitions or expand animations
+- `CircularProgressIndicator` with an animated appearance
 
-**Requerido:**
+**Required:**
 
-- `jumpToPage` para toda navegacion de PageView (instantaneo, sin transicion)
-- Cambios estaticos de color y texto para actualizaciones de estado
-- Los niveles de riesgo (Alto, Medio, Bajo) se comunican a traves de bloques de color solido (rojo, ambar, verde) y texto en negrita, no a traves de efectos visuales
-- Reemplazo directo de widgets sin efectos de transicion
+- `jumpToPage` for all PageView navigation (instant, no transition)
+- Static color and text changes for state updates
+- Risk levels (High, Medium, Low) are communicated through solid color blocks (red, amber, green) and bold text, not through visual effects
+- Direct widget replacement with no transition effects
 
 > [!IMPORTANT]
-> Cualquier PR que introduzca widgets animados sera rechazado. Los niveles de riesgo se comunican exclusivamente mediante colorimetria estatica y texto contundente.
+> Any PR introducing animated widgets will be rejected. Risk levels are communicated exclusively through static color coding and bold text.
 
-## Optimizaciones de rendimiento
+## Performance optimizations
 
-### Parseo JSON en segundo plano con Isolates
+### Background JSON parsing with isolates
 
-Para servicios que retornan payloads JSON grandes (historial de bitacora, listas de catalogo), el parseo se delega a isolates en segundo plano usando la funcion `compute` de Dart para prevenir bloqueos del hilo de UI.
+For services returning large JSON payloads (logbook history, catalog lists), parsing is delegated to background isolates using Dart's `compute` function to avoid blocking the UI thread.
 
-Ejemplo de `BitacoraService`:
+Example from `BitacoraService`:
 
 ```dart
 import 'package:flutter/foundation.dart';
@@ -177,96 +183,96 @@ Future<List<BitacoraEntry>> obtenerMias() async {
 ```
 
 > [!NOTE]
-> La funcion de parseo debe ser una funcion de alto nivel (top-level), no un metodo ni un closure, para que `compute` pueda serializarla al isolate.
+> The parsing function must be a top-level function, not a method or closure, so it can be sent to the isolate.
 
-### Consumo granular de estado
+### Granular state consumption
 
-Evitar llamadas `context.watch<ViewModel>()` a nivel raiz que disparan rebuilds completos del arbol de widgets. En su lugar usar:
+Avoid root-level `context.watch<ViewModel>()` calls that trigger full widget-tree rebuilds. Use instead:
 
-- `Selector<ViewModel, T>` para observar campos especificos
-- `Consumer<ViewModel>` limitado al subarbol mas pequeno posible
-- `context.read<ViewModel>()` para lecturas unicas (event handlers, initState)
+- `Selector<ViewModel, T>` to observe specific fields
+- `Consumer<ViewModel>` scoped to the smallest possible subtree
+- `context.read<ViewModel>()` for one-off reads (event handlers, initState)
 
-## Gestion de estado
+## State management
 
-La app usa `Provider` para gestion de estado.
+The app uses `Provider` for state management.
 
-**Principios:**
+**Principles:**
 
-- Los ViewModels extienden `ChangeNotifier`.
-- Cada feature tiene su propio ViewModel (`AuthViewModel`, `ParcelaViewModel`, etc.).
-- El estado se consume de forma granular usando `Selector` y `Consumer` para minimizar rebuilds.
-- No se permiten observaciones globales de estado en los metodos `build` raiz.
+- ViewModels extend `ChangeNotifier`.
+- Each feature has its own ViewModel (`AuthViewModel`, `ParcelaViewModel`, etc.).
+- State is consumed granularly using `Selector` and `Consumer` to minimize rebuilds.
+- No global state observation in root `build` methods.
 
-## Modo invitado y autenticacion
+## Guest mode and authentication
 
-La app **no obliga a tener cuenta**. El onboarding se muestra una sola vez (primer arranque) y despues se entra siempre al inicio:
+The app **doesn't require an account**. The onboarding shows only once (first launch) and afterwards you always land on the home screen:
 
-| Estado | Pantalla de inicio |
+| State | Home screen |
 |---|---|
-| Sin sesion (invitado) | `PublicHomeScreen`: pronostico de 5 dias de la zona |
-| Con sesion | `ParcelaListScreen` (productor) o `AdminHomeScreen` (rol Admin) |
+| No session (guest) | `PublicHomeScreen`: 5-day area forecast |
+| With session | `ParcelaListScreen` (producer) or `AdminHomeScreen` (Admin role) |
 
-| Area | Invitado | Con cuenta |
+| Area | Guest | With account |
 |---|---|---|
-| Onboarding | Si | Si |
-| Pronostico de la zona (Carazo aproximado, o "Usar mi ubicacion") | Si | Si |
-| Parcelas, umbrales, clima de parcela, semaforo, bitacora | No, pide iniciar sesion | Si |
-| Panel de administracion | No | Solo rol Admin |
+| Onboarding | Yes | Yes |
+| Area forecast (approximate Carazo, or "Use my location") | Yes | Yes |
+| Plots, thresholds, plot weather, traffic light, logbook | No, asks to sign in | Yes |
+| Admin panel | No | Admin role only |
 
-**La sesion se pide en un unico punto.** Al tocar "Mis parcelas" en el inicio publico se abre un login contextual (`mostrarLoginContextual`) que explica el motivo. Si sale bien, la app continua a lo que el usuario queria hacer; si cancela, se queda donde estaba.
+**Sign-in is requested at a single point.** Tapping "Mis parcelas" on the public home opens a contextual login (`mostrarLoginContextual`) explaining why. On success, the app continues to what the user wanted to do; on cancel, it stays where it was.
 
-**Formas de iniciar sesion:**
+**Sign-in methods:**
 
-- **Continuar con Google** (`AuthService.loginConGoogle`): el SDK devuelve un `idToken` y la app lo manda a `POST /api/auth/google`. Requiere `GOOGLE_SERVER_CLIENT_ID` y que el paquete y el SHA-1 esten registrados en Google Cloud.
-- **Correo y contrasena** (`EmailAuthScreen`): pestanas "Soy nuevo" (`POST /api/auth/register`) y "Ya tengo cuenta" (`POST /api/auth/login`). Correo con formato valido y contrasena de al menos 8 caracteres.
+- **Continue with Google** (`AuthService.loginConGoogle`): the SDK returns an `idToken` and the app sends it to `POST /api/auth/google`. Requires `GOOGLE_SERVER_CLIENT_ID` and the package plus SHA-1 fingerprint registered in Google Cloud.
+- **Email and password** (`EmailAuthScreen`): "Soy nuevo" tabs (`POST /api/auth/register`) and "Ya tengo cuenta" (`POST /api/auth/login`). Valid email format and password of at least 8 characters.
 
-Las tres respuestas traen `{ token, nombre, email, fotoUrl, esAdmin }`. Si el backend responde `401` en un endpoint protegido (token vencido), `AuthViewModel` cierra la sesion y la app vuelve al inicio publico con el aviso "Tu sesión expiró. Volviste al modo público."
+All three responses return `{ token, nombre, email, fotoUrl, esAdmin }`. If the backend answers `401` on a protected endpoint (expired token), `AuthViewModel` signs out and the app returns to the public home with the notice "Tu sesión expiró. Volviste al modo público."
 
-`AuthViewModel` expone `estado` (`desconocido`, `autenticado`, `invitado`), `estaAutenticado`, `esAdmin` y `onboardingVisto`. Ver [../docs/mobile-integration-guide.md](../docs/mobile-integration-guide.md) para el detalle del flujo.
+`AuthViewModel` exposes `estado` (`desconocido`, `autenticado`, `invitado`), `estaAutenticado`, `esAdmin` and `onboardingVisto`. See [../docs/mobile-integration-guide.md](../docs/mobile-integration-guide.md) for the flow detail.
 
-## Seguridad
+## Security
 
-### Almacenamiento de token JWT
+### JWT token storage
 
-Los tokens JWT se almacenan usando `flutter_secure_storage`, que utiliza:
+JWT tokens are stored using `flutter_secure_storage`, which uses:
 
 - **Android:** EncryptedSharedPreferences (AES-256)
 - **iOS:** Keychain Services
 
 > [!WARNING]
-> Nunca almacenar tokens en `SharedPreferences` ni en variables de texto plano. Siempre usar `flutter_secure_storage`.
+> Never store tokens in `SharedPreferences` or plain-text variables. Always use `flutter_secure_storage`.
 
-`SharedPreferences` solo guarda datos **no sensibles** para mostrar la interfaz: nombre, correo, URL de la foto y el indicador de onboarding visto. Al cerrar sesion se borran el token y esos datos, y se cierra la sesion de Google.
+`SharedPreferences` only keeps **non-sensitive** data for rendering the UI: name, email, photo URL and the onboarding-seen flag. On sign-out the token and that data are wiped, and the Google session is closed.
 
-El Client ID de Google que lleva la app no es un secreto; el *client secret* nunca se usa ni se incluye en la app.
+The Google Client ID shipped in the app is not a secret; the *client secret* is never used nor bundled into the app.
 
-### Cliente HTTP y manejo de tokens
+### HTTP client and token handling
 
-La clase `ApiClient` gestiona:
+The `ApiClient` class handles:
 
-- Inyeccion automatica del header `Authorization: Bearer <token>` en todas las peticiones autenticadas.
-- Traduccion de errores HTTP a excepciones tipadas (`ApiException`, `NetworkException`, `TimeoutApiException`).
-- Terminacion automatica de sesion ante respuestas 401 (token expirado): la app vuelve al modo publico.
-- Lectura del mensaje de error desde `title` o `mensaje` segun el endpoint.
+- Automatic `Authorization: Bearer <token>` header injection on all authenticated requests.
+- Translation of HTTP errors into typed exceptions (`ApiException`, `NetworkException`, `TimeoutApiException`).
+- Automatic sign-out on 401 responses (expired token): the app returns to public mode.
+- Reading the error message from `title` or `mensaje` depending on the endpoint.
 
-## Integracion con la API
+## API integration
 
-La app se comunica con el backend via endpoints REST. Sin cuenta usa solo `GET /api/clima/pronostico` (publico). Con cuenta, el flujo tipico para ver el estado de riesgo de una parcela:
+The app communicates with the backend via REST endpoints. Without an account it only uses `GET /api/clima/pronostico` (public). With an account, the typical flow to see a plot's risk status:
 
-1. `POST /api/clima/actualizar/{parcelaId}` -- obtener datos climaticos mas recientes
-2. `POST /api/motor/semaforo` -- calcular semaforo de riesgo
-3. Mostrar tarjeta de riesgo con severidad codificada por color y 3 acciones
-4. `POST /api/logs` -- guardar en bitacora de campo cuando el usuario confirma
+1. `POST /api/clima/actualizar/{parcelaId}` -- fetch latest weather data
+2. `POST /api/motor/semaforo` -- calculate risk traffic light
+3. Show risk card with color-coded severity and 3 actions
+4. `POST /api/logs` -- save to the field logbook when the user confirms
 
-Ver [Referencia de API](../docs/api-reference.md) para documentacion completa de endpoints.
+See the [API Reference](../docs/api-reference.md) for full endpoint documentation.
 
-## Compilacion para release
+## Release build
 
 > [!WARNING]
-> La variable `API_URL` es **obligatoria** en builds de produccion. Sin ella, la app lanza una excepcion al iniciar.
+> The `API_URL` variable is **mandatory** in production builds. Without it, the app throws an exception on launch.
 
-**Usando archivo `.env`** (recomendado):
+**Using a `.env` file** (recommended):
 
 ```bash
 flutter build apk --release --dart-define-from-file=.env
@@ -274,29 +280,26 @@ flutter build appbundle --release --dart-define-from-file=.env
 flutter build ios --release --dart-define-from-file=.env
 ```
 
-**Usando variable directa:**
+**Using a direct variable:**
 
 ```bash
 flutter build apk --release --dart-define=API_URL=https://api.cosechaclima.example.com
 ```
 
-En release, `API_URL` debe ser `https://`: el trafico `http://` solo esta permitido en el manifest de debug.
+In release, `API_URL` must be `https://`: `http://` traffic is only allowed in the debug manifest.
 
-### Firma del APK (obligatorio antes de publicar v1.0)
+### APK signing (mandatory before publishing v1.0)
 
-Por defecto, `flutter build apk --release` firma con la **clave de debug**
-del SDK de Android. Esa clave es pública y compartida por todas las
-instalaciones del SDK, así que cualquiera puede re-firmar el APK y
-suplantar la app. Para un release publicado hay que generar un keystore
-propio una sola vez:
+By default, `flutter build apk --release` signs with the Android SDK's **debug key**.
+That key is public and shared by every SDK installation, so anyone can re-sign the APK and
+impersonate the app. For a published release, generate your own keystore once:
 
 ```bash
 keytool -genkey -v -keystore ~/cosechaclima-release.jks \
   -keyalg RSA -keysize 2048 -validity 10000 -alias cosechaclima
 ```
 
-Luego creá `mobile/android/key.properties` (ya está en `.gitignore`, no
-se versiona):
+Then create `mobile/android/key.properties` (already in `.gitignore`, not versioned):
 
 ```properties
 storePassword=LA_PASSWORD_DEL_KEYSTORE
@@ -305,45 +308,45 @@ keyAlias=cosechaclima
 storeFile=/home/TU_USUARIO/cosechaclima-release.jks
 ```
 
-`android/app/build.gradle.kts` detecta ese archivo automáticamente: si
-existe firma con tu keystore, si no se cae a las claves de debug para que
-`flutter run --release` siga funcionando en desarrollo.
+`android/app/build.gradle.kts` detects that file automatically: if it
+exists it signs with your keystore, otherwise it falls back to debug keys so
+`flutter run --release` keeps working in development.
 
 > [!CAUTION]
-> Guardá el `.jks` y sus contraseñas en un lugar seguro y con respaldo.
-> Si los perdés, no vas a poder publicar actualizaciones de la app
-> firmadas con la misma identidad — Android las rechaza como si fueran
-> de otro desarrollador.
+> Keep the `.jks` and its passwords somewhere safe and backed up.
+> If you lose them, you won't be able to publish app updates
+> signed with the same identity -- Android rejects them as if they were
+> from another developer.
 
-Verificá con qué clave quedó firmado el APK:
+Check which key the APK was signed with:
 
 ```bash
 keytool -printcert -jarfile build/app/outputs/flutter-apk/app-release.apk
 ```
 
-Si el propietario dice `CN=Android Debug`, el keystore no se tomó.
+If the owner says `CN=Android Debug`, the keystore wasn't picked up.
 
 > [!IMPORTANT]
-> Google Sign-In reconoce la app por su paquete y el **SHA-1 del keystore que la firma**. Cada keystore (debug, release y, si se publica en Google Play con Play App Signing, el de Play) necesita su propio Client ID de tipo Android en Google Cloud; si no, el login con Google falla en ese build con `ApiException: 10`. Ver [../docs/google-sign-in-setup.md](../docs/google-sign-in-setup.md).
+> Google Sign-In recognizes the app by its package and the **SHA-1 of the signing keystore**. Each keystore (debug, release and, if published on Google Play with Play App Signing, Play's) needs its own Android-type Client ID in Google Cloud; otherwise Google login fails on that build with `ApiException: 10`. See [../docs/google-sign-in-setup.md](../docs/google-sign-in-setup.md).
 
-### Identificador de aplicación
+### Application ID
 
-El `applicationId` es `ni.edu.unan.cosechaclima`. Antes era
-`com.example.mobile`: el prefijo `com.example` está reservado para
-ejemplos y Google Play rechaza cualquier APK que lo use. Este valor es
-**permanente** una vez publicada la app — cambiarlo después obliga a
-publicar una app nueva desde cero.
+The `applicationId` is `ni.edu.unan.cosechaclima`. It used to be
+`com.example.mobile`: the `com.example` prefix is reserved for
+samples and Google Play rejects any APK using it. This value is
+**permanent** once the app is published -- changing it later forces you to
+publish a brand-new app from scratch.
 
-El Client ID Android de Google Cloud debe usar este mismo paquete. Si lo cambias, hay que crear o actualizar ese Client ID.
+The Google Cloud Android Client ID must use this same package. If you change it, that Client ID must be created or updated.
 
-## Problemas comunes
+## Troubleshooting
 
-| Sintoma | Causa probable | Solucion |
+| Symptom | Likely cause | Solution |
 |---|---|---|
-| `Error inesperado (404)` en el pronostico, el login y el registro | `API_URL` tiene una ruta de mas (`/swagger/...`, `/api`) o apunta a otro servicio | Dejar solo dominio y puerto, y relanzar la app |
-| La app no arranca y lanza `API_URL is required` | `mobile/.env` vacio o no se paso `--dart-define-from-file=.env` | Completar `API_URL` y ejecutar `flutter run --dart-define-from-file=.env` |
-| Cambie el `.env` pero la app sigue igual | Los valores se resuelven al compilar | Detener la app y volver a lanzarla |
-| No aparece "Continuar con Google" | `GOOGLE_SERVER_CLIENT_ID` vacio | Completarlo con el Client ID Web y relanzar |
-| Google falla con `ApiException: 10` | Paquete o SHA-1 no coinciden con el Client ID Android | Ver [../docs/google-sign-in-setup.md](../docs/google-sign-in-setup.md) |
-| `Cleartext HTTP traffic not permitted` | Build de release contra una URL `http://` | Usar `https://` en release; en debug el manifest ya lo permite |
-| Al crear la cuenta con un correo **nuevo** dice "Ya existe un registro con esos mismos datos" | La base fue creada con una restriccion `UNIQUE` comun sobre `GoogleUid` (solo admite un `NULL`) | Recrear la base con el `BD-CosechaClima.sql` actual (`docker compose down -v`). Si el mensaje es "ya existe una cuenta con este correo", simplemente iniciar sesion |
+| `Error inesperado (404)` on forecast, login and registration | `API_URL` has an extra path (`/swagger/...`, `/api`) or points to another service | Keep only domain and port, and relaunch the app |
+| The app won't start and throws `API_URL is required` | Empty `mobile/.env` or `--dart-define-from-file=.env` wasn't passed | Fill in `API_URL` and run `flutter run --dart-define-from-file=.env` |
+| I changed `.env` but the app looks the same | Values are resolved at compile time | Stop the app and relaunch it |
+| "Continuar con Google" doesn't show up | Empty `GOOGLE_SERVER_CLIENT_ID` | Fill it with the Web Client ID and relaunch |
+| Google fails with `ApiException: 10` | Package or SHA-1 doesn't match the Android Client ID | See [../docs/google-sign-in-setup.md](../docs/google-sign-in-setup.md) |
+| `Cleartext HTTP traffic not permitted` | Release build against an `http://` URL | Use `https://` in release; in debug the manifest already allows it |
+| Creating an account with a **new** email says "Ya existe un registro con esos mismos datos" | The database was created with a plain `UNIQUE` constraint on `GoogleUid` (only allows one `NULL`) | Recreate the database with the current `BD-CosechaClima.sql` (`docker compose down -v`). If the message is "ya existe una cuenta con este correo", just sign in |

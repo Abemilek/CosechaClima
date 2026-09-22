@@ -1,42 +1,48 @@
 # CosechaClima -- Backend
 
-API REST para CosechaClima, un sistema de alerta temprana climatica para pequenos productores de maiz y frijol en Carazo, Nicaragua. ASP.NET Core 10, SQL Server 2022, ADO.NET.
+<!-- README-I18N:START -->
+
+**English** | [Español](./README.es.md)
+
+<!-- README-I18N:END -->
+
+REST API for CosechaClima, an early-warning weather system for small-scale corn and bean producers in Carazo, Nicaragua. ASP.NET Core 10, SQL Server 2022, ADO.NET.
 
 ---
 
-## Tabla de contenidos
+## Table of Contents
 
-- [Arquitectura](#arquitectura)
-- [Stack tecnico](#stack-tecnico)
-- [Requisitos previos](#requisitos-previos)
-- [Opcion A -- Ejecutar con Docker](#opcion-a----ejecutar-con-docker)
-- [Opcion B -- Ejecutar localmente sin Docker](#opcion-b----ejecutar-localmente-sin-docker)
-- [Variables de configuracion](#variables-de-configuracion)
-- [Usuario administrador](#usuario-administrador)
-- [Migracion de esquema: de telefono + PIN a correo + Google](#migracion-de-esquema-de-telefono--pin-a-correo--google)
-- [Despliegue con Docker -- Dockerfile multi-stage](#despliegue-con-docker----dockerfile-multi-stage)
-- [Patrones de arquitectura y seguridad](#patrones-de-arquitectura-y-seguridad)
-- [Endpoints disponibles](#endpoints-disponibles)
-- [Comandos utiles](#comandos-utiles)
-- [Estructura del proyecto](#estructura-del-proyecto)
-- [Problemas comunes](#problemas-comunes)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Prerequisites](#prerequisites)
+- [Option A -- Run with Docker](#option-a----run-with-docker)
+- [Option B -- Run locally without Docker](#option-b----run-locally-without-docker)
+- [Configuration variables](#configuration-variables)
+- [Admin user](#admin-user)
+- [Schema migration: from phone + PIN to email + Google](#schema-migration-from-phone--pin-to-email--google)
+- [Docker deployment -- multi-stage Dockerfile](#docker-deployment----multi-stage-dockerfile)
+- [Architecture and security patterns](#architecture-and-security-patterns)
+- [Available endpoints](#available-endpoints)
+- [Useful commands](#useful-commands)
+- [Project structure](#project-structure)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
-## Arquitectura
+## Architecture
 
 ```
 CosechaClima.sln
-|-- WebApi/                    # Capa de presentacion HTTP
+|-- WebApi/                    # HTTP presentation layer
 |   |-- Controllers/
 |   |-- Dto/
 |   |-- ManejadorErroresGlobal.cs
 |   |-- Program.cs
-|-- WebApi.Models/             # Entidades de dominio
+|-- WebApi.Models/             # Domain entities
 |-- Services/
-|   |-- WebApi.Interface/      # Contratos de servicio
-|   |-- WebApi.Implementation/ # Logica de negocio + ADO.NET
-|       |-- Connection/        # ConnectionBD (fabrica de SqlConnection)
+|   |-- WebApi.Interface/      # Service contracts
+|   |-- WebApi.Implementation/ # Business logic + ADO.NET
+|       |-- Connection/        # ConnectionBD (SqlConnection factory)
 |       |-- Security/          # HashPassword, TokenGenerator, GoogleTokenValidator
 |       |-- Exceptions/        # RecursoNoEncontradoException, FlujoIncompletoException
 |-- Scripts/
@@ -46,56 +52,56 @@ CosechaClima.sln
 |-- Dockerfile
 ```
 
-## Stack tecnico
+## Tech Stack
 
-| Componente | Tecnologia |
+| Component | Technology |
 |---|---|
 | Framework | ASP.NET Core 10 (.NET 10) |
-| Base de datos | SQL Server 2022 |
-| Acceso a datos | ADO.NET (`Microsoft.Data.SqlClient`) con `OPENJSON` para operaciones batch |
-| Autenticacion | JWT Bearer (correo + contrasena con hash PBKDF2 + salt, o Google Sign-In validado con `Google.Apis.Auth`; claim `Jti`) |
-| Datos climaticos | Open-Meteo (API publica, sin key) |
-| Documentacion de API | Swagger / OpenAPI |
-| Contenedores | Docker multi-stage build (SDK -> Alpine runtime) |
-| Manejo de errores | RFC 7807 ProblemDetails via `ManejadorErroresGlobal` |
+| Database | SQL Server 2022 |
+| Data access | ADO.NET (`Microsoft.Data.SqlClient`) with `OPENJSON` for batch operations |
+| Authentication | JWT Bearer (email + password with PBKDF2 hash + salt, or Google Sign-In validated with `Google.Apis.Auth`; `Jti` claim) |
+| Weather data | Open-Meteo (public API, no key) |
+| API documentation | Swagger / OpenAPI |
+| Containers | Docker multi-stage build (SDK -> Alpine runtime) |
+| Error handling | RFC 7807 ProblemDetails via `ManejadorErroresGlobal` |
 
-## Requisitos previos
+## Prerequisites
 
-- [.NET SDK 10](https://dotnet.microsoft.com/download) (si no usaras Docker)
-- [Docker + Docker Compose](https://www.docker.com/) (recomendado)
-- Un cliente de SQL Server para inspeccion (Azure Data Studio, DBeaver, o extension de VS Code)
+- [.NET SDK 10](https://dotnet.microsoft.com/download) (if you won't use Docker)
+- [Docker + Docker Compose](https://www.docker.com/) (recommended)
+- A SQL Server client for inspection (Azure Data Studio, DBeaver, or the VS Code extension)
 
-## Opcion A -- Ejecutar con Docker
+## Option A -- Run with Docker
 
 > [!NOTE]
-> El archivo `compose.yaml` esta en la **raiz del proyecto** (no dentro de `/backend`). Todas las variables se leen del `.env` en la raiz.
+> The `compose.yaml` file lives in the **project root** (not inside `/backend`). All variables are read from the root `.env`.
 
 ```bash
-cd CosechaClima   # raiz del proyecto
+cd CosechaClima   # project root
 cp .env.example .env
-# Editar .env -- ver comentarios en .env.example
+# Edit .env -- see comments in .env.example
 docker compose up --build -d
 ```
 
 > [!WARNING]
-> `DB_SA_PASSWORD` debe cumplir la politica de complejidad de SQL Server: minimo 8 caracteres combinando al menos 3 de 4 categorias (mayusculas, minusculas, digitos, simbolos). Una contrasena que no cumpla causara que el contenedor `db` falle con `Login failed for user 'sa'`.
+> `DB_SA_PASSWORD` must meet the SQL Server complexity policy: minimum 8 characters combining at least 3 of 4 categories (uppercase, lowercase, digits, symbols). A password that doesn't comply will make the `db` container fail with `Login failed for user 'sa'`.
 
-Los contenedores se inician en orden: **db** -> **db-init** (esquema + seed) -> **api** (http://localhost:8080).
+Containers start in order: **db** -> **db-init** (schema + seed) -> **api** (http://localhost:8080).
 
 > [!WARNING]
-> SQL Server solo aplica `DB_SA_PASSWORD` **la primera vez** que crea el volumen `cosechaclima-db-data`. Si cambias la contrasena despues, `db` queda `unhealthy` con `Login failed for user 'sa'`. Los scripts SQL tampoco alteran tablas que ya existen. En desarrollo, para empezar limpio: `docker compose down -v && docker compose up --build` (**borra los datos**).
+> SQL Server only applies `DB_SA_PASSWORD` **the first time** it creates the `cosechaclima-db-data` volume. If you change the password afterwards, `db` becomes `unhealthy` with `Login failed for user 'sa'`. The SQL scripts don't alter tables that already exist either. In development, to start clean: `docker compose down -v && docker compose up --build` (**wipes data**).
 
-Verificacion:
+Verification:
 
 ```bash
 curl http://localhost:8080/health
 ```
 
-Esperado: `200 OK` con `Healthy`.
+Expected: `200 OK` with `Healthy`.
 
-## Opcion B -- Ejecutar localmente sin Docker
+## Option B -- Run locally without Docker
 
-### 1. Levantar solo SQL Server
+### 1. Start only SQL Server
 
 ```bash
 docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=YourStrong!Passw0rd" \
@@ -103,129 +109,129 @@ docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=YourStrong!Passw0rd" \
   -d mcr.microsoft.com/mssql/server:2022-latest
 ```
 
-### 2. Correr los scripts
+### 2. Run the scripts
 
-Conectarse a `localhost,1433` con usuario `sa` y ejecutar en orden: `Scripts/BD-CosechaClima.sql` y luego `Scripts/seed.sql`.
+Connect to `localhost,1433` with user `sa` and run in order: `Scripts/BD-CosechaClima.sql` and then `Scripts/seed.sql`.
 
-### 3. Configurar la API
+### 3. Configure the API
 
 ```bash
 cd backend/WebApi
 dotnet user-secrets init
 dotnet user-secrets set "ConnectionStrings:BD_CosechaClima" "Server=localhost,1433;Database=BD_CosechaClima;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;"
 dotnet user-secrets set "Jwt:SecretKey" "una-clave-larga-de-al-menos-32-caracteres-para-hmac-sha256"
-# Opcional: Google Sign-In (ver docs/google-sign-in-setup.md)
+# Optional: Google Sign-In (see docs/google-sign-in-setup.md)
 dotnet user-secrets set "GoogleAuth:ClientIds:0" "<client id web>.apps.googleusercontent.com"
 ```
 
-### 4. Correr la API
+### 4. Run the API
 
 ```bash
 cd backend/WebApi
 dotnet run
 ```
 
-Levanta en `http://localhost:5013` (perfil http).
+It starts on `http://localhost:5013` (http profile).
 
-## Variables de configuracion
+## Configuration variables
 
-| Clave | Docker (`.env`) | Local (user-secrets) | Requerida |
+| Key | Docker (`.env`) | Local (user-secrets) | Required |
 |---|---|---|---|
-| `ConnectionStrings:BD_CosechaClima` | `CONNECTION_STRING` | Si | Si |
-| `Jwt:SecretKey` | `JWT_SECRET_KEY` | Si | Si (min 32 caracteres para HMAC-SHA256) |
-| `Jwt:Issuer` | `JWT_ISSUER` | Tiene default | No |
-| `Jwt:Audience` | `JWT_AUDIENCE` | Tiene default | No |
-| `Jwt:DurationMinutes` | `JWT_DURATION_MINUTES` | Tiene default (1440) | No |
-| `AdminSeed:Email` | `ADMIN_SEED_EMAIL` | Si | No (correo valido) |
-| `AdminSeed:Password` | `ADMIN_SEED_PASSWORD` | Si | No (minimo 8 caracteres) |
-| `AdminSeed:Nombre` | `ADMIN_SEED_NOMBRE` | Si | No |
-| `GoogleAuth:ClientIds:0` | `GOOGLE_CLIENT_ID_ANDROID` | Si | No (necesario para Google Sign-In) |
-| `GoogleAuth:ClientIds:1` | `GOOGLE_CLIENT_ID_IOS` | Si | No |
-| `GoogleAuth:ClientIds:2` | `GOOGLE_CLIENT_ID_WEB` | Si | Si para Google Sign-In: es el `aud` del token que emite Google a la app |
-| `Cors:AllowedOrigins` | `CORS_ALLOWED_ORIGIN` | Si | No |
-| `ASPNETCORE_ENVIRONMENT` | `ASPNETCORE_ENVIRONMENT` | Si | No (default `Production`: Swagger oculto; `Development` lo habilita) |
+| `ConnectionStrings:BD_CosechaClima` | `CONNECTION_STRING` | Yes | Yes |
+| `Jwt:SecretKey` | `JWT_SECRET_KEY` | Yes | Yes (min 32 characters for HMAC-SHA256) |
+| `Jwt:Issuer` | `JWT_ISSUER` | Has default | No |
+| `Jwt:Audience` | `JWT_AUDIENCE` | Has default | No |
+| `Jwt:DurationMinutes` | `JWT_DURATION_MINUTES` | Has default (1440) | No |
+| `AdminSeed:Email` | `ADMIN_SEED_EMAIL` | Yes | No (valid email) |
+| `AdminSeed:Password` | `ADMIN_SEED_PASSWORD` | Yes | No (minimum 8 characters) |
+| `AdminSeed:Nombre` | `ADMIN_SEED_NOMBRE` | Yes | No |
+| `GoogleAuth:ClientIds:0` | `GOOGLE_CLIENT_ID_ANDROID` | Yes | No (required for Google Sign-In) |
+| `GoogleAuth:ClientIds:1` | `GOOGLE_CLIENT_ID_IOS` | Yes | No |
+| `GoogleAuth:ClientIds:2` | `GOOGLE_CLIENT_ID_WEB` | Yes | Yes for Google Sign-In: it is the `aud` of the token Google issues to the app |
+| `Cors:AllowedOrigins` | `CORS_ALLOWED_ORIGIN` | Yes | No |
+| `ASPNETCORE_ENVIRONMENT` | `ASPNETCORE_ENVIRONMENT` | Yes | No (default `Production`: Swagger hidden; `Development` enables it) |
 
-Los Client IDs vacios se ignoran. Si no hay ninguno configurado, `POST /api/auth/google` responde `401` y el log de la API indica `GoogleAuth:ClientIds no esta configurado`. Las cuentas de correo funcionan igual.
+Empty Client IDs are ignored. If none is configured, `POST /api/auth/google` returns `401` and the API log says `GoogleAuth:ClientIds no esta configurado`. Email accounts work the same.
 
-## Usuario administrador
+## Admin user
 
-**Automatico (recomendado):** completar `ADMIN_SEED_EMAIL` y `ADMIN_SEED_PASSWORD` (y opcionalmente `ADMIN_SEED_NOMBRE`) en `.env`. El correo debe ser valido y la contrasena de al menos 8 caracteres, o el seed se omite con una advertencia. Al arrancar, si el usuario no existe se crea con rol Admin; si existe pero no es Admin, se le otorga el rol.
+**Automatic (recommended):** fill in `ADMIN_SEED_EMAIL` and `ADMIN_SEED_PASSWORD` (and optionally `ADMIN_SEED_NOMBRE`) in `.env`. The email must be valid and the password at least 8 characters, otherwise the seed is skipped with a warning. On startup, if the user doesn't exist it is created with the Admin role; if it exists but isn't Admin, the role is granted.
 
-**Manual:** registrar un usuario normal por `POST /api/auth/register` (o entrar con Google) y luego:
+**Manual:** register a normal user via `POST /api/auth/register` (or sign in with Google) and then:
 
 ```sql
-UPDATE Usuarios SET EsAdmin = 1 WHERE Email = '<correo en minusculas>';
+UPDATE Usuarios SET EsAdmin = 1 WHERE Email = '<lowercase email>';
 ```
 
-No existe ningun endpoint HTTP para auto-promoverse a administrador -- es una decision de diseno intencional. El usuario debe re-iniciar sesion despues del cambio.
+There is no HTTP endpoint to self-promote to admin -- that's an intentional design decision. The user must sign in again after the change.
 
-## Migracion de esquema: de telefono + PIN a correo + Google
+## Schema migration: from phone + PIN to email + Google
 
-Una base **nueva** no necesita migracion: `BD-CosechaClima.sql` ya crea el esquema con `Email`, `GoogleUid`, `PasswordHash`, `PasswordSalt`, `Proveedor` y `FotoUrl` (y la unicidad de `GoogleUid` como indice unico filtrado, que permite muchas cuentas de correo sin UID de Google).
+A **new** database needs no migration: `BD-CosechaClima.sql` already creates the schema with `Email`, `GoogleUid`, `PasswordHash`, `PasswordSalt`, `Proveedor` and `FotoUrl` (and `GoogleUid` uniqueness as a filtered unique index, which allows many email accounts without a Google UID).
 
-Para una base **existente** con el esquema anterior:
+For an **existing** database with the old schema:
 
 ```bash
 sqlcmd -S localhost -U sa -P "TU_PASSWORD" -d BD_CosechaClima -i Scripts/migracion-v2-auth.sql
 ```
 
-El script respalda `Usuarios` en `Usuarios_Respaldo_v1`, agrega las columnas nuevas y elimina `Telefono`, `PinHash` y `PinSalt`. Las cuentas viejas quedan **desactivadas** con un correo provisional `migrado-<telefono>@cosechaclima.invalid`: sus PIN ya no sirven, asi que cada persona debe registrarse de nuevo y sus parcelas hay que reasignarlas a mano si se quieren conservar (el propio script imprime el `UPDATE` de ejemplo). Revisa el respaldo antes de borrarlo.
+The script backs up `Usuarios` into `Usuarios_Respaldo_v1`, adds the new columns and drops `Telefono`, `PinHash` and `PinSalt`. Old accounts are left **deactivated** with a placeholder email `migrado-<telefono>@cosechaclima.invalid`: their PINs no longer work, so each person must register again and their plots must be reassigned manually if you want to keep them (the script itself prints the sample `UPDATE`). Review the backup before deleting it.
 
-En desarrollo, si no hay datos que conservar, es mas simple `docker compose down -v`.
+In development, if there is no data to keep, `docker compose down -v` is simpler.
 
-## Despliegue con Docker -- Dockerfile multi-stage
+## Docker deployment -- multi-stage Dockerfile
 
-El Dockerfile utiliza un build multi-stage:
+The Dockerfile uses a multi-stage build:
 
-- **Stage 1 (build):** `mcr.microsoft.com/dotnet/sdk:10.0` -- restaura dependencias y publica la aplicacion.
-- **Stage 2 (runtime):** `mcr.microsoft.com/dotnet/aspnet:10.0-alpine` -- imagen minima Alpine.
-  - Ejecucion con usuario no-root.
-  - Superficie de ataque minima (sin utilidades de shell innecesarias).
-  - Tamano de imagen drasticamente reducido comparado con imagenes Debian estandar.
+- **Stage 1 (build):** `mcr.microsoft.com/dotnet/sdk:10.0` -- restores dependencies and publishes the app.
+- **Stage 2 (runtime):** `mcr.microsoft.com/dotnet/aspnet:10.0-alpine` -- minimal Alpine image.
+  - Runs as non-root user.
+  - Minimal attack surface (no unnecessary shell utilities).
+  - Drastically reduced image size compared to standard Debian images.
 
 > [!NOTE]
-> El healthcheck en `compose.yaml` usa `wget --spider -q http://localhost:8080/health` porque Alpine no incluye `curl` por defecto.
+> The healthcheck in `compose.yaml` uses `wget --spider -q http://localhost:8080/health` because Alpine doesn't ship `curl` by default.
 
-## Patrones de arquitectura y seguridad
+## Architecture and security patterns
 
-### Inyeccion de dependencias
+### Dependency injection
 
-- `ConnectionBD` registrado como `AddSingleton` -- actua como fabrica que crea nuevas instancias de `SqlConnection` por cada llamada. Es thread-safe porque crea conexiones, no las comparte.
-- Todos los servicios de negocio registrados como `AddScoped`.
+- `ConnectionBD` registered as `AddSingleton` -- acts as a factory that creates new `SqlConnection` instances per call. It's thread-safe because it creates connections, it doesn't share them.
+- All business services registered as `AddScoped`.
 
-### Optimizaciones ADO.NET
+### ADO.NET optimizations
 
-- Queries parametrizadas exclusivamente (cero concatenacion de strings en SQL).
-- `OPENJSON` para operaciones batch en `ReglaDecisionService.AplicarContenidoPreliminar`, reemplazando N+1 UPDATEs individuales con un unico batch T-SQL.
-- Todas las conexiones envueltas en bloques `using` asegurando liberacion determinista.
+- Exclusively parameterized queries (zero string concatenation in SQL).
+- `OPENJSON` for batch operations in `ReglaDecisionService.AplicarContenidoPreliminar`, replacing N+1 individual UPDATEs with a single T-SQL batch.
+- All connections wrapped in `using` blocks ensuring deterministic disposal.
 
-### Rate Limiting
+### Rate limiting
 
-| Politica | Ventana | Limite | Endpoints |
+| Policy | Window | Limit | Endpoints |
 |---|---|---|---|
-| `auth` | Deslizante, 1 minuto | 5 peticiones por IP | `/api/auth/register`, `/api/auth/login`, `/api/auth/google` |
-| `motor` | Aplicada al controlador | Previene abuso | `/api/motor/semaforo` |
+| `auth` | Sliding, 1 minute | 5 requests per IP | `/api/auth/register`, `/api/auth/login`, `/api/auth/google` |
+| `motor` | Applied to the controller | Prevents abuse | `/api/motor/semaforo` |
 
 > [!WARNING]
-> `auth` cuenta por la IP de origen de la conexion. Detras de un proxy o tunel (ngrok, etc.) todos los clientes comparten IP y el limite pasa a ser global. Ver [docs/security.md](../docs/security.md).
+> `auth` counts by the connection's source IP. Behind a proxy or tunnel (ngrok, etc.) all clients share the IP and the limit becomes global. See [docs/security.md](../docs/security.md).
 
-### Seguridad JWT
+### JWT security
 
-- Firmado con HMAC-SHA256, clave secreta minimo 32 caracteres.
-- Claim `Jti` (JWT ID) para unicidad de token y prevencion de replay attacks.
-- Expiracion configurable (default 24 horas).
-- Contrasenas con PBKDF2-HMAC-SHA256 (600.000 iteraciones) y salt individual; comparacion con `CryptographicOperations.FixedTimeEquals` para mitigar timing attacks.
-- Google Sign-In: el ID Token se valida en el servidor (`GoogleJsonWebSignature.ValidateAsync`) contra `GoogleAuth:ClientIds` y se exige correo verificado.
-- La API no arranca si `Jwt:SecretKey` falta, es menor a 32 bytes o conserva el texto de relleno de `.env.example`.
+- Signed with HMAC-SHA256, secret key minimum 32 characters.
+- `Jti` (JWT ID) claim for token uniqueness and replay attack prevention.
+- Configurable expiration (default 24 hours).
+- Passwords with PBKDF2-HMAC-SHA256 (600,000 iterations) and per-user salt; comparison with `CryptographicOperations.FixedTimeEquals` to mitigate timing attacks.
+- Google Sign-In: the ID Token is validated on the server (`GoogleJsonWebSignature.ValidateAsync`) against `GoogleAuth:ClientIds`, and a verified email is required.
+- The API won't start if `Jwt:SecretKey` is missing, is shorter than 32 bytes, or still holds the placeholder text from `.env.example`.
 
-### Manejo de errores
+### Error handling
 
-- Manejador global (`ManejadorErroresGlobal`) implementando `IExceptionHandler`.
-- Todos los errores retornados como RFC 7807 `ProblemDetails`.
-- Excepciones SQL traducidas: violacion FK (547) -> 400, constraint unico (2601/2627) -> 409.
-- Detalles internos nunca expuestos al cliente.
+- Global handler (`ManejadorErroresGlobal`) implementing `IExceptionHandler`.
+- All errors returned as RFC 7807 `ProblemDetails`.
+- SQL exceptions translated: FK violation (547) -> 400, unique constraint (2601/2627) -> 409.
+- Internal details never exposed to the client.
 
-### Orden del pipeline de middlewares
+### Middleware pipeline order
 
 1. CORS
 2. Authentication
@@ -233,33 +239,33 @@ El Dockerfile utiliza un build multi-stage:
 4. Rate Limiting
 5. Controllers
 
-## Endpoints disponibles
+## Available endpoints
 
-| Controlador | Ruta base | Responsabilidad | Auth | Rate Limit |
+| Controller | Base route | Responsibility | Auth | Rate limit |
 |---|---|---|---|---|
-| UsuarioController | `/api/auth` | Registro, login con correo y login con Google | Publico | `auth` |
-| CatalogoController | `/api/catalogos` | Cultivos, suelos, eventos, etapas | Publico | -- |
-| ParcelaController | `/api/parcelas` | Gestion de parcelas | JWT | -- |
-| ClimaController | `/api/clima` | Datos climaticos de una parcela; `GET /pronostico` es el pronostico publico por coordenadas (modo invitado) | JWT (salvo `GET /pronostico`: Publico) | -- |
-| UmbralConfiguracionController | `/api/umbrales` | Umbrales de riesgo | JWT | -- |
-| MotorDecisionesController | `/api/motor` | Calculo de semaforo de riesgo | JWT | `motor` |
-| ReglaDecisionController | `/api/reglas` | Administracion del arbol (Admin) | JWT + Admin | -- |
-| BitacoraController | `/api/logs` | Bitacora de campo | JWT | -- |
-| Health | `/health` | Health check de infraestructura | Publico | -- |
+| UsuarioController | `/api/auth` | Registration, email login and Google login | Public | `auth` |
+| CatalogoController | `/api/catalogos` | Crops, soils, events, stages | Public | -- |
+| ParcelaController | `/api/parcelas` | Plot management | JWT | -- |
+| ClimaController | `/api/clima` | Plot weather data; `GET /pronostico` is the public coordinate-based forecast (guest mode) | JWT (except `GET /pronostico`: Public) | -- |
+| UmbralConfiguracionController | `/api/umbrales` | Risk thresholds | JWT | -- |
+| MotorDecisionesController | `/api/motor` | Risk traffic-light calculation | JWT | `motor` |
+| ReglaDecisionController | `/api/reglas` | Tree management (Admin) | JWT + Admin | -- |
+| BitacoraController | `/api/logs` | Field logbook | JWT | -- |
+| Health | `/health` | Infrastructure health check | Public | -- |
 
-Documentacion completa de cada endpoint en [docs/api-reference.md](../docs/api-reference.md).
+Full documentation of each endpoint in [docs/api-reference.md](../docs/api-reference.md).
 
-## Comandos utiles
+## Useful commands
 
 ```bash
-docker compose logs -f           # logs de todos los servicios
-docker compose logs -f api       # logs solo de la API
-docker compose build api && docker compose up -d api  # reconstruir solo la API
-docker compose ps                # estado de los contenedores
-docker compose down -v           # bajar todo y borrar volumenes
+docker compose logs -f           # logs from all services
+docker compose logs -f api       # API logs only
+docker compose build api && docker compose up -d api  # rebuild only the API
+docker compose ps                # container status
+docker compose down -v           # stop everything and delete volumes
 ```
 
-## Estructura del proyecto
+## Project structure
 
 ```
 backend/
@@ -285,27 +291,27 @@ backend/
 ```
 
 > [!NOTE]
-> El archivo `compose.yaml` y `.env.example` estan en la raiz del monorepo, no dentro de `/backend`. Ver la [documentacion raiz](../README.md) para el quickstart global.
+> The `compose.yaml` file and `.env.example` live in the monorepo root, not inside `/backend`. See the [root documentation](../README.md) for the global quickstart.
 
-## Problemas comunes
+## Troubleshooting
 
-| Sintoma | Causa probable | Solucion |
+| Symptom | Likely cause | Solution |
 |---|---|---|
-| `db` sale con "password validation failed" | `DB_SA_PASSWORD` no cumple complejidad | Usar 8+ caracteres con 3/4 categorias |
-| `db` queda `unhealthy` con `Login failed for user 'sa'` | El volumen ya existia con otra contrasena | `docker compose down -v` y volver a levantar (borra los datos) |
-| `POST /api/auth/register` da `409` con un correo nuevo | La base tiene `GoogleUid` con una restriccion `UNIQUE` comun (solo admite un `NULL`) | Recrear la base con el `BD-CosechaClima.sql` actual (indice unico filtrado) |
-| `POST /api/auth/google` da `401` | Client IDs sin configurar, ID Token de otra app, o correo sin verificar | Revisar `GOOGLE_CLIENT_ID_*` y el log de la API; ver [docs/google-sign-in-setup.md](../docs/google-sign-in-setup.md) |
-| `api` se reinicia en loop | `Jwt:SecretKey` invalida, o falla la conexion a la base | Revisar logs; la clave debe tener 32+ bytes y no ser el texto de relleno |
-| El admin no se crea | `ADMIN_SEED_EMAIL` invalido o `ADMIN_SEED_PASSWORD` de menos de 8 caracteres | Corregir los valores; el log muestra la advertencia y el seed se omite |
-| `401` en todos los endpoints protegidos | Token faltante o expirado | Re-login, pegar `Bearer <token>` |
-| `GET /api/umbrales/mios` da `404` | Usuario sin umbrales configurados | Comportamiento esperado, configurar primero |
-| `POST /api/motor/semaforo` da `404` | Faltan datos climaticos o umbrales | Llamar `POST /api/clima/actualizar` primero |
-| Frontend web no conecta | Origen no en CORS | Agregar origen a `Cors:AllowedOrigins` |
+| `db` exits with "password validation failed" | `DB_SA_PASSWORD` doesn't meet complexity | Use 8+ characters with 3/4 categories |
+| `db` stays `unhealthy` with `Login failed for user 'sa'` | The volume already existed with another password | `docker compose down -v` and start again (wipes data) |
+| `POST /api/auth/register` returns `409` with a new email | The database has a plain `UNIQUE` constraint on `GoogleUid` (only allows one `NULL`) | Recreate the database with the current `BD-CosechaClima.sql` (filtered unique index) |
+| `POST /api/auth/google` returns `401` | Client IDs not configured, ID Token from another app, or unverified email | Check `GOOGLE_CLIENT_ID_*` and the API log; see [docs/google-sign-in-setup.md](../docs/google-sign-in-setup.md) |
+| `api` restarts in a loop | Invalid `Jwt:SecretKey`, or database connection failure | Check logs; the key must be 32+ bytes and not the placeholder text |
+| Admin is not created | Invalid `ADMIN_SEED_EMAIL` or `ADMIN_SEED_PASSWORD` shorter than 8 characters | Fix the values; the log shows the warning and the seed is skipped |
+| `401` on all protected endpoints | Missing or expired token | Sign in again, paste `Bearer <token>` |
+| `GET /api/umbrales/mios` returns `404` | User with no configured thresholds | Expected behavior, configure them first |
+| `POST /api/motor/semaforo` returns `404` | Missing weather data or thresholds | Call `POST /api/clima/actualizar` first |
+| Web frontend can't connect | Origin not in CORS | Add origin to `Cors:AllowedOrigins` |
 
 ---
 
 > [!WARNING]
-> El `.env` de la raiz (y `mobile/.env`) contienen credenciales reales y nunca deben compartirse ni subirse a control de versiones. Al comprimir el proyecto, excluirlos explicitamente:
+> The root `.env` (and `mobile/.env`) hold real credentials and must never be shared or pushed to version control. When zipping the project, exclude them explicitly:
 > ```bash
 > zip -r CosechaClima.zip CosechaClima -x "*.env" -x "*/bin/*" -x "*/obj/*"
 > ```
