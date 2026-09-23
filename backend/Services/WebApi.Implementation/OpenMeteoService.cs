@@ -26,7 +26,7 @@ public class OpenMeteoService : IProveedorClimaticoService
     {
         var url = $"?latitude={latitud.ToString(CultureInfo.InvariantCulture)}" +
                    $"&longitude={longitud.ToString(CultureInfo.InvariantCulture)}" +
-                   "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max" +
+                   "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,relative_humidity_2m_mean" +
                    "&timezone=America%2FManagua&past_days=1&forecast_days=3";
 
         try
@@ -61,6 +61,7 @@ public class OpenMeteoService : IProveedorClimaticoService
                     TemperaturaMin = ObtenerValor(diario.Temperature2mMin, indice),
                     Precipitacion = ObtenerValor(diario.PrecipitationSum, indice),
                     VientoVelocidad = ObtenerValor(diario.Windspeed10mMax, indice),
+                    HumedadRelativa = ObtenerValor(diario.RelativeHumidity2mMean, indice),
                     FuenteClima = "OPEN_METEO"
                 };
 
@@ -172,5 +173,8 @@ public class OpenMeteoService : IProveedorClimaticoService
 
         [System.Text.Json.Serialization.JsonPropertyName("wind_speed_10m_max")]
         public List<decimal?>? Windspeed10mMax { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("relative_humidity_2m_mean")]
+        public List<decimal?>? RelativeHumidity2mMean { get; set; }
     }
 }
