@@ -32,8 +32,7 @@ class ParcelaCache {
         'guardadoEn': DateTime.now().toIso8601String(),
       });
       await prefs.setString(_key(parcelaId), payload);
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   Future<CachedParcelaClima?> obtener(int parcelaId) async {
@@ -67,7 +66,6 @@ class ParcelaCache {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_key(parcelaId));
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 }
