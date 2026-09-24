@@ -79,7 +79,8 @@ class _LocationPickerFieldState extends State<LocationPickerField> {
         if (!_tieneCoordenadas) ...[
           const SizedBox(height: 8),
           const Text(
-            'Sin coordenadas se puede registrar la parcela, pero el clima será menos preciso.',
+            'Sin GPS, la app usa el centro de tu municipio como respaldo — '
+            'el clima va a ser aproximado, no exacto de tu parcela.',
             style: TextStyle(fontSize: 12, color: AppColors.muted),
           ),
         ],

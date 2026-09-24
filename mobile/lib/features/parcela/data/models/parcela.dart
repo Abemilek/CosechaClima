@@ -11,6 +11,7 @@ class Parcela {
   final String? municipio;
   final String? comunidad;
   final bool activa;
+  final bool estaEnZonaCubierta;
 
   Parcela({
     required this.id,
@@ -25,9 +26,13 @@ class Parcela {
     this.municipio,
     this.comunidad,
     required this.activa,
+    this.estaEnZonaCubierta = false,
   });
 
   bool get tieneCoordenadas => latitud != null && longitud != null;
+
+  bool get puedeConsultarClima =>
+      tieneCoordenadas || (municipio != null && municipio!.trim().isNotEmpty);
 
   factory Parcela.fromJson(Map<String, dynamic> json) => Parcela(
     id: json['id'] as int,
@@ -42,6 +47,7 @@ class Parcela {
     municipio: json['municipio'] as String?,
     comunidad: json['comunidad'] as String?,
     activa: json['activa'] as bool? ?? true,
+    estaEnZonaCubierta: json['estaEnZonaCubierta'] as bool? ?? false,
   );
 }
 

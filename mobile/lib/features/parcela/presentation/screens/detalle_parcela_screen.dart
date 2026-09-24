@@ -1,13 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/cache/parcela_cache.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../routing/no_animation_route.dart';
+import '../../../../shared/utils/riesgo_ui.dart';
 import '../../../../shared/widgets/app_avatar.dart';
 import '../../../../shared/widgets/app_loading_message.dart';
 import '../../../../shared/widgets/app_pill.dart';
@@ -39,6 +42,7 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
   late final MotorService _motorService;
   late final BitacoraService _bitacoraService;
   late final ParcelaService _parcelaService;
+  late final ParcelaCache _parcelaCache;
   late Parcela _parcelaActual;
 
   int _tab = 0;
@@ -49,6 +53,7 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
 
   DatosClimaticos? _clima;
   Semaforo? _semaforo;
+  DateTime? _climaGuardadoEn;
   final Set<int> _accionesRegistradas = {};
 
   @override
@@ -59,6 +64,7 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
     _motorService = MotorService(client);
     _bitacoraService = BitacoraService(client);
     _parcelaService = ParcelaService(client);
+    _parcelaCache = ParcelaCache();
     _parcelaActual = widget.parcela;
     unawaited(_cargarTodo());
   }
@@ -70,6 +76,7 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
       _requiereUmbrales = false;
       _clima = null;
       _semaforo = null;
+      _climaGuardadoEn = null;
     });
 
     try {
@@ -77,10 +84,10 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
       if (!mounted) return;
       setState(() => _parcelaActual = parcela);
 
-      if (!parcela.tieneCoordenadas) {
+      if (!parcela.puedeConsultarClima) {
         setState(() {
           _error =
-              'Esta parcela no tiene coordenadas GPS registradas.\n'
+              'Esta parcela no tiene coordenadas GPS ni municipio registrado.\n'
               'Editala para poder consultar el clima.';
         });
         return;
@@ -93,7 +100,15 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
       setState(() {
         _clima = clima;
         _semaforo = semaforo;
+        _climaGuardadoEn = null;
       });
+      unawaited(
+        _parcelaCache.guardar(
+          parcelaId: parcela.id,
+          clima: clima,
+          semaforo: semaforo,
+        ),
+      );
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -102,11 +117,26 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
             e.esNoEncontrado && e.message.toLowerCase().contains('umbral');
       });
     } on NetworkException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      await _usarCacheOMostrarError(e.message);
     } on TimeoutApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      await _usarCacheOMostrarError(e.message);
     } finally {
       if (mounted) setState(() => _cargando = false);
+    }
+  }
+
+  Future<void> _usarCacheOMostrarError(String mensajeError) async {
+    final cache = await _parcelaCache.obtener(_parcelaActual.id);
+    if (!mounted) return;
+    if (cache != null) {
+      setState(() {
+        _clima = cache.clima;
+        _semaforo = cache.semaforo;
+        _climaGuardadoEn = cache.guardadoEn;
+        _error = null;
+      });
+    } else {
+      setState(() => _error = mensajeError);
     }
   }
 
@@ -263,18 +293,7 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
     }
   }
 
-  Color get _colorRiesgo {
-    switch (_semaforo?.nivelRiesgo.toLowerCase()) {
-      case 'alto':
-        return AppColors.red;
-      case 'medio':
-        return AppColors.amber;
-      case 'bajo':
-        return AppColors.green;
-      default:
-        return AppColors.muted;
-    }
-  }
+  Color get _colorRiesgo => RiesgoUi.colorPara(_semaforo?.nivelRiesgo);
 
   @override
   Widget build(BuildContext context) {
@@ -372,6 +391,30 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
                 ],
               ),
             ),
+            if (parcela.tieneCoordenadas && !parcela.estaEnZonaCubierta)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 0, 20, 10),
+                child: _AvisoBanner(
+                  icono: Icons.warning_amber_outlined,
+                  color: AppColors.amber,
+                  colorFondo: AppColors.amberBg,
+                  texto:
+                      'Esta parcela parece estar fuera de Carazo. Las alertas están '
+                      'calibradas solo para ese departamento y podrían no ser precisas acá.',
+                ),
+              )
+            else if (!parcela.tieneCoordenadas && parcela.puedeConsultarClima)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 0, 20, 10),
+                child: _AvisoBanner(
+                  icono: Icons.info_outline,
+                  color: AppColors.green,
+                  colorFondo: AppColors.mint,
+                  texto:
+                      'Estás viendo el clima aproximado del municipio, no el de tu '
+                      'parcela exacta. Agregá el GPS para mayor precisión.',
+                ),
+              ),
             Expanded(
               child: IndexedStack(
                 index: _tab,
@@ -385,6 +428,7 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
                     semaforo: _semaforo,
                     parcela: parcela,
                     colorRiesgo: _colorRiesgo,
+                    climaGuardadoEn: _climaGuardadoEn,
                     accionesRegistradas: _accionesRegistradas,
                     onReintentar: _cargarTodo,
                     onIrAUmbrales: () async {
@@ -410,6 +454,7 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
                     sinCoordenadas: !parcela.tieneCoordenadas,
                     semaforo: _semaforo,
                     colorRiesgo: _colorRiesgo,
+                    climaGuardadoEn: _climaGuardadoEn,
                     onReintentar: _cargarTodo,
                     onIrAUmbrales: () async {
                       final guardado = await Navigator.of(context).push<bool>(
@@ -501,6 +546,63 @@ class _BottomNav extends StatelessWidget {
   }
 }
 
+class _AvisoBanner extends StatelessWidget {
+  final IconData icono;
+  final Color color;
+  final Color colorFondo;
+  final String texto;
+
+  const _AvisoBanner({
+    required this.icono,
+    required this.color,
+    required this.colorFondo,
+    required this.texto,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorFondo,
+        borderRadius: BorderRadius.circular(AppRadius.cardSmall),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icono, color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              texto,
+              style: const TextStyle(fontSize: 12.5, color: AppColors.ink),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CacheBanner extends StatelessWidget {
+  final DateTime guardadoEn;
+
+  const _CacheBanner({required this.guardadoEn});
+
+  @override
+  Widget build(BuildContext context) {
+    final formato = DateFormat('dd MMM, HH:mm', 'es').format(guardadoEn);
+    return _AvisoBanner(
+      icono: Icons.cloud_off_outlined,
+      color: AppColors.soil,
+      colorFondo: AppColors.soft,
+      texto:
+          'Sin conexión — mostrando datos guardados. Última actualización: $formato.',
+    );
+  }
+}
+
 class _HomeTab extends StatelessWidget {
   final bool cargando;
   final String? error;
@@ -510,6 +612,7 @@ class _HomeTab extends StatelessWidget {
   final Semaforo? semaforo;
   final Parcela parcela;
   final Color colorRiesgo;
+  final DateTime? climaGuardadoEn;
   final Set<int> accionesRegistradas;
   final Future<void> Function() onReintentar;
   final VoidCallback onIrAUmbrales;
@@ -526,6 +629,7 @@ class _HomeTab extends StatelessWidget {
     required this.semaforo,
     required this.parcela,
     required this.colorRiesgo,
+    required this.climaGuardadoEn,
     required this.accionesRegistradas,
     required this.onReintentar,
     required this.onIrAUmbrales,
@@ -597,6 +701,10 @@ class _HomeTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
       children: [
+        if (climaGuardadoEn != null) ...[
+          _CacheBanner(guardadoEn: climaGuardadoEn!),
+          const SizedBox(height: 4),
+        ],
         if (clima != null)
           _SummaryCard(clima: clima!, parcela: parcela, semaforo: semaforo),
         const SizedBox(height: 16),
@@ -621,6 +729,7 @@ class _HomeTab extends StatelessWidget {
                 numero: entry.key + 1,
                 texto: entry.value,
                 completada: accionesRegistradas.contains(entry.key),
+                color: colorRiesgo,
                 onTap: () => onToggleAccion(entry.key),
               ),
             ),
@@ -739,7 +848,7 @@ class _SummaryCard extends StatelessWidget {
               if (semaforo != null)
                 AppPill(
                   text: 'Riesgo ${semaforo!.nivelRiesgo}',
-                  variant: AppPillVariant.red,
+                  variant: RiesgoUi.variantePara(semaforo!.nivelRiesgo),
                 ),
             ],
           ),
@@ -837,9 +946,7 @@ class _RiskCard extends StatelessWidget {
               children: [
                 AppPill(
                   text: 'Alerta ${semaforo.nivelRiesgo}',
-                  variant: semaforo.nivelRiesgo.toLowerCase() == 'alto'
-                      ? AppPillVariant.red
-                      : AppPillVariant.warn,
+                  variant: RiesgoUi.variantePara(semaforo.nivelRiesgo),
                 ),
                 const SizedBox(height: 10),
                 Text(
@@ -871,12 +978,14 @@ class _ActionTile extends StatelessWidget {
   final int numero;
   final String texto;
   final bool completada;
+  final Color color;
   final VoidCallback onTap;
 
   const _ActionTile({
     required this.numero,
     required this.texto,
     required this.completada,
+    required this.color,
     required this.onTap,
   });
 
@@ -900,17 +1009,14 @@ class _ActionTile extends StatelessWidget {
               Container(
                 width: 30,
                 height: 30,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFFDCD8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.16),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
                   child: Text(
                     '$numero',
-                    style: const TextStyle(
-                      color: AppColors.red,
-                      fontWeight: FontWeight.w900,
-                    ),
+                    style: TextStyle(color: color, fontWeight: FontWeight.w900),
                   ),
                 ),
               ),
@@ -980,6 +1086,7 @@ class _AlertasTab extends StatelessWidget {
   final bool sinCoordenadas;
   final Semaforo? semaforo;
   final Color colorRiesgo;
+  final DateTime? climaGuardadoEn;
   final Future<void> Function() onReintentar;
   final VoidCallback onIrAUmbrales;
   final VoidCallback onEditar;
@@ -992,6 +1099,7 @@ class _AlertasTab extends StatelessWidget {
     required this.sinCoordenadas,
     required this.semaforo,
     required this.colorRiesgo,
+    required this.climaGuardadoEn,
     required this.onReintentar,
     required this.onIrAUmbrales,
     required this.onEditar,
@@ -1062,6 +1170,10 @@ class _AlertasTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(18),
       children: [
+        if (climaGuardadoEn != null) ...[
+          _CacheBanner(guardadoEn: climaGuardadoEn!),
+          const SizedBox(height: 10),
+        ],
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -1077,9 +1189,7 @@ class _AlertasTab extends StatelessWidget {
             ),
             AppPill(
               text: semaforo!.nivelRiesgo,
-              variant: semaforo!.nivelRiesgo.toLowerCase() == 'alto'
-                  ? AppPillVariant.red
-                  : AppPillVariant.warn,
+              variant: RiesgoUi.variantePara(semaforo!.nivelRiesgo),
             ),
           ],
         ),
@@ -1132,15 +1242,15 @@ class _AlertasTab extends StatelessWidget {
                 Container(
                   width: 26,
                   height: 26,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFFFDCD8),
+                  decoration: BoxDecoration(
+                    color: colorRiesgo.withValues(alpha: 0.16),
                     shape: BoxShape.circle,
                   ),
                   child: Center(
                     child: Text(
                       '${e.key + 1}',
-                      style: const TextStyle(
-                        color: AppColors.red,
+                      style: TextStyle(
+                        color: colorRiesgo,
                         fontWeight: FontWeight.w900,
                         fontSize: 12,
                       ),
@@ -1155,7 +1265,7 @@ class _AlertasTab extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         FilledButton.icon(
-          style: FilledButton.styleFrom(backgroundColor: AppColors.red),
+          style: FilledButton.styleFrom(backgroundColor: colorRiesgo),
           onPressed: onAbrirSms,
           icon: const Icon(Icons.sms_outlined, size: 18),
           label: const Text('Preparar SMS'),
