@@ -33,6 +33,18 @@ class DatosClimaticos {
         humedadRelativa: (json['humedadRelativa'] as num?)?.toDouble(),
         fuenteClima: json['fuenteClima'] as String? ?? 'OPEN_METEO',
       );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'parcelaId': parcelaId,
+    'fecha': fecha.toIso8601String(),
+    'temperaturaMax': temperaturaMax,
+    'temperaturaMin': temperaturaMin,
+    'precipitacion': precipitacion,
+    'vientoVelocidad': vientoVelocidad,
+    'humedadRelativa': humedadRelativa,
+    'fuenteClima': fuenteClima,
+  };
 }
 
 class Semaforo {
@@ -56,6 +68,13 @@ class Semaforo {
         .toList(),
     fecha: DateTime.parse(json['fecha'] as String),
   );
+
+  Map<String, dynamic> toJson() => {
+    'nivelRiesgo': nivelRiesgo,
+    'descripcionAlerta': descripcionAlerta,
+    'acciones': acciones,
+    'fecha': fecha.toIso8601String(),
+  };
 }
 
 class PronosticoPublico {
