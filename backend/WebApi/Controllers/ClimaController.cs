@@ -55,8 +55,26 @@ public class ClimaController : ControllerBase
         if (parcela.UsuarioId != this.ObtenerUsuarioIdActual())
             return Forbid();
 
-        if (parcela.Latitud is null || parcela.Longitud is null)
-            return BadRequest(new { mensaje = "la parcela no tiene coordenadas registradas" });
+        decimal latitud;
+        decimal longitud;
+
+        if (parcela.Latitud is not null && parcela.Longitud is not null)
+        {
+            latitud = parcela.Latitud.Value;
+            longitud = parcela.Longitud.Value;
+        }
+        else if (MunicipioCentroide.TryObtenerCentroide(parcela.Municipio, out var centroide))
+        {
+            latitud = centroide.Latitud;
+            longitud = centroide.Longitud;
+        }
+        else
+        {
+            return BadRequest(new
+            {
+                mensaje = "la parcela no tiene coordenadas GPS ni un municipio reconocido para estimar el clima"
+            });
+        }
 
         var datoDeHoy = await _datosClimaticoService.ObtenerPorParcelaYFecha(parcelaId, DateTime.Today);
         if (datoDeHoy is not null
@@ -66,7 +84,7 @@ public class ClimaController : ControllerBase
         }
 
         var dato = await _proveedorClimaticoService.ObtenerYGuardarDatosActuales(
-            parcelaId, parcela.Latitud.Value, parcela.Longitud.Value);
+            parcelaId, latitud, longitud);
 
         if (dato is null)
             return StatusCode(503, new { mensaje = "proveedor climatico no disponible y sin datos previos guardados" });

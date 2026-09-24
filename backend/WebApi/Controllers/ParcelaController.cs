@@ -49,7 +49,7 @@ public class ParcelaController : ControllerBase
         };
 
         var id = await _parcelaService.Registrar(parcela);
-        return Ok(new { id });
+        return Ok(new { id, estaEnZonaCubierta = parcela.EstaEnZonaCubierta });
     }
 
     [HttpPut("{id}")]

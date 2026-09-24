@@ -14,4 +14,5 @@ public class Parcela {
     public string? Comunidad { get; set; }
     public DateTime FechaRegistro { get; set; } = DateTime.Now;
     public bool Activa { get; set; } = true;
+    public bool EstaEnZonaCubierta => ZonaCobertura.EstaDentroDeCarazo(Latitud, Longitud);
 }
