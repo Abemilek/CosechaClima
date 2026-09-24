@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/config/zona_cobertura.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/app_avatar.dart';
 import '../../../../shared/widgets/app_loading_message.dart';
 import '../../../../shared/widgets/location_picker_field.dart';
+import '../../../../shared/widgets/umbral_form.dart';
 import '../../../catalogo/data/models/catalogo.dart';
 import '../../../umbral/data/models/umbral.dart';
 import '../../../umbral/data/services/umbral_service.dart';
@@ -555,26 +557,46 @@ class _LocationStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lat = double.tryParse(latitudCtrl.text.trim());
+    final lon = double.tryParse(longitudCtrl.text.trim());
+    final tieneCoordenadas = lat != null && lon != null;
+    final fueraDeCarazo =
+        tieneCoordenadas && !ZonaCobertura.estaDentroDeCarazo(lat, lon);
+
     return _PrototypeStack(
       topMargin: 24,
       children: [
         const _StepHeader(
           title: 'Ubicación de parcela',
           subtitle:
-              'El municipio permite usar clima hiperlocal y confirmar alertas para Carazo.',
+              'El GPS da el clima exacto de tu parcela. El municipio es solo un '
+              'respaldo aproximado para cuando no podés activar el GPS.',
         ),
         LocationPickerField(
           latitudCtrl: latitudCtrl,
           longitudCtrl: longitudCtrl,
           onChanged: onChanged,
         ),
+        if (fueraDeCarazo)
+          const _InfoCard(
+            variant: _InfoCardVariant.warning,
+            icon: Icons.warning_amber_outlined,
+            title: 'Fuera de la zona calibrada',
+            text:
+                'Estas coordenadas parecen estar fuera de Carazo. La app solo tiene '
+                'reglas agronómicas validadas para ese departamento, así que las '
+                'alertas acá podrían no ser precisas.',
+          ),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Selecciona tu Municipio', style: _eyebrowStyle),
+                const Text(
+                  'Municipio (respaldo sin GPS)',
+                  style: _eyebrowStyle,
+                ),
                 Text(
                   'Carazo',
                   style: _eyebrowStyle.copyWith(color: AppColors.green),
@@ -806,32 +828,13 @@ class _ThresholdsStep extends StatelessWidget {
           subtitle:
               'Podés dejar los valores recomendados o adaptarlos a tu experiencia en la parcela.',
         ),
-        _SliderCard(
-          title: 'Lluvia intensa',
-          value: lluviaIntensaMm,
-          min: 50,
-          max: 150,
-          divisions: 10,
-          unit: 'mm/24h',
-          onChanged: onLluviaChanged,
-        ),
-        _SliderCard(
-          title: 'Viento fuerte',
-          value: vientoFuerteKmh,
-          min: 20,
-          max: 60,
-          divisions: 8,
-          unit: 'km/h',
-          onChanged: onVientoChanged,
-        ),
-        _SliderCard(
-          title: 'Canícula',
-          value: caniculaDias,
-          min: 5,
-          max: 15,
-          divisions: 10,
-          unit: 'dias',
-          onChanged: onCaniculaChanged,
+        UmbralForm(
+          lluviaIntensaMm: lluviaIntensaMm,
+          vientoFuerteKmh: vientoFuerteKmh,
+          caniculaDias: caniculaDias,
+          onLluviaChanged: onLluviaChanged,
+          onVientoChanged: onVientoChanged,
+          onCaniculaChanged: onCaniculaChanged,
         ),
         _TextFieldBlock(
           label: 'AREA (MANZANAS)',
@@ -1208,69 +1211,6 @@ class _SelectBlock<T> extends StatelessWidget {
           onChanged: onChanged,
         ),
       ],
-    );
-  }
-}
-
-class _SliderCard extends StatelessWidget {
-  final String title;
-  final double value;
-  final double min;
-  final double max;
-  final int divisions;
-  final String unit;
-  final ValueChanged<double> onChanged;
-
-  const _SliderCard({
-    required this.title,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.divisions,
-    required this.unit,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.paper,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE8D8C8)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-              Text(
-                '${value.round()} $unit',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.greenDark,
-                ),
-              ),
-            ],
-          ),
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              activeTrackColor: AppColors.green,
-              thumbColor: AppColors.green,
-              inactiveTrackColor: AppColors.soft,
-            ),
-            child: Slider(
-              value: value,
-              min: min,
-              max: max,
-              divisions: divisions,
-              onChanged: onChanged,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
