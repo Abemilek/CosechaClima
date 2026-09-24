@@ -6,6 +6,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/app_loading_message.dart';
+import '../../../../shared/widgets/umbral_form.dart';
 import '../../data/models/umbral.dart';
 import '../../data/services/umbral_service.dart';
 
@@ -155,34 +156,15 @@ class _UmbralesScreenState extends State<UmbralesScreen> {
                     style: TextStyle(color: AppColors.muted),
                   ),
                   const SizedBox(height: 20),
-                  _SliderCard(
-                    titulo: 'Lluvia intensa',
-                    valor: _lluviaIntensaMm,
-                    min: 50,
-                    max: 150,
-                    divisiones: 10,
-                    unidad: 'mm/24h',
-                    onChanged: (v) => setState(() => _lluviaIntensaMm = v),
-                  ),
-                  const SizedBox(height: 14),
-                  _SliderCard(
-                    titulo: 'Viento fuerte',
-                    valor: _vientoFuerteKmh,
-                    min: 20,
-                    max: 60,
-                    divisiones: 8,
-                    unidad: 'km/h',
-                    onChanged: (v) => setState(() => _vientoFuerteKmh = v),
-                  ),
-                  const SizedBox(height: 14),
-                  _SliderCard(
-                    titulo: 'Canícula',
-                    valor: _caniculaDias,
-                    min: 5,
-                    max: 15,
-                    divisiones: 10,
-                    unidad: 'días',
-                    onChanged: (v) => setState(() => _caniculaDias = v),
+                  UmbralForm(
+                    lluviaIntensaMm: _lluviaIntensaMm,
+                    vientoFuerteKmh: _vientoFuerteKmh,
+                    caniculaDias: _caniculaDias,
+                    onLluviaChanged: (v) =>
+                        setState(() => _lluviaIntensaMm = v),
+                    onVientoChanged: (v) =>
+                        setState(() => _vientoFuerteKmh = v),
+                    onCaniculaChanged: (v) => setState(() => _caniculaDias = v),
                   ),
                   const SizedBox(height: 18),
                   const Text(
@@ -247,70 +229,6 @@ class _UmbralesScreenState extends State<UmbralesScreen> {
                 ],
               ),
             ),
-    );
-  }
-}
-
-class _SliderCard extends StatelessWidget {
-  final String titulo;
-  final double valor;
-  final double min;
-  final double max;
-  final int divisiones;
-  final String unidad;
-  final ValueChanged<double> onChanged;
-
-  const _SliderCard({
-    required this.titulo,
-    required this.valor,
-    required this.min,
-    required this.max,
-    required this.divisiones,
-    required this.unidad,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.paper,
-        borderRadius: BorderRadius.circular(AppRadius.cardSmall),
-        border: Border.all(color: const Color(0xFFE8D8C8)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(titulo, style: const TextStyle(fontWeight: FontWeight.w800)),
-              Text(
-                '${valor.round()} $unidad',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.greenDark,
-                ),
-              ),
-            ],
-          ),
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              activeTrackColor: AppColors.green,
-              thumbColor: AppColors.green,
-              inactiveTrackColor: AppColors.soft,
-            ),
-            child: Slider(
-              value: valor,
-              min: min,
-              max: max,
-              divisions: divisiones,
-              onChanged: onChanged,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
