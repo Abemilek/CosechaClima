@@ -7,6 +7,7 @@ public interface ICatalogoService {
     Task<List<TipoSuelo>> ObtenerTiposSuelo();
     Task<List<EventoClimatico>> ObtenerEventosClimaticos();
     Task<List<EtapaFenologica>> ObtenerEtapasFenologicas();
+    List<string> ObtenerMunicipiosCobertura();
     Task<bool> CultivoExiste(int id);
     Task<bool> TipoSueloExiste(int id);
     Task<bool> EtapaFenologicaExiste(int id);

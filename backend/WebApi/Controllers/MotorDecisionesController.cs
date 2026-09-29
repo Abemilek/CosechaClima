@@ -1,3 +1,4 @@
+using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using WebApi.Dto;
 using WebApi.Interface;
@@ -39,8 +40,39 @@ public class MotorDecisionesController : ControllerBase
             NivelRiesgo = alert.NivelRiesgo,
             DescripcionAlerta = alert.DescripcionAlerta,
             Acciones = new List<string> { alert.Accion1, alert.Accion2, alert.Accion3 },
-            Fecha = alert.Fecha
+            Fecha = alert.Fecha,
+            EventoClimaticoId = alert.EventoClimaticoId
         };
         return Ok(dto);
+    }
+
+    [HttpGet("resumen-semanal/{parcelaId:int}")]
+    [EnableRateLimiting("motor")]
+    public async Task<ActionResult<ResumenSemanalDto>> ObtenerResumenSemanal(int parcelaId)
+    {
+        var parcela = await _parcelaService.ObtenerPorId(parcelaId);
+        if (parcela is null)
+            return NotFound(new { mensaje = $"no existe la parcela {parcelaId}" });
+
+        if (parcela.UsuarioId != this.ObtenerUsuarioIdActual())
+            return Forbid();
+
+        var resumen = await _motorDecisionesService.CalcularResumenSemanal(parcelaId);
+
+        return Ok(new ResumenSemanalDto
+        {
+            Dias = resumen.Dias.Select(d => new DiaResumenSemanalDto
+            {
+                Fecha = d.Fecha,
+                NivelRiesgo = d.NivelRiesgo,
+                TemperaturaMax = d.TemperaturaMax,
+                TemperaturaMin = d.TemperaturaMin,
+                Precipitacion = d.Precipitacion,
+            }).ToList(),
+            NivelRiesgoMaximo = resumen.NivelRiesgoMaximo,
+            DiaMasCritico = resumen.DiaMasCritico,
+            DescripcionAlerta = resumen.DescripcionAlerta,
+            AccionesDeLaSemana = resumen.AccionesDeLaSemana,
+        });
     }
 }

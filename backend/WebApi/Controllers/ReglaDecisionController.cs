@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using WebApi.Interface;
 using Microsoft.AspNetCore.Authorization;
+using WebApi.Dto;
 
 namespace WebApi.Controllers;
 
@@ -38,5 +39,27 @@ public class ReglaDecisionController : ControllerBase
     {
         await _reglaDecisionService.AplicarContenidoPreliminar();
         return Ok(new {message = "contenido preliminar aplicado reglas representativas"});
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> Actualizar(int id, [FromBody] ReglaDecisionUpdateDto datos)
+    {
+        var existente = await _reglaDecisionService.ObtenerPorId(id);
+        if (existente is null)
+            return NotFound(new { mensaje = $"no existe la regla {id}" });
+
+        var actualizado = await _reglaDecisionService.ActualizarContenido(
+            id, datos.NivelRiesgo, datos.Accion1, datos.Accion2, datos.Accion3, datos.DescripcionAlerta);
+
+        return actualizado ? Ok() : NotFound();
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpPut("{id:int}/activa")]
+    public async Task<IActionResult> CambiarActiva(int id, [FromBody] ReglaDecisionActivaDto datos)
+    {
+        var actualizado = await _reglaDecisionService.CambiarActiva(id, datos.Activa);
+        return actualizado ? Ok() : NotFound(new { mensaje = $"no existe la regla {id}" });
     }
 }

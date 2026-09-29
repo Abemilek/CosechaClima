@@ -9,4 +9,7 @@ public interface IUsuarioService {
     Task<Usuario?> ObtenerPorId(int id);
     Task<Usuario?> ObtenerPorEmail(string email);
     Task MarcarComoAdmin(int usuarioId);
+    Task<List<Usuario>> ListarTodos();
+    Task<bool> CambiarRol(int usuarioId, bool esAdmin);
+    Task<bool> CambiarActivo(int usuarioId, bool activo);
 }

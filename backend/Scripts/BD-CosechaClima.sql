@@ -131,7 +131,7 @@ CREATE TABLE BitacoraCampo (
     Id INT PRIMARY KEY IDENTITY(1,1),
     UsuarioId INT NOT NULL,
     ParcelaId INT NOT NULL,
-    Fecha DATE NOT NULL,
+    Fecha DATETIME2(0) NOT NULL,
     EventoClimaticoId INT NOT NULL,
     NivelRiesgo NVARCHAR(20) NOT NULL,
     Accion1Texto NVARCHAR(500) NOT NULL,
@@ -149,6 +149,14 @@ CREATE TABLE BitacoraCampo (
 );
 GO
 
+IF EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID(N'dbo.BitacoraCampo') AND name = 'Fecha'
+    AND TYPE_NAME(system_type_id) = 'date'
+)
+ALTER TABLE BitacoraCampo ALTER COLUMN Fecha DATETIME2(0) NOT NULL;
+GO
+
 IF OBJECT_ID(N'dbo.ReglasDecision', N'U') IS NULL
 CREATE TABLE ReglasDecision (
     Id INT PRIMARY KEY IDENTITY(1,1),
@@ -161,11 +169,19 @@ CREATE TABLE ReglasDecision (
     Accion2 NVARCHAR(500) NOT NULL,
     Accion3 NVARCHAR(500) NOT NULL,
     DescripcionAlerta NVARCHAR(500) NOT NULL,
+    Activa BIT NOT NULL DEFAULT 1,
     CONSTRAINT FK_ReglaEvento FOREIGN KEY (EventoClimaticoId) REFERENCES EventoClimatico(Id),
     CONSTRAINT FK_Regla_Cultivo FOREIGN KEY (CultivoId) REFERENCES Cultivos(Id),
     CONSTRAINT FK_Regla_Etapa FOREIGN KEY (EtapaFenologicaId) REFERENCES EtapaFenologica(Id),
     CONSTRAINT FK_Regla_Suelo FOREIGN KEY (TipoSueloId) REFERENCES TipoSuelo(Id)
 );
+GO
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID(N'dbo.ReglasDecision') AND name = 'Activa'
+)
+ALTER TABLE ReglasDecision ADD Activa BIT NOT NULL DEFAULT 1;
 GO
 
 IF NOT EXISTS (

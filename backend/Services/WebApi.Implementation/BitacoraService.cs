@@ -26,7 +26,7 @@ public class BitacoraService : IBitacoraService
 
         command.Parameters.AddWithValue("@UsuarioId", entrada.UsuarioId);
         command.Parameters.AddWithValue("@ParcelaId", entrada.ParcelaId);
-        command.Parameters.AddWithValue("@Fecha", entrada.Fecha.Date);
+        command.Parameters.AddWithValue("@Fecha", entrada.Fecha);
         command.Parameters.AddWithValue("@EventoClimaticoId", entrada.EventoClimaticoId);
         command.Parameters.AddWithValue("@NivelRiesgo", entrada.NivelRiesgo);
         command.Parameters.AddWithValue("@Accion1Texto", entrada.Accion1Texto);

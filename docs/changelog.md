@@ -3,6 +3,21 @@
 Todos los cambios notables de este proyecto se documentan en este archivo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionado siguiendo [Semantic Versioning](https://semver.org/).
 
+## [Unreleased] - Correcciones por auditoría técnica 
+
+Motivadas por dos rondas de retroalimentación: una auditoría en vivo con productores de Carazo (enfocada en escalabilidad y frecuencia de las alertas) y reportes propios de comportamiento fuera de línea.
+
+### Added
+- **Cobertura nacional**: `ZonaCobertura` pasa del bounding box de Carazo al bounding box real de Nicaragua (10.70–15.03 N, -87.70 a -82.70 O). `MunicipioCentroide` agrega los 15 departamentos + 2 regiones autónomas (cabecera departamental como referencia), sin perder el detalle fino de los 8 municipios de Carazo ya existentes. El selector de "municipio de respaldo sin GPS" en la app ahora cubre todo el país.
+- **3 cultivos nuevos**: Arroz, Sorgo y Café, además de Maíz y Frijol — los granos básicos oficiales de Nicaragua (Banco Central / Plan Nacional de Producción) más el principal rubro de exportación. `SembrarReglasIniciales()` genera automáticamente las 90 combinaciones pendientes por cultivo nuevo; `reglas-preliminares-completas.json` suma 270 reglas preliminares (marcadas `PRELIMINAR`, pendientes de validación técnica real) con perfiles agronómicos diferenciados por cultivo (ej. el arroz tolera mal la sequía, el sorgo la tolera bien, el café es sensible a heladas en zonas altas).
+- **Resumen semanal** (`GET /api/motor/resumen-semanal/{parcelaId}`): agrega el riesgo de los próximos 7 días del pronóstico en un solo boletín — con el día más crítico y hasta 3 acciones para toda la semana — en vez de una alerta reactiva por día. Nueva pestaña "Semana" en la app. Motivo: la práctica real de boletines agrometeorológicos (INETER/INTA) es semanal, no diaria; una alerta a las 9am pidiendo "ir a buscar agua ya" no le da tiempo útil al productor de programarse.
+- **Modo sin conexión para la lista de parcelas**: si el servidor no responde o no hay internet, la app muestra la última lista de parcelas guardada en el dispositivo (con aviso "Sin conexión: mostrando datos guardados") en vez de una pantalla vacía con solo un error. La pantalla de detalle de parcela ya tenía este comportamiento; ahora la lista principal también.
+- Endpoint `GET /api/catalogos/municipios` ahora devuelve los 17 departamentos/regiones en vez de los 8 municipios de Carazo.
+
+### Changed
+- Mensajes de la app ("Por ahora CosechaClima cubre la zona de Carazo", "fuera de Carazo", etc.) actualizados a alcance nacional.
+- `README.md` / `README.es.md`: alcance actualizado de "Carazo" a "Nicaragua".
+
 ## [Unreleased]
 
 ### Added

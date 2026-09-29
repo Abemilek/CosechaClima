@@ -1,3 +1,4 @@
+using System.Linq;
 using Microsoft.Data.SqlClient;
 using WebApi.Implementation.Connection;
 using WebApi.Interface;
@@ -91,6 +92,11 @@ public class CatalogoService : ICatalogoService
     public Task<List<EtapaFenologica>> ObtenerEtapasFenologicas()
     {
         return _etapaFenologicaService.ObtenerTodas();
+    }
+
+    public List<string> ObtenerMunicipiosCobertura()
+    {
+        return MunicipioCentroide.Departamentos.ToList();
     }
 
     public async Task<bool> CultivoExiste(int id)
