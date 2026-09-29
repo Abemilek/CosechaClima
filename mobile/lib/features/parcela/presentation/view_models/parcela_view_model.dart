@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/cache/parcela_cache.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../catalogo/data/models/catalogo.dart';
 import '../../../catalogo/data/services/catalogo_service.dart';
@@ -9,6 +12,7 @@ import '../../data/services/parcela_service.dart';
 class ParcelaViewModel extends ChangeNotifier {
   final ParcelaService _parcelaService;
   final CatalogoService _catalogoService;
+  final ParcelaCache _cache = ParcelaCache();
 
   ParcelaViewModel(this._parcelaService, this._catalogoService);
 
@@ -20,6 +24,8 @@ class ParcelaViewModel extends ChangeNotifier {
 
   bool _cargando = false;
   String? _error;
+  bool _mostrandoDatosGuardados = false;
+  DateTime? _datosGuardadosEn;
 
   List<Parcela> get parcelas => _parcelas;
   List<Cultivo> get cultivos => _cultivos;
@@ -30,6 +36,8 @@ class ParcelaViewModel extends ChangeNotifier {
 
   bool get cargando => _cargando;
   String? get error => _error;
+  bool get mostrandoDatosGuardados => _mostrandoDatosGuardados;
+  DateTime? get datosGuardadosEn => _datosGuardadosEn;
 
   Future<void> cargarParcelas() async {
     _cargando = true;
@@ -37,15 +45,31 @@ class ParcelaViewModel extends ChangeNotifier {
     notifyListeners();
     try {
       _parcelas = await _parcelaService.obtenerMisParcelas();
+      _mostrandoDatosGuardados = false;
+      _datosGuardadosEn = null;
+      unawaited(_cache.guardarLista(_parcelas));
     } on ApiException catch (e) {
       _error = e.message;
     } on NetworkException catch (e) {
-      _error = e.message;
+      await _usarCacheOMostrarError(e.message);
     } on TimeoutApiException catch (e) {
-      _error = e.message;
+      await _usarCacheOMostrarError(e.message);
     } finally {
       _cargando = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> _usarCacheOMostrarError(String mensajeError) async {
+    final cache = await _cache.obtenerLista();
+    if (cache != null && cache.parcelas.isNotEmpty) {
+      _parcelas = cache.parcelas;
+      _mostrandoDatosGuardados = true;
+      _datosGuardadosEn = cache.guardadoEn;
+      _error = null;
+    } else {
+      _error = mensajeError;
+      _mostrandoDatosGuardados = false;
     }
   }
 
