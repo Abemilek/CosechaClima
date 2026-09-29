@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/services/notificacion_riesgo_service.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/app_loading_message.dart';
 import '../../../../shared/widgets/umbral_form.dart';
@@ -30,8 +31,16 @@ class _UmbralesScreenState extends State<UmbralesScreen> {
   String _variedadCultivo = 'Criollo';
   bool _tieneRiego = false;
   TimeOfDay _horarioSms = const TimeOfDay(hour: 6, minute: 0);
+  bool _notificacionesActivas = false;
 
-  static const _variedades = ['Criollo', 'Hibrido', 'Mejorado'];
+  static const double _defaultLluvia = 100;
+  static const double _defaultViento = 40;
+  static const double _defaultCanicula = 7;
+  static const String _defaultVariedad = 'Criollo';
+  static const bool _defaultRiego = false;
+  static const TimeOfDay _defaultHorario = TimeOfDay(hour: 6, minute: 0);
+
+  static const _variedades = ['Criollo', 'Híbrido', 'Mejorado'];
   static const _horarios = [
     TimeOfDay(hour: 5, minute: 0),
     TimeOfDay(hour: 6, minute: 0),
@@ -44,6 +53,22 @@ class _UmbralesScreenState extends State<UmbralesScreen> {
     super.initState();
     _service = UmbralService(ApiClient());
     unawaited(_cargar());
+    unawaited(_cargarEstadoNotificaciones());
+  }
+
+  Future<void> _cargarEstadoNotificaciones() async {
+    final activas = await NotificacionRiesgoService.instancia.tienePermiso();
+    if (mounted) setState(() => _notificacionesActivas = activas);
+  }
+
+  Future<void> _alternarNotificaciones(bool activar) async {
+    if (!activar) {
+      setState(() => _notificacionesActivas = false);
+      return;
+    }
+    final concedido = await NotificacionRiesgoService.instancia
+        .solicitarPermiso();
+    if (mounted) setState(() => _notificacionesActivas = concedido);
   }
 
   Future<void> _cargar() async {
@@ -120,6 +145,25 @@ class _UmbralesScreenState extends State<UmbralesScreen> {
     }
   }
 
+  bool get _usaValoresRecomendados =>
+      _lluviaIntensaMm == _defaultLluvia &&
+      _vientoFuerteKmh == _defaultViento &&
+      _caniculaDias == _defaultCanicula &&
+      _variedadCultivo == _defaultVariedad &&
+      _tieneRiego == _defaultRiego &&
+      _horarioSms == _defaultHorario;
+
+  void _restablecerValoresRecomendados() {
+    setState(() {
+      _lluviaIntensaMm = _defaultLluvia;
+      _vientoFuerteKmh = _defaultViento;
+      _caniculaDias = _defaultCanicula;
+      _variedadCultivo = _defaultVariedad;
+      _tieneRiego = _defaultRiego;
+      _horarioSms = _defaultHorario;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -151,11 +195,24 @@ class _UmbralesScreenState extends State<UmbralesScreen> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
-                    'Podés dejar los valores recomendados o adaptarlos a tu experiencia en la parcela.',
-                    style: TextStyle(color: AppColors.muted),
+                  Text(
+                    _usaValoresRecomendados
+                        ? 'Estás usando los valores recomendados para tu cultivo.'
+                        : 'Modificaste algunos valores recomendados para tu cultivo.',
+                    style: const TextStyle(color: AppColors.muted),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: _usaValoresRecomendados
+                          ? null
+                          : _restablecerValoresRecomendados,
+                      icon: const Icon(Icons.restart_alt, size: 18),
+                      label: const Text('Restablecer valores recomendados'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   UmbralForm(
                     lluviaIntensaMm: _lluviaIntensaMm,
                     vientoFuerteKmh: _vientoFuerteKmh,
@@ -191,6 +248,14 @@ class _UmbralesScreenState extends State<UmbralesScreen> {
                     subtitulo: 'Modifica las acciones ante sequía.',
                     valor: _tieneRiego,
                     onChanged: (v) => setState(() => _tieneRiego = v),
+                  ),
+                  const SizedBox(height: 14),
+                  _ToggleCard(
+                    titulo: 'Avisarme si el riesgo sube',
+                    subtitulo:
+                        'Notificación en el teléfono cuando el riesgo de tu parcela suba de nivel.',
+                    valor: _notificacionesActivas,
+                    onChanged: _alternarNotificaciones,
                   ),
                   const SizedBox(height: 18),
                   const Text(
