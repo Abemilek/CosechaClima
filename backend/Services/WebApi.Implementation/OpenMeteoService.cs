@@ -90,11 +90,15 @@ public class OpenMeteoService : IProveedorClimaticoService
     }
 
     public async Task<List<PronosticoPublico>> ObtenerPronosticoPublico(decimal latitud, decimal longitud)
+        => await ObtenerPronosticoDiario(latitud, longitud, 5);
+
+    public async Task<List<PronosticoPublico>> ObtenerPronosticoDiario(decimal latitud, decimal longitud, int dias)
     {
+        var diasSeguro = Math.Clamp(dias, 1, 16);
         var url = $"?latitude={latitud.ToString(CultureInfo.InvariantCulture)}" +
                    $"&longitude={longitud.ToString(CultureInfo.InvariantCulture)}" +
                    "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max" +
-                   "&timezone=America%2FManagua&forecast_days=5";
+                   $"&timezone=America%2FManagua&forecast_days={diasSeguro}";
 
         try
         {
@@ -104,8 +108,8 @@ public class OpenMeteoService : IProveedorClimaticoService
             if (diario?.Time is null || diario.Time.Count == 0)
             {
                 _logger.LogWarning(
-                    "Open-Meteo respondio sin datos para pronostico publico ({Lat},{Lon})",
-                    latitud, longitud);
+                    "Open-Meteo respondio sin datos para pronostico de {Dias} dias ({Lat},{Lon})",
+                    diasSeguro, latitud, longitud);
                 return [];
             }
 
@@ -128,13 +132,13 @@ public class OpenMeteoService : IProveedorClimaticoService
         catch (HttpRequestException ex)
         {
             _logger.LogWarning(ex,
-                "Fallo de red consultando pronostico publico ({Lat},{Lon})", latitud, longitud);
+                "Fallo de red consultando pronostico de {Dias} dias ({Lat},{Lon})", diasSeguro, latitud, longitud);
             return [];
         }
         catch (TaskCanceledException ex)
         {
             _logger.LogWarning(ex,
-                "Timeout consultando pronostico publico ({Lat},{Lon})", latitud, longitud);
+                "Timeout consultando pronostico de {Dias} dias ({Lat},{Lon})", diasSeguro, latitud, longitud);
             return [];
         }
     }

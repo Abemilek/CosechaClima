@@ -14,6 +14,7 @@ public class MotorDecisionesService : IMotorDecisionesService
     private readonly IReglaDecisionService _reglaDecisionService;
     private readonly IAlertaService _alertaService;
     private readonly IEtapaFenologicaService _etapaFenologicaService;
+    private readonly IProveedorClimaticoService _proveedorClimaticoService;
 
     public MotorDecisionesService(
         IParcelaService parcelaService,
@@ -21,7 +22,8 @@ public class MotorDecisionesService : IMotorDecisionesService
         IDatosClimaticoService datosClimaticoService,
         IReglaDecisionService reglaDecisionService,
         IAlertaService alertaService,
-        IEtapaFenologicaService etapaFenologicaService)
+        IEtapaFenologicaService etapaFenologicaService,
+        IProveedorClimaticoService proveedorClimaticoService)
     {
         _parcelaService = parcelaService;
         _umbralService = umbralService;
@@ -29,6 +31,7 @@ public class MotorDecisionesService : IMotorDecisionesService
         _reglaDecisionService = reglaDecisionService;
         _alertaService = alertaService;
         _etapaFenologicaService = etapaFenologicaService;
+        _proveedorClimaticoService = proveedorClimaticoService;
     }
 
     public async Task<Alerta> CalcularSemaforo(int parcelaId)
@@ -40,7 +43,7 @@ public class MotorDecisionesService : IMotorDecisionesService
             ?? (await _etapaFenologicaService.CalcularDesdeFecha(parcela.FechaSiembra)).Id;
 
         var umbrales = await _umbralService.ObtenerPorUsuario(parcela.UsuarioId)
-            ?? throw new FlujoIncompletoException("el usuario no tiene umbrales configurados");
+            ?? new UmbralConfiguracion { UsuarioId = parcela.UsuarioId };
 
         var ultimoDato = (await _datosClimaticoService.ObtenerUltimosDatos(parcelaId, dias: 1))
             .FirstOrDefault();
@@ -101,27 +104,146 @@ public class MotorDecisionesService : IMotorDecisionesService
         UmbralConfiguracion umbrales,
         int diasNecesarios)
     {
+        return DeterminarEventosActivos(
+            ultimoDato.TemperaturaMin, ultimoDato.TemperaturaMax,
+            ultimoDato.Precipitacion, ultimoDato.VientoVelocidad,
+            umbrales,
+            HayCaniculaActiva(ventanaCanicula, diasNecesarios, DateTime.Today));
+    }
+
+    private static List<int> DeterminarEventosActivos(
+        decimal? temperaturaMin, decimal? temperaturaMax,
+        decimal? precipitacion, decimal? viento,
+        UmbralConfiguracion umbrales, bool caniculaActiva)
+    {
         var eventos = new List<int>();
 
-        if (ultimoDato.TemperaturaMin is not null && ultimoDato.TemperaturaMin <= 2m)
+        if (temperaturaMin is not null && temperaturaMin <= 2m)
             eventos.Add((int)EventoClimaticoId.RiesgoHelada);
 
-        if (ultimoDato.Precipitacion is not null && ultimoDato.Precipitacion >= umbrales.LluviaIntensaMm)
+        if (precipitacion is not null && precipitacion >= umbrales.LluviaIntensaMm)
             eventos.Add((int)EventoClimaticoId.LluviaIntensa);
 
-        if (ultimoDato.VientoVelocidad is not null && ultimoDato.VientoVelocidad >= umbrales.VientoFuerteKmh)
+        if (viento is not null && viento >= umbrales.VientoFuerteKmh)
             eventos.Add((int)EventoClimaticoId.VientoFuerte);
 
-        if (ultimoDato.TemperaturaMax is not null && ultimoDato.TemperaturaMax >= 35m)
+        if (temperaturaMax is not null && temperaturaMax >= 35m)
             eventos.Add((int)EventoClimaticoId.TemperaturaExtrema);
 
-        if (HayCaniculaActiva(ventanaCanicula, diasNecesarios, DateTime.Today))
+        if (caniculaActiva)
             eventos.Add((int)EventoClimaticoId.Canicula);
 
         if (!eventos.Any())
             eventos.Add((int)EventoClimaticoId.SinRiesgo);
 
         return eventos;
+    }
+
+    public async Task<ResumenSemanal> CalcularResumenSemanal(int parcelaId, int dias = 7)
+    {
+        var parcela = await _parcelaService.ObtenerPorId(parcelaId)
+            ?? throw new RecursoNoEncontradoException($"no existe la parcela {parcelaId}");
+
+        decimal latitud;
+        decimal longitud;
+
+        if (parcela.Latitud is not null && parcela.Longitud is not null)
+        {
+            latitud = parcela.Latitud.Value;
+            longitud = parcela.Longitud.Value;
+        }
+        else if (MunicipioCentroide.TryObtenerCentroide(parcela.Municipio, out var centroide))
+        {
+            latitud = centroide.Latitud;
+            longitud = centroide.Longitud;
+        }
+        else
+        {
+            throw new FlujoIncompletoException(
+                "la parcela no tiene coordenadas GPS ni un municipio/departamento reconocido");
+        }
+
+        var etapaFenologicaId = parcela.EtapaFenologicaId
+            ?? (await _etapaFenologicaService.CalcularDesdeFecha(parcela.FechaSiembra)).Id;
+
+        var umbrales = await _umbralService.ObtenerPorUsuario(parcela.UsuarioId)
+            ?? new UmbralConfiguracion { UsuarioId = parcela.UsuarioId };
+
+        var pronostico = await _proveedorClimaticoService.ObtenerPronosticoDiario(latitud, longitud, dias);
+
+        var resumen = new ResumenSemanal();
+        var diasNecesariosCanicula = Math.Max(umbrales.CaniculaDias, 1);
+
+        ReglaDecision? reglaDelPeorDia = null;
+        int prioridadMaxima = -1;
+
+        for (var i = 0; i < pronostico.Count; i++)
+        {
+            var dia = pronostico[i];
+
+            var ventana = pronostico
+                .Where(d => d.Fecha <= dia.Fecha && d.Fecha > dia.Fecha.AddDays(-diasNecesariosCanicula))
+                .ToList();
+            var caniculaActiva = ventana.Count == diasNecesariosCanicula
+                && ventana.All(d => d.Precipitacion is null || d.Precipitacion == 0);
+
+            var eventosActivos = DeterminarEventosActivos(
+                dia.TemperaturaMin, dia.TemperaturaMax, dia.Precipitacion, dia.VientoVelocidad,
+                umbrales, caniculaActiva);
+
+            ReglaDecision? reglaDelDia = null;
+            int prioridadDelDia = -1;
+
+            foreach (var eventoId in eventosActivos)
+            {
+                var regla = await _reglaDecisionService.ObtenerPorClave(
+                    eventoId, parcela.CultivoId, etapaFenologicaId, parcela.TipoSueloId);
+
+                if (regla is null) continue;
+
+                var prioridad = CalcularPrioridadRiesgo(regla.NivelRiesgo);
+                if (prioridad > prioridadDelDia)
+                {
+                    prioridadDelDia = prioridad;
+                    reglaDelDia = regla;
+                }
+            }
+
+            resumen.Dias.Add(new DiaResumenSemanal
+            {
+                Fecha = dia.Fecha,
+                NivelRiesgo = reglaDelDia?.NivelRiesgo ?? "Bajo",
+                EventoClimaticoId = reglaDelDia?.EventoClimaticoId ?? (int)EventoClimaticoId.SinRiesgo,
+                TemperaturaMax = dia.TemperaturaMax,
+                TemperaturaMin = dia.TemperaturaMin,
+                Precipitacion = dia.Precipitacion,
+            });
+
+            if (reglaDelDia is not null && prioridadDelDia > prioridadMaxima)
+            {
+                prioridadMaxima = prioridadDelDia;
+                reglaDelPeorDia = reglaDelDia;
+                resumen.DiaMasCritico = dia.Fecha;
+            }
+        }
+
+        if (reglaDelPeorDia is not null)
+        {
+            resumen.NivelRiesgoMaximo = reglaDelPeorDia.NivelRiesgo;
+            resumen.DescripcionAlerta = reglaDelPeorDia.DescripcionAlerta;
+            resumen.AccionesDeLaSemana = new List<string>
+            {
+                reglaDelPeorDia.Accion1, reglaDelPeorDia.Accion2, reglaDelPeorDia.Accion3
+            };
+        }
+        else
+        {
+            resumen.NivelRiesgoMaximo = "Bajo";
+            resumen.DescripcionAlerta = "Semana sin riesgos climáticos relevantes previstos.";
+            resumen.AccionesDeLaSemana = new List<string> { "Continuar con el manejo habitual del cultivo" };
+        }
+
+        return resumen;
     }
 
     private static int CalcularPrioridadRiesgo(string nivel) => nivel.ToLower() switch
