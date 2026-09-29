@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/cache/parcela_cache.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/services/notificacion_riesgo_service.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../routing/no_animation_route.dart';
 import '../../../../shared/utils/riesgo_ui.dart';
@@ -22,6 +23,8 @@ import '../../../catalogo/data/models/catalogo.dart';
 import '../../../clima/data/models/clima.dart';
 import '../../../clima/data/services/clima_service.dart';
 import '../../../clima/data/services/motor_service.dart';
+import '../../../clima/presentation/screens/resumen_semanal_tab.dart';
+import '../../../onboarding/presentation/screens/acerca_de_screen.dart';
 import '../../../umbral/presentation/screens/umbrales_screen.dart';
 import '../../data/models/parcela.dart';
 import '../../data/services/parcela_service.dart';
@@ -109,6 +112,15 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
           semaforo: semaforo,
         ),
       );
+
+      unawaited(
+        NotificacionRiesgoService.instancia.evaluarCambioDeRiesgo(
+          parcelaId: parcela.id,
+          parcelaNombre: parcela.comunidad ?? parcela.municipio ?? 'tu parcela',
+          nivelRiesgoActual: semaforo.nivelRiesgo,
+          descripcionAlerta: semaforo.descripcionAlerta,
+        ),
+      );
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -153,14 +165,22 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
       return;
     }
 
-    final eventoId = await _elegirEventoClimatico(eventos);
+    int? eventoId;
+    if (semaforo.nivelRiesgo.toLowerCase() == 'bajo') {
+      eventoId = semaforo.eventoClimaticoId;
+    } else {
+      eventoId = await _elegirEventoClimatico(
+        eventos,
+        preseleccionado: semaforo.eventoClimaticoId,
+      );
+    }
     if (eventoId == null || !mounted) return;
 
     try {
       await _bitacoraService.crear(
         BitacoraRequest(
           parcelaId: _parcelaActual.id,
-          fecha: semaforo.fecha,
+          fecha: DateTime.now(),
           eventoClimaticoId: eventoId,
           nivelRiesgo: semaforo.nivelRiesgo,
           accion1Texto: semaforo.acciones.isNotEmpty
@@ -176,7 +196,7 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Guardado en tu bitácora de campo')),
+          const SnackBar(content: Text('Guardado en tu cuaderno')),
         );
       }
     } on ApiException catch (e) {
@@ -188,8 +208,13 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
     }
   }
 
-  Future<int?> _elegirEventoClimatico(List<EventoClimatico> eventos) {
-    int seleccionado = eventos.first.id;
+  Future<int?> _elegirEventoClimatico(
+    List<EventoClimatico> eventos, {
+    int? preseleccionado,
+  }) {
+    int seleccionado = eventos.any((e) => e.id == preseleccionado)
+        ? preseleccionado!
+        : eventos.first.id;
     return showDialog<int>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -399,8 +424,8 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
                   color: AppColors.amber,
                   colorFondo: AppColors.amberBg,
                   texto:
-                      'Esta parcela parece estar fuera de Carazo. Las alertas están '
-                      'calibradas solo para ese departamento y podrían no ser precisas acá.',
+                      'Esta parcela parece estar fuera de Nicaragua. Las alertas están '
+                      'calibradas solo para el territorio nacional y podrían no ser precisas acá.',
                 ),
               )
             else if (!parcela.tieneCoordenadas && parcela.puedeConsultarClima)
@@ -466,6 +491,10 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
                     onAbrirSms: _abrirSms,
                   ),
                   BitacoraScreen(parcelaId: parcela.id, mostrarAppBar: false),
+                  ResumenSemanalTab(
+                    parcelaId: parcela.id,
+                    sinCoordenadas: !parcela.tieneCoordenadas,
+                  ),
                 ],
               ),
             ),
@@ -491,7 +520,8 @@ class _BottomNav extends StatelessWidget {
     final items = [
       (Icons.home_outlined, 'Inicio'),
       (Icons.warning_amber_outlined, 'Alertas'),
-      (Icons.calendar_month_outlined, 'Bitácora'),
+      (Icons.calendar_month_outlined, 'Mi cuaderno'),
+      (Icons.date_range_outlined, 'Semana'),
     ];
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
@@ -738,7 +768,7 @@ class _HomeTab extends StatelessWidget {
           FilledButton.icon(
             onPressed: onGuardarBitacora,
             icon: const Icon(Icons.menu_book_outlined, size: 18),
-            label: const Text('Guardar en mi bitácora'),
+            label: const Text('Guardar en mi cuaderno'),
           ),
           const SizedBox(height: 20),
           OutlinedButton.icon(
@@ -746,25 +776,17 @@ class _HomeTab extends StatelessWidget {
             icon: const Icon(Icons.refresh, size: 18),
             label: const Text('Actualizar clima'),
           ),
-          const SizedBox(height: 20),
-          const Row(
-            children: [
-              Expanded(
-                child: _SourceCard(
-                  icon: Icons.cloud_outlined,
-                  titulo: 'Open-Meteo',
-                  detalle: 'Clima horario en tiempo real.',
-                ),
+          const SizedBox(height: 12),
+          Center(
+            child: TextButton.icon(
+              onPressed: () => Navigator.of(
+                context,
+              ).push(noAnimationRoute<void>((_) => const AcercaDeScreen())),
+              icon: const Icon(Icons.info_outline, size: 16),
+              label: const Text(
+                '¿Cómo calculamos esto? Acerca de CosechaClima',
               ),
-              SizedBox(width: 12),
-              Expanded(
-                child: _SourceCard(
-                  icon: Icons.rule_outlined,
-                  titulo: 'Motor de reglas',
-                  detalle: 'Acciones según cultivo y etapa.',
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ],
@@ -1043,42 +1065,6 @@ class _ActionTile extends StatelessWidget {
   }
 }
 
-class _SourceCard extends StatelessWidget {
-  final IconData icon;
-  final String titulo;
-  final String detalle;
-
-  const _SourceCard({
-    required this.icon,
-    required this.titulo,
-    required this.detalle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 96),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.paper,
-        borderRadius: BorderRadius.circular(AppRadius.cardSmall),
-        border: Border.all(color: const Color(0xFFE8D8C8)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AppPill(icon: icon, text: titulo),
-          const SizedBox(height: 8),
-          Text(
-            detalle,
-            style: const TextStyle(fontSize: 12, color: AppColors.muted),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _AlertasTab extends StatelessWidget {
   final bool cargando;
   final String? error;
@@ -1265,7 +1251,14 @@ class _AlertasTab extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         FilledButton.icon(
-          style: FilledButton.styleFrom(backgroundColor: colorRiesgo),
+          style: FilledButton.styleFrom(
+            backgroundColor: colorRiesgo,
+            foregroundColor:
+                ThemeData.estimateBrightnessForColor(colorRiesgo) ==
+                    Brightness.dark
+                ? Colors.white
+                : AppColors.ink,
+          ),
           onPressed: onAbrirSms,
           icon: const Icon(Icons.sms_outlined, size: 18),
           label: const Text('Preparar SMS'),

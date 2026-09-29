@@ -13,4 +13,9 @@ class MotorService {
     );
     return Semaforo.fromJson(json as Map<String, dynamic>);
   }
+
+  Future<ResumenSemanal> obtenerResumenSemanal(int parcelaId) async {
+    final json = await _client.get('/motor/resumen-semanal/$parcelaId');
+    return ResumenSemanal.fromJson(json as Map<String, dynamic>);
+  }
 }

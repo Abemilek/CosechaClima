@@ -66,10 +66,7 @@ class BitacoraRequest {
 
   Map<String, dynamic> toJson() => {
     'parcelaId': parcelaId,
-    'fecha':
-        '${fecha.year.toString().padLeft(4, '0')}-'
-        '${fecha.month.toString().padLeft(2, '0')}-'
-        '${fecha.day.toString().padLeft(2, '0')}',
+    'fecha': fecha.toIso8601String(),
     'eventoClimaticoId': eventoClimaticoId,
     'nivelRiesgo': nivelRiesgo,
     'accion1Texto': accion1Texto,
