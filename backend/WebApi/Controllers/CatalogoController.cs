@@ -43,4 +43,10 @@ public class CatalogoController : ControllerBase
         var etapas = await _catalogoService.ObtenerEtapasFenologicas();
         return Ok(etapas);
     }
+
+    [HttpGet("municipios")]
+    public IActionResult ObtenerMunicipios()
+    {
+        return Ok(_catalogoService.ObtenerMunicipiosCobertura());
+    }
 }
