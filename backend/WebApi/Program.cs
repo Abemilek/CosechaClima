@@ -194,41 +194,61 @@ using (var scope = app.Services.CreateScope())
         var emailAdmin = config["AdminSeed:Email"];
         var passwordAdmin = config["AdminSeed:Password"];
 
-        var seedConfigurado = !string.IsNullOrWhiteSpace(emailAdmin)
-            || !string.IsNullOrWhiteSpace(passwordAdmin);
+        var emailValido = !string.IsNullOrWhiteSpace(emailAdmin)
+            && Regex.IsMatch(emailAdmin, @"^[^@\s]+@[^@\s]+\.[^@\s]+$");
 
-        if (seedConfigurado)
+        if (string.IsNullOrWhiteSpace(emailAdmin))
         {
-            var emailValido = !string.IsNullOrWhiteSpace(emailAdmin)
-                && Regex.IsMatch(emailAdmin, @"^[^@\s]+@[^@\s]+\.[^@\s]+$");
-            var passwordValida = !string.IsNullOrWhiteSpace(passwordAdmin)
-                && passwordAdmin.Length >= 8;
+            app.Logger.LogWarning(
+                "ADMIN_SEED_EMAIL no esta configurado -- no se crea ningun admin automaticamente. " +
+                "Definilo en el .env y reinicia, o asigna el rol manualmente en la base de datos.");
+        }
+        else if (!emailValido)
+        {
+            app.Logger.LogWarning(
+                "ADMIN_SEED_EMAIL tiene un formato invalido -- se omite el seed del admin");
+        }
+        else
+        {
+            var passwordInsegura = string.IsNullOrWhiteSpace(passwordAdmin)
+                || passwordAdmin.Length < 8
+                || passwordAdmin.Equals("CAMBIAME", StringComparison.OrdinalIgnoreCase)
+                || passwordAdmin.Equals("password", StringComparison.OrdinalIgnoreCase);
 
-            if (!emailValido || !passwordValida)
+            var passwordFinal = passwordAdmin;
+
+            if (passwordInsegura)
             {
-                app.Logger.LogWarning(
-                    "AdminSeed configurado con formato invalido (email debe ser valido, " +
-                    "password debe tener al menos 8 caracteres) -- se omite el seed del admin");
+                passwordFinal = GenerarPasswordSegura();
             }
-            else
-            {
-                var usuarioService = scope.ServiceProvider.GetRequiredService<IUsuarioService>();
-                var existente = await usuarioService.ObtenerPorEmail(emailAdmin!);
 
-                if (existente is null)
+            var usuarioService = scope.ServiceProvider.GetRequiredService<IUsuarioService>();
+            var existente = await usuarioService.ObtenerPorEmail(emailAdmin!);
+
+            if (existente is null)
+            {
+                var nombreAdmin = config["AdminSeed:Nombre"] ?? "Admin";
+                var id = await usuarioService.RegistrarConEmail(
+                    new Usuario { Nombre = nombreAdmin, Email = emailAdmin! }, passwordFinal!);
+                await usuarioService.MarcarComoAdmin(id);
+
+                if (passwordInsegura)
                 {
-                    var nombreAdmin = config["AdminSeed:Nombre"] ?? "Admin";
-                    var id = await usuarioService.RegistrarConEmail(
-                        new Usuario { Nombre = nombreAdmin, Email = emailAdmin! }, passwordAdmin!);
-                    await usuarioService.MarcarComoAdmin(id);
+                    app.Logger.LogWarning(
+                        "Admin inicial creado: {Email} -- ADMIN_SEED_PASSWORD no estaba definida " +
+                        "(o era insegura), se genero esta clave temporal, cambiala al iniciar sesion: {Password}",
+                        emailAdmin, passwordFinal);
+                }
+                else
+                {
                     app.Logger.LogInformation("Admin inicial creado: {Email}", emailAdmin);
                 }
-                else if (!existente.EsAdmin)
-                {
-                    await usuarioService.MarcarComoAdmin(existente.Id);
-                    app.Logger.LogInformation(
-                        "Rol Admin otorgado a usuario existente: {Email}", emailAdmin);
-                }
+            }
+            else if (!existente.EsAdmin)
+            {
+                await usuarioService.MarcarComoAdmin(existente.Id);
+                app.Logger.LogInformation(
+                    "Rol Admin otorgado a usuario existente: {Email}", emailAdmin);
             }
         }
     }
@@ -251,3 +271,13 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+static string GenerarPasswordSegura()
+{
+    const string alfabeto = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%";
+    var bytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(20);
+    var chars = new char[20];
+    for (var i = 0; i < bytes.Length; i++)
+        chars[i] = alfabeto[bytes[i] % alfabeto.Length];
+    return new string(chars);
+}
