@@ -16,14 +16,17 @@ public class ReglaDecisionService : IReglaDecisionService
         _connectionBD = connectionBD;
     }
 
+    private const string ColumnasRegla =
+        "Id, EventoClimaticoId, CultivoId, EtapaFenologicaId, TipoSueloId, " +
+        "NivelRiesgo, Accion1, Accion2, Accion3, DescripcionAlerta, Activa";
+
     public async Task<List<ReglaDecision>> ObtenerTodas()
     {
         var lista = new List<ReglaDecision>();
 
         using var connection = _connectionBD.CrearConexion();
         using var command = new SqlCommand(
-            "SELECT Id, EventoClimaticoId, CultivoId, EtapaFenologicaId, TipoSueloId, " +
-            "NivelRiesgo, Accion1, Accion2, Accion3, DescripcionAlerta FROM ReglasDecision",
+            $"SELECT {ColumnasRegla} FROM ReglasDecision",
             connection);
 
         await connection.OpenAsync();
@@ -37,15 +40,27 @@ public class ReglaDecisionService : IReglaDecisionService
         return lista;
     }
 
+    public async Task<ReglaDecision?> ObtenerPorId(int id)
+    {
+        using var connection = _connectionBD.CrearConexion();
+        using var command = new SqlCommand(
+            $"SELECT {ColumnasRegla} FROM ReglasDecision WHERE Id = @Id", connection);
+        command.Parameters.AddWithValue("@Id", id);
+
+        await connection.OpenAsync();
+        using var lector = await command.ExecuteReaderAsync();
+
+        return await lector.ReadAsync() ? MapRegla(lector) : null;
+    }
+
     public async Task<ReglaDecision?> ObtenerPorClave(
         int eventoClimaticoId, int cultivoId, int etapaFenologicaId, int tipoSueloId)
     {
         using var connection = _connectionBD.CrearConexion();
         using var command = new SqlCommand(
-            "SELECT Id, EventoClimaticoId, CultivoId, EtapaFenologicaId, TipoSueloId, " +
-            "NivelRiesgo, Accion1, Accion2, Accion3, DescripcionAlerta FROM ReglasDecision " +
+            $"SELECT {ColumnasRegla} FROM ReglasDecision " +
             "WHERE EventoClimaticoId = @Evento AND CultivoId = @Cultivo " +
-            "AND EtapaFenologicaId = @Etapa AND TipoSueloId = @Suelo", connection);
+            "AND EtapaFenologicaId = @Etapa AND TipoSueloId = @Suelo AND Activa = 1", connection);
 
         command.Parameters.AddWithValue("@Evento", eventoClimaticoId);
         command.Parameters.AddWithValue("@Cultivo", cultivoId);
@@ -56,6 +71,41 @@ public class ReglaDecisionService : IReglaDecisionService
         using var lector = await command.ExecuteReaderAsync();
 
         return await lector.ReadAsync() ? MapRegla(lector) : null;
+    }
+
+    public async Task<bool> ActualizarContenido(
+        int id, string nivelRiesgo, string accion1, string accion2, string accion3, string descripcionAlerta)
+    {
+        using var connection = _connectionBD.CrearConexion();
+        using var command = new SqlCommand(
+            "UPDATE ReglasDecision SET NivelRiesgo = @NivelRiesgo, Accion1 = @Accion1, " +
+            "Accion2 = @Accion2, Accion3 = @Accion3, DescripcionAlerta = @DescripcionAlerta " +
+            "WHERE Id = @Id", connection);
+
+        command.Parameters.AddWithValue("@NivelRiesgo", nivelRiesgo);
+        command.Parameters.AddWithValue("@Accion1", accion1);
+        command.Parameters.AddWithValue("@Accion2", accion2);
+        command.Parameters.AddWithValue("@Accion3", accion3);
+        command.Parameters.AddWithValue("@DescripcionAlerta", descripcionAlerta);
+        command.Parameters.AddWithValue("@Id", id);
+
+        await connection.OpenAsync();
+        var filas = await command.ExecuteNonQueryAsync();
+        return filas > 0;
+    }
+
+    public async Task<bool> CambiarActiva(int id, bool activa)
+    {
+        using var connection = _connectionBD.CrearConexion();
+        using var command = new SqlCommand(
+            "UPDATE ReglasDecision SET Activa = @Activa WHERE Id = @Id", connection);
+
+        command.Parameters.AddWithValue("@Activa", activa);
+        command.Parameters.AddWithValue("@Id", id);
+
+        await connection.OpenAsync();
+        var filas = await command.ExecuteNonQueryAsync();
+        return filas > 0;
     }
 
     public async Task SembrarReglasIniciales()
@@ -144,7 +194,8 @@ public class ReglaDecisionService : IReglaDecisionService
             Accion1 = lector.GetString(6),
             Accion2 = lector.GetString(7),
             Accion3 = lector.GetString(8),
-            DescripcionAlerta = lector.GetString(9)
+            DescripcionAlerta = lector.GetString(9),
+            Activa = lector.GetBoolean(10)
         };
     }
 }

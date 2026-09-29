@@ -11,4 +11,5 @@ public class ReglaDecision {
     public string Accion2 {get; set; } = string.Empty;
     public string Accion3 {get; set; } = string.Empty;
     public string DescripcionAlerta {get; set; } = string.Empty;
+    public bool Activa {get; set; } = true;
 }
