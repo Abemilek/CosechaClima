@@ -28,7 +28,7 @@ class LocationPickerController extends ChangeNotifier {
     mostrarManual = tieneCoordenadas;
     if (tieneCoordenadas) {
       status = LocationPickerStatus.success;
-      message = 'Ubicación detectada.';
+      message = 'Vas a usar estas coordenadas guardadas.';
     }
   }
 
@@ -148,7 +148,7 @@ class LocationPickerController extends ChangeNotifier {
       latitudCtrl.text = posicion.latitude.toStringAsFixed(6);
       longitudCtrl.text = posicion.longitude.toStringAsFixed(6);
       status = LocationPickerStatus.success;
-      message = 'Ubicación detectada correctamente.';
+      message = 'Ya podés continuar con estos datos.';
       mostrarManual = false;
       onChanged();
       notifyListeners();

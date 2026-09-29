@@ -7,6 +7,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../routing/no_animation_route.dart';
 import '../../../../routing/role_home_screen.dart';
 import '../../../../shared/widgets/progress_dots.dart';
+import '../../../auth/presentation/screens/login_sheet.dart';
 import '../../../auth/presentation/view_models/auth_view_model.dart';
 
 class _TutorialStep {
@@ -71,6 +72,25 @@ class _TutorialScreenState extends State<TutorialScreen> {
         noAnimationRoute<void>((_) => const RoleHomeScreen()),
       ),
     );
+  }
+
+  Future<void> _irAIniciarSesion() async {
+    await context.read<AuthViewModel>().marcarOnboardingVisto();
+    if (!mounted) return;
+
+    final autenticado = await mostrarLoginContextual(
+      context,
+      motivo: 'Iniciá sesión para ver tus parcelas y alertas.',
+    );
+    if (!mounted) return;
+
+    if (autenticado == true) {
+      unawaited(
+        Navigator.of(context).pushReplacement<void, void>(
+          noAnimationRoute<void>((_) => const RoleHomeScreen()),
+        ),
+      );
+    }
   }
 
   void _next() {
@@ -141,6 +161,10 @@ class _TutorialScreenState extends State<TutorialScreen> {
               TextButton(
                 onPressed: () => unawaited(_terminarOnboarding()),
                 child: const Text('Omitir tutorial'),
+              ),
+              TextButton(
+                onPressed: () => unawaited(_irAIniciarSesion()),
+                child: const Text('¿Ya tenés una cuenta? Iniciar sesión'),
               ),
             ],
           ),
