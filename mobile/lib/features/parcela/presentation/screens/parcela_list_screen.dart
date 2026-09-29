@@ -8,6 +8,7 @@ import '../../../../routing/auth_gate.dart';
 import '../../../../routing/no_animation_route.dart';
 import '../../../../shared/widgets/app_avatar.dart';
 import '../../../../shared/widgets/app_loading_message.dart';
+import '../../../../shared/widgets/confirm_dialog.dart';
 import '../../../auth/presentation/view_models/auth_view_model.dart';
 import '../../../bitacora/presentation/screens/bitacora_screen.dart';
 import '../../../umbral/presentation/screens/umbrales_screen.dart';
@@ -35,6 +36,15 @@ class _ParcelaListScreenState extends State<ParcelaListScreen> {
   }
 
   Future<void> _cerrarSesion() async {
+    final confirmado = await mostrarConfirmacion(
+      context,
+      titulo: '¿Deseas cerrar la sesión?',
+      mensaje: 'Vas a tener que iniciar sesión de nuevo para ver tus parcelas.',
+      textoConfirmar: 'Cerrar sesión',
+      esDestructivo: true,
+    );
+    if (!confirmado || !mounted) return;
+
     await context.read<AuthViewModel>().cerrarSesion();
     if (!mounted) return;
     await Navigator.of(context).pushAndRemoveUntil(
@@ -151,11 +161,62 @@ class _ParcelaListScreenState extends State<ParcelaListScreen> {
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(18, 6, 18, 100),
-      itemCount: provider.parcelas.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, i) => _ParcelaCard(parcela: provider.parcelas[i]),
+    return Column(
+      children: [
+        if (provider.mostrandoDatosGuardados)
+          _BannerSinConexion(provider: provider),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(18, 6, 18, 100),
+            itemCount: provider.parcelas.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 12),
+            itemBuilder: (context, i) =>
+                _ParcelaCard(parcela: provider.parcelas[i]),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BannerSinConexion extends StatelessWidget {
+  final ParcelaViewModel provider;
+
+  const _BannerSinConexion({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final guardadoEn = provider.datosGuardadosEn;
+    final texto = guardadoEn == null
+        ? 'Sin conexión: mostrando tus parcelas guardadas.'
+        : 'Sin conexión: mostrando datos guardados de las '
+              '${guardadoEn.hour.toString().padLeft(2, '0')}:'
+              '${guardadoEn.minute.toString().padLeft(2, '0')}.';
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(18, 0, 18, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.amberBg,
+        borderRadius: BorderRadius.circular(AppRadius.cardSmall),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.wifi_off, size: 18, color: Color(0xFFA56800)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              texto,
+              style: const TextStyle(fontSize: 12, color: Color(0xFFA56800)),
+            ),
+          ),
+          TextButton(
+            onPressed: provider.cargando ? null : provider.cargarParcelas,
+            child: const Text('Reintentar'),
+          ),
+        ],
+      ),
     );
   }
 }

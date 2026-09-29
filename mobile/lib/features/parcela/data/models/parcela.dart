@@ -49,6 +49,22 @@ class Parcela {
     activa: json['activa'] as bool? ?? true,
     estaEnZonaCubierta: json['estaEnZonaCubierta'] as bool? ?? false,
   );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'usuarioId': usuarioId,
+    'cultivoId': cultivoId,
+    'etapaFenologicaId': etapaFenologicaId,
+    'tipoSueloId': tipoSueloId,
+    'fechaSiembra': fechaSiembra.toIso8601String(),
+    'areaMzs': areaMzs,
+    'latitud': latitud,
+    'longitud': longitud,
+    'municipio': municipio,
+    'comunidad': comunidad,
+    'activa': activa,
+    'estaEnZonaCubierta': estaEnZonaCubierta,
+  };
 }
 
 class ParcelaRequest {

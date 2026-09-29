@@ -80,7 +80,7 @@ class SplashScreen extends StatelessWidget {
                         ),
                         SizedBox(width: 8),
                         Text(
-                          'Carazo, Nicaragua',
+                          'Nicaragua',
                           style: TextStyle(color: Colors.white),
                         ),
                       ],

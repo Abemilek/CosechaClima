@@ -43,7 +43,7 @@ class LocationService {
   static Future<Position> obtenerCoordenadas() {
     return Geolocator.getCurrentPosition(
       locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
+        accuracy: LocationAccuracy.reduced,
         timeLimit: Duration(seconds: 15),
       ),
     );

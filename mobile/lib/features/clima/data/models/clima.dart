@@ -52,12 +52,14 @@ class Semaforo {
   final String descripcionAlerta;
   final List<String> acciones;
   final DateTime fecha;
+  final int eventoClimaticoId;
 
   Semaforo({
     required this.nivelRiesgo,
     required this.descripcionAlerta,
     required this.acciones,
     required this.fecha,
+    required this.eventoClimaticoId,
   });
 
   factory Semaforo.fromJson(Map<String, dynamic> json) => Semaforo(
@@ -67,6 +69,7 @@ class Semaforo {
         .map((e) => e.toString())
         .toList(),
     fecha: DateTime.parse(json['fecha'] as String),
+    eventoClimaticoId: json['eventoClimaticoId'] as int? ?? 0,
   );
 
   Map<String, dynamic> toJson() => {
@@ -74,6 +77,7 @@ class Semaforo {
     'descripcionAlerta': descripcionAlerta,
     'acciones': acciones,
     'fecha': fecha.toIso8601String(),
+    'eventoClimaticoId': eventoClimaticoId,
   };
 }
 
@@ -100,4 +104,59 @@ class PronosticoPublico {
         precipitacion: (json['precipitacion'] as num?)?.toDouble(),
         vientoVelocidad: (json['vientoVelocidad'] as num?)?.toDouble(),
       );
+}
+
+class DiaResumenSemanal {
+  final DateTime fecha;
+  final String nivelRiesgo;
+  final double? temperaturaMax;
+  final double? temperaturaMin;
+  final double? precipitacion;
+
+  DiaResumenSemanal({
+    required this.fecha,
+    required this.nivelRiesgo,
+    this.temperaturaMax,
+    this.temperaturaMin,
+    this.precipitacion,
+  });
+
+  factory DiaResumenSemanal.fromJson(Map<String, dynamic> json) =>
+      DiaResumenSemanal(
+        fecha: DateTime.parse(json['fecha'] as String),
+        nivelRiesgo: json['nivelRiesgo'] as String,
+        temperaturaMax: (json['temperaturaMax'] as num?)?.toDouble(),
+        temperaturaMin: (json['temperaturaMin'] as num?)?.toDouble(),
+        precipitacion: (json['precipitacion'] as num?)?.toDouble(),
+      );
+}
+
+class ResumenSemanal {
+  final List<DiaResumenSemanal> dias;
+  final String nivelRiesgoMaximo;
+  final DateTime? diaMasCritico;
+  final String descripcionAlerta;
+  final List<String> accionesDeLaSemana;
+
+  ResumenSemanal({
+    required this.dias,
+    required this.nivelRiesgoMaximo,
+    this.diaMasCritico,
+    required this.descripcionAlerta,
+    required this.accionesDeLaSemana,
+  });
+
+  factory ResumenSemanal.fromJson(Map<String, dynamic> json) => ResumenSemanal(
+    dias: (json['dias'] as List<dynamic>)
+        .map((e) => DiaResumenSemanal.fromJson(e as Map<String, dynamic>))
+        .toList(),
+    nivelRiesgoMaximo: json['nivelRiesgoMaximo'] as String,
+    diaMasCritico: json['diaMasCritico'] == null
+        ? null
+        : DateTime.parse(json['diaMasCritico'] as String),
+    descripcionAlerta: json['descripcionAlerta'] as String,
+    accionesDeLaSemana: (json['accionesDeLaSemana'] as List<dynamic>)
+        .map((e) => e.toString())
+        .toList(),
+  );
 }

@@ -55,7 +55,7 @@ class _CrearParcelaWizardScreenState extends State<CrearParcelaWizardScreen> {
   static const _municipios = [
     _MunicipioOption(
       nombre: 'Diriamba',
-      subtitulo: 'Cuna del Gueguense',
+      subtitulo: 'Cuna del Güegüense',
       icono: Icons.home_outlined,
     ),
     _MunicipioOption(
@@ -73,9 +73,109 @@ class _CrearParcelaWizardScreenState extends State<CrearParcelaWizardScreen> {
       subtitulo: 'Zona productiva',
       icono: Icons.settings_outlined,
     ),
+    _MunicipioOption(
+      nombre: 'El Rosario',
+      subtitulo: 'Zona productiva',
+      icono: Icons.eco_outlined,
+    ),
+    _MunicipioOption(
+      nombre: 'La Conquista',
+      subtitulo: 'Zona alta de Carazo',
+      icono: Icons.terrain_outlined,
+    ),
+    _MunicipioOption(
+      nombre: 'La Paz de Carazo',
+      subtitulo: 'Zona productiva',
+      icono: Icons.eco_outlined,
+    ),
+    _MunicipioOption(
+      nombre: 'Santa Teresa',
+      subtitulo: 'Zona productiva',
+      icono: Icons.eco_outlined,
+    ),
+    _MunicipioOption(
+      nombre: 'Boaco',
+      subtitulo: 'Departamento',
+      icono: Icons.terrain_outlined,
+    ),
+    _MunicipioOption(
+      nombre: 'Chinandega',
+      subtitulo: 'Departamento',
+      icono: Icons.terrain_outlined,
+    ),
+    _MunicipioOption(
+      nombre: 'Chontales',
+      subtitulo: 'Departamento',
+      icono: Icons.terrain_outlined,
+    ),
+    _MunicipioOption(
+      nombre: 'Estelí',
+      subtitulo: 'Departamento',
+      icono: Icons.terrain_outlined,
+    ),
+    _MunicipioOption(
+      nombre: 'Granada',
+      subtitulo: 'Departamento',
+      icono: Icons.terrain_outlined,
+    ),
+    _MunicipioOption(
+      nombre: 'Jinotega',
+      subtitulo: 'Departamento (café)',
+      icono: Icons.terrain_outlined,
+    ),
+    _MunicipioOption(
+      nombre: 'León',
+      subtitulo: 'Departamento',
+      icono: Icons.terrain_outlined,
+    ),
+    _MunicipioOption(
+      nombre: 'Madriz',
+      subtitulo: 'Departamento',
+      icono: Icons.terrain_outlined,
+    ),
+    _MunicipioOption(
+      nombre: 'Managua',
+      subtitulo: 'Departamento',
+      icono: Icons.terrain_outlined,
+    ),
+    _MunicipioOption(
+      nombre: 'Masaya',
+      subtitulo: 'Departamento',
+      icono: Icons.terrain_outlined,
+    ),
+    _MunicipioOption(
+      nombre: 'Matagalpa',
+      subtitulo: 'Departamento (café)',
+      icono: Icons.terrain_outlined,
+    ),
+    _MunicipioOption(
+      nombre: 'Nueva Segovia',
+      subtitulo: 'Departamento (café)',
+      icono: Icons.terrain_outlined,
+    ),
+    _MunicipioOption(
+      nombre: 'Rivas',
+      subtitulo: 'Departamento',
+      icono: Icons.terrain_outlined,
+    ),
+    _MunicipioOption(
+      nombre: 'Río San Juan',
+      subtitulo: 'Departamento',
+      icono: Icons.terrain_outlined,
+    ),
+    _MunicipioOption(
+      nombre: 'Región Autónoma de la Costa Caribe Norte',
+      subtitulo: 'Región autónoma',
+      icono: Icons.terrain_outlined,
+    ),
+    _MunicipioOption(
+      nombre: 'Región Autónoma de la Costa Caribe Sur',
+      subtitulo: 'Región autónoma',
+      icono: Icons.terrain_outlined,
+    ),
   ];
 
-  static const _variedades = ['Criollo', 'Hibrido', 'Mejorado'];
+  static const _variedades = ['Criollo', 'Híbrido', 'Mejorado'];
   static const _horarios = [
     TimeOfDay(hour: 5, minute: 0),
     TimeOfDay(hour: 6, minute: 0),
@@ -560,8 +660,8 @@ class _LocationStep extends StatelessWidget {
     final lat = double.tryParse(latitudCtrl.text.trim());
     final lon = double.tryParse(longitudCtrl.text.trim());
     final tieneCoordenadas = lat != null && lon != null;
-    final fueraDeCarazo =
-        tieneCoordenadas && !ZonaCobertura.estaDentroDeCarazo(lat, lon);
+    final fueraDeNicaragua =
+        tieneCoordenadas && !ZonaCobertura.estaDentroDeNicaragua(lat, lon);
 
     return _PrototypeStack(
       topMargin: 24,
@@ -577,15 +677,15 @@ class _LocationStep extends StatelessWidget {
           longitudCtrl: longitudCtrl,
           onChanged: onChanged,
         ),
-        if (fueraDeCarazo)
+        if (fueraDeNicaragua)
           const _InfoCard(
             variant: _InfoCardVariant.warning,
             icon: Icons.warning_amber_outlined,
             title: 'Fuera de la zona calibrada',
             text:
-                'Estas coordenadas parecen estar fuera de Carazo. La app solo tiene '
-                'reglas agronómicas validadas para ese departamento, así que las '
-                'alertas acá podrían no ser precisas.',
+                'Estas coordenadas parecen estar fuera de Nicaragua. Por ahora la '
+                'app solo tiene pronóstico y reglas agronómicas para el territorio '
+                'nacional, así que las alertas acá podrían no ser precisas.',
           ),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -594,11 +694,11 @@ class _LocationStep extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Municipio (respaldo sin GPS)',
+                  'Municipio o departamento (respaldo sin GPS)',
                   style: _eyebrowStyle,
                 ),
                 Text(
-                  'Carazo',
+                  'Nicaragua',
                   style: _eyebrowStyle.copyWith(color: AppColors.green),
                 ),
               ],

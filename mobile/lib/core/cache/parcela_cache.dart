@@ -3,6 +3,14 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/clima/data/models/clima.dart';
+import '../../features/parcela/data/models/parcela.dart';
+
+class CachedParcelas {
+  final List<Parcela> parcelas;
+  final DateTime guardadoEn;
+
+  const CachedParcelas({required this.parcelas, required this.guardadoEn});
+}
 
 class CachedParcelaClima {
   final DatosClimaticos clima;
@@ -67,5 +75,40 @@ class ParcelaCache {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_key(parcelaId));
     } catch (_) {}
+  }
+
+  static const _claveListaParcelas = 'cache_lista_parcelas';
+
+  Future<void> guardarLista(List<Parcela> parcelas) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final payload = jsonEncode({
+        'parcelas': parcelas.map((p) => p.toJson()).toList(),
+        'guardadoEn': DateTime.now().toIso8601String(),
+      });
+      await prefs.setString(_claveListaParcelas, payload);
+    } catch (_) {}
+  }
+
+  Future<CachedParcelas?> obtenerLista() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final crudo = prefs.getString(_claveListaParcelas);
+      if (crudo == null || crudo.isEmpty) return null;
+
+      final data = jsonDecode(crudo) as Map<String, dynamic>;
+      final listaJson = data['parcelas'] as List<dynamic>?;
+      final guardadoEnCrudo = data['guardadoEn'] as String?;
+      if (listaJson == null || guardadoEnCrudo == null) return null;
+
+      return CachedParcelas(
+        parcelas: listaJson
+            .map((e) => Parcela.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        guardadoEn: DateTime.parse(guardadoEnCrudo),
+      );
+    } catch (_) {
+      return null;
+    }
   }
 }

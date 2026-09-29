@@ -122,7 +122,7 @@ class _BitacoraScreenState extends State<BitacoraScreen> {
     return Scaffold(
       backgroundColor: AppColors.cream,
       appBar: AppBar(
-        title: const Text('Bitácora de campo'),
+        title: const Text('Mi cuaderno'),
         actions: [
           IconButton(
             tooltip: 'Actualizar bitácora',
