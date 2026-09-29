@@ -1,6 +1,9 @@
+using System.Linq;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using WebApi.Dto;
+using WebApi.Extensions;
 using WebApi.Interface;
 using WebApi.Models;
 
@@ -71,6 +74,45 @@ public class UsuarioController : ControllerBase
             return Unauthorized(new { mensaje = "correo o contrasena incorrectos" });
 
         return Ok(ConstruirRespuesta(usuario));
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpGet("~/api/admin/usuarios")]
+    public async Task<IActionResult> ListarUsuarios()
+    {
+        var usuarios = await _usuarioService.ListarTodos();
+        return Ok(usuarios.Select(u => new UsuarioAdminDto
+        {
+            Id = u.Id,
+            Nombre = u.Nombre,
+            Email = u.Email,
+            Proveedor = u.Proveedor.ToString(),
+            FechaRegistro = u.FechaRegistro,
+            Activo = u.Activo,
+            EsAdmin = u.EsAdmin
+        }));
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpPut("~/api/admin/usuarios/{id:int}/rol")]
+    public async Task<IActionResult> CambiarRol(int id, [FromBody] CambiarRolDto datos)
+    {
+        if (id == this.ObtenerUsuarioIdActual() && !datos.EsAdmin)
+            return BadRequest(new { mensaje = "no podes quitarte tu propio rol de administrador" });
+
+        var actualizado = await _usuarioService.CambiarRol(id, datos.EsAdmin);
+        return actualizado ? Ok() : NotFound(new { mensaje = $"no existe el usuario {id}" });
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpPut("~/api/admin/usuarios/{id:int}/estado")]
+    public async Task<IActionResult> CambiarEstado(int id, [FromBody] CambiarEstadoDto datos)
+    {
+        if (id == this.ObtenerUsuarioIdActual() && !datos.Activo)
+            return BadRequest(new { mensaje = "no podes desactivar tu propia cuenta" });
+
+        var actualizado = await _usuarioService.CambiarActivo(id, datos.Activo);
+        return actualizado ? Ok() : NotFound(new { mensaje = $"no existe el usuario {id}" });
     }
 
     private LoginResponseDto ConstruirRespuesta(Usuario usuario) => new()

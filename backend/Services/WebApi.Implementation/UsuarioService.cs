@@ -169,6 +169,49 @@ public class UsuarioService : IUsuarioService
         await command.ExecuteNonQueryAsync();
     }
 
+    public async Task<List<Usuario>> ListarTodos()
+    {
+        var lista = new List<Usuario>();
+
+        using var connection = _connectionBD.CrearConexion();
+        using var command = new SqlCommand(
+            $"SELECT {ColumnasUsuario} FROM Usuarios ORDER BY FechaRegistro DESC", connection);
+
+        await connection.OpenAsync();
+        using var lector = await command.ExecuteReaderAsync();
+
+        while (await lector.ReadAsync())
+            lista.Add(MapUsuario(lector));
+
+        return lista;
+    }
+
+    public async Task<bool> CambiarRol(int usuarioId, bool esAdmin)
+    {
+        using var connection = _connectionBD.CrearConexion();
+        using var command = new SqlCommand(
+            "UPDATE Usuarios SET EsAdmin = @EsAdmin WHERE Id = @Id", connection);
+        command.Parameters.AddWithValue("@EsAdmin", esAdmin);
+        command.Parameters.AddWithValue("@Id", usuarioId);
+
+        await connection.OpenAsync();
+        var filas = await command.ExecuteNonQueryAsync();
+        return filas > 0;
+    }
+
+    public async Task<bool> CambiarActivo(int usuarioId, bool activo)
+    {
+        using var connection = _connectionBD.CrearConexion();
+        using var command = new SqlCommand(
+            "UPDATE Usuarios SET Activo = @Activo WHERE Id = @Id", connection);
+        command.Parameters.AddWithValue("@Activo", activo);
+        command.Parameters.AddWithValue("@Id", usuarioId);
+
+        await connection.OpenAsync();
+        var filas = await command.ExecuteNonQueryAsync();
+        return filas > 0;
+    }
+
     public async Task<Usuario?> ObtenerPorId(int id)
     {
         using var connection = _connectionBD.CrearConexion();
