@@ -18,9 +18,9 @@
 
 # CosechaClima
 
-**Sistema de alerta agroclimática temprana para pequeños productores de granos básicos en Carazo, Nicaragua.**
+**Sistema de alerta agroclimática temprana para pequeños productores de granos básicos en Nicaragua.**
 
-Cruza datos climáticos en tiempo real contra un árbol de decisión agronómico para traducir el clima en tres acciones concretas que un productor puede tomar hoy — sin costo, sin conexión constante, sin depender de un técnico presente.
+Cruza datos climáticos en tiempo real contra un árbol de decisión agronómico para traducir el clima en un plan de acciones concretas que un productor puede seguir esta semana — sin costo, sin conexión constante, sin depender de un técnico presente.
 
 ---
 
@@ -42,7 +42,7 @@ Cruza datos climáticos en tiempo real contra un árbol de decisión agronómico
 
 ## El problema
 
-En Carazo, los granos básicos como maíz y frijol ocupan el 62% del área agrícola del departamento. Los pequeños productores toman decisiones críticas de manejo — regar, drenar, proteger del viento — basándose en la observación directa del cielo, sin acceso a pronósticos localizados ni a un técnico agrónomo disponible todos los días.
+En Nicaragua, los granos básicos como el maíz y el frijol son la base de la seguridad alimentaria y ocupan la mayor parte del área agrícola del país (dato oficial: Plan Nacional de Producción, Banco Central de Nicaragua). Los pequeños productores toman decisiones críticas de manejo — regar, drenar, proteger del viento — basándose en la observación directa del cielo, sin acceso a pronósticos localizados ni a un técnico agrónomo disponible todos los días.
 
 CosechaClima traduce datos climáticos abiertos en una recomendación accionable de 3 pasos, adaptada al cultivo, la etapa fenológica y el tipo de suelo de cada parcela específica.
 
@@ -54,13 +54,14 @@ CosechaClima traduce datos climáticos abiertos en una recomendación accionable
 4. El **motor de decisiones** evalúa todos los eventos climáticos activos simultáneamente contra un árbol de **216 reglas agronómicas** (180 de eventos de riesgo + 36 de "sin riesgo") y selecciona la alerta con el nivel de riesgo más severo (Alto / Medio / Bajo / Sin riesgo) con 3 acciones recomendadas.
 5. El productor registra en su bitácora de campo que acciones completó, y puede compartir un resumen de texto simple.
 
-**Sin cuenta también sirve.** La app abre en un inicio público con el pronóstico de 5 días de la zona (Carazo, o la ubicación del teléfono) y solo pide iniciar sesión al hacer algo privado, como guardar una parcela. Se puede entrar con **Google** (un toque, sin recordar contraseña) o con **correo y contraseña**.
+**Sin cuenta también sirve.** La app abre en un inicio público con el pronóstico de 5 días de la zona (o la ubicación del teléfono) y solo pide iniciar sesión al hacer algo privado, como guardar una parcela. Se puede entrar con **Google** (un toque, sin recordar contraseña) o con **correo y contraseña**.
 
 ## Arquitectura
 
 ```mermaid
 flowchart TD
-    A["Flutter Mobile App"] -->|"HTTPS + JWT"| B["ASP.NET Core 10 API"]
+    A["App Flutter (solo productores)"] -->|"HTTPS + JWT"| B["ASP.NET Core 10 API"]
+    P["Panel Admin (Vite + React)"] -->|"HTTPS + JWT, rol Admin"| B
     B --> C["Motor de Decisiones"]
     C --> D["Arbol de 216 Reglas Agronomicas"]
     B --> E["Open-Meteo API"]
@@ -82,8 +83,10 @@ Arquitectura en capas estricta: cada capa solo conoce a la inmediatamente inferi
 | Acceso a datos | ADO.NET con OPENJSON | Control total sobre consultas, batch updates optimizados |
 | Autenticacion | JWT Bearer + correo/contraseña (PBKDF2 + salt) + Google Sign-In + Jti | Google Sign-In es gratuito: sin SMS ni servicios de pago |
 | Datos climaticos | [Open-Meteo](https://open-meteo.com) | Pronostico real hasta 16 dias, sin API key, gratuito |
-| Contenedorizacion | Docker multi-stage (Alpine) | Imagen optimizada, usuario no-root |
-| Cliente movil | Flutter | Codigo unico multiplataforma |
+| Notificaciones | `flutter_local_notifications` (en el dispositivo) | Sin Firebase/FCM: costo de infraestructura cero |
+| Contenedorizacion | Docker multi-stage (Alpine / nginx) | Imagen optimizada, usuario no-root |
+| Cliente movil | Flutter (solo productores, sin animaciones) | Codigo unico multiplataforma |
+| Panel admin | Vite + React, sin framework de UI ni libs de animacion | Bundle de ~50 KB gzip, servido como estaticos por nginx |
 | CI/CD | GitHub Actions | Build y test automatizados |
 
 ## Estructura del repositorio
@@ -98,7 +101,8 @@ CosechaClima/
 |   |   |-- WebApi.Implementation/ # Logica de negocio + ADO.NET
 |   |-- Scripts/                   # Esquema SQL, seed, reglas JSON
 |   |-- Dockerfile                 # Build multi-stage (SDK -> Alpine)
-|-- mobile/                        # App Flutter
+|-- mobile/                        # App Flutter (solo productores)
+|-- admin-panel/                   # Panel web admin (Vite + React + nginx)
 |-- docs/                          # Documentacion tecnica
 |-- compose.yaml                   # Docker Compose (raiz del proyecto)
 |-- .env.example                   # Plantilla de variables de entorno (raiz)
@@ -120,6 +124,8 @@ cp .env.example .env
 docker compose up --build -d
 ```
 
+Esto levanta tres servicios: `db` (SQL Server + esquema/seed), `api` (el backend, puerto 8080) y `admin-panel` (el panel web, puerto 5174).
+
 Verificacion:
 
 ```bash
@@ -127,6 +133,12 @@ curl http://localhost:8080/health
 ```
 
 Esperado: `200 OK` con `Healthy`.
+
+Abri el panel admin en `http://localhost:5174` e inicia sesion con la cuenta admin sembrada. Si no configuraste `ADMIN_SEED_PASSWORD` (o era muy debil), revisa los logs de la API para ver la clave generada automaticamente:
+
+```bash
+docker compose logs api | grep -i "admin"
+```
 
 > [!WARNING]
 > `DB_SA_PASSWORD` debe cumplir la politica de complejidad de SQL Server: minimo 8 caracteres combinando al menos 3 de 4 categorias (mayusculas, minusculas, digitos, simbolos).
@@ -141,7 +153,7 @@ Esperado: `200 OK` con `Healthy`.
 > **Google Sign-In es opcional.** Sin Client IDs, la app sigue funcionando con correo y contraseña. Para activarlo ver [docs/google-sign-in-setup.md](docs/google-sign-in-setup.md). La app movil tiene su propio `mobile/.env` (`API_URL` y `GOOGLE_SERVER_CLIENT_ID`).
 
 > [!NOTE]
-> `compose.yaml` inicia automaticamente: SQL Server, scripts de esquema y seed, y construye la API con Dockerfile multi-stage. Ver [backend/README.es.md](backend/README.es.md) y [mobile/README.es.md](mobile/README.es.md) para instrucciones detalladas de cada componente.
+> `compose.yaml` inicia automaticamente: SQL Server, scripts de esquema y seed, la API (Dockerfile multi-stage) y el panel admin (compilado con Vite, servido por nginx). Ver [backend/README.es.md](backend/README.es.md), [mobile/README.es.md](mobile/README.es.md) y [admin-panel/](admin-panel/) para instrucciones detalladas de cada componente.
 
 ## Seguridad
 
@@ -162,7 +174,7 @@ Detalle completo en [docs/security.md](docs/security.md).
 
 ## Costo de infraestructura
 
-**$0.** SQL Server Developer Edition, Open-Meteo, ASP.NET Core y todo el stack son gratuitos para este caso de uso. El proyecto corre completo en una laptop via Docker Compose.
+**$0.** SQL Server Developer Edition, Open-Meteo, ASP.NET Core, las notificaciones locales y todo el stack (incluyendo el panel admin) son gratuitos para este caso de uso. El proyecto corre completo en una laptop via Docker Compose.
 
 ## Como contribuir
 

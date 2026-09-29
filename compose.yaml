@@ -19,6 +19,7 @@ services:
       GoogleAuth__ClientIds__1: ${GOOGLE_CLIENT_ID_IOS}
       GoogleAuth__ClientIds__2: ${GOOGLE_CLIENT_ID_WEB}
       Cors__AllowedOrigins__0: ${CORS_ALLOWED_ORIGIN}
+      Cors__AllowedOrigins__1: ${ADMIN_PANEL_ORIGIN:-http://localhost:5174}
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
     depends_on:
       db:
@@ -31,6 +32,21 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    networks:
+      - cosechaclima-net
+
+  admin-panel:
+    build:
+      context: ./admin-panel
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${ADMIN_PANEL_API_URL:-http://localhost:8080}
+    container_name: cosechaclima-admin-panel
+    ports:
+      - "5174:80"
+    depends_on:
+      api:
+        condition: service_healthy
     networks:
       - cosechaclima-net
 
