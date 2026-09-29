@@ -48,6 +48,41 @@ public class AlertaService : IAlertaService
             return null;
     }
 
+    public async Task<List<Alerta>> ObtenerRecientes(int limite)
+    {
+        var lista = new List<Alerta>();
+
+        using var connection = _connectionBD.CrearConexion();
+        using var command = new SqlCommand(
+            "SELECT TOP (@Limite) Id, UsuarioId, ParcelaId, Fecha, EventoClimaticoId, NivelRiesgo, " +
+            "Accion1, Accion2, Accion3, DescripcionAlerta, FechaGeneracion " +
+            "FROM Alertas ORDER BY FechaGeneracion DESC", connection);
+        command.Parameters.AddWithValue("@Limite", limite);
+
+        await connection.OpenAsync();
+        using var lector = await command.ExecuteReaderAsync();
+
+        while (await lector.ReadAsync())
+        {
+            lista.Add(new Alerta
+            {
+                Id = lector.GetInt32(0),
+                UsuarioId = lector.GetInt32(1),
+                ParcelaId = lector.GetInt32(2),
+                Fecha = lector.GetDateTime(3),
+                EventoClimaticoId = lector.GetInt32(4),
+                NivelRiesgo = lector.GetString(5),
+                Accion1 = lector.GetString(6),
+                Accion2 = lector.GetString(7),
+                Accion3 = lector.GetString(8),
+                DescripcionAlerta = lector.GetString(9),
+                FechaGeneracion = lector.GetDateTime(10)
+            });
+        }
+
+        return lista;
+    }
+
     public async Task<int> GuardarOActualizar (Alerta alerta)
     {
         var existing = await ObtenerPorParcelaYFecha(alerta.ParcelaId, alerta.Fecha);
