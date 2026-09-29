@@ -1,0 +1,44 @@
+name: Admin Panel CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'admin-panel/**'
+      - '.github/workflows/admin-panel-ci.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'admin-panel/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: admin-panel
+
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v7
+
+      - name: Configurar Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: admin-panel/package-lock.json
+
+      - name: Restaurar dependencias
+        run: npm ci
+
+      - name: Verificar tipos y compilar
+        run: npm run build
+        env:
+          VITE_API_URL: http://localhost:8080
+
+      - name: Verificar artefacto generado
+        run: |
+          test -f dist/index.html
+          ls -la dist
