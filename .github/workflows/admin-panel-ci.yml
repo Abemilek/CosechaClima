@@ -10,6 +10,7 @@ on:
     branches: [ main ]
     paths:
       - 'admin-panel/**'
+      - '.github/workflows/admin-panel-ci.yml'
 
 permissions:
   contents: read
