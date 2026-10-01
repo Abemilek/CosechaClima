@@ -15,13 +15,22 @@ class CachedParcelas {
 class CachedParcelaClima {
   final DatosClimaticos clima;
   final Semaforo semaforo;
+  final ResumenSemanal? resumenSemanal;
   final DateTime guardadoEn;
 
   const CachedParcelaClima({
     required this.clima,
     required this.semaforo,
+    this.resumenSemanal,
     required this.guardadoEn,
   });
+}
+
+class CachedResumenLocal {
+  final ResumenSemanal resumen;
+  final DateTime guardadoEn;
+
+  const CachedResumenLocal({required this.resumen, required this.guardadoEn});
 }
 
 class ParcelaCache {
@@ -31,12 +40,14 @@ class ParcelaCache {
     required int parcelaId,
     required DatosClimaticos clima,
     required Semaforo semaforo,
+    ResumenSemanal? resumenSemanal,
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final payload = jsonEncode({
         'clima': clima.toJson(),
         'semaforo': semaforo.toJson(),
+        if (resumenSemanal != null) 'resumenSemanal': resumenSemanal.toJson(),
         'guardadoEn': DateTime.now().toIso8601String(),
       });
       await prefs.setString(_key(parcelaId), payload);
@@ -52,6 +63,7 @@ class ParcelaCache {
       final data = jsonDecode(crudo) as Map<String, dynamic>;
       final climaJson = data['clima'] as Map<String, dynamic>?;
       final semaforoJson = data['semaforo'] as Map<String, dynamic>?;
+      final resumenJson = data['resumenSemanal'] as Map<String, dynamic>?;
       final guardadoEnCrudo = data['guardadoEn'] as String?;
 
       if (climaJson == null ||
@@ -63,6 +75,9 @@ class ParcelaCache {
       return CachedParcelaClima(
         clima: DatosClimaticos.fromJson(climaJson),
         semaforo: Semaforo.fromJson(semaforoJson),
+        resumenSemanal: resumenJson == null
+            ? null
+            : ResumenSemanal.fromJson(resumenJson),
         guardadoEn: DateTime.parse(guardadoEnCrudo),
       );
     } catch (_) {
@@ -77,6 +92,54 @@ class ParcelaCache {
     } catch (_) {}
   }
 
+  // --- Plan semanal de una parcela local (invitado o pendiente de subir) ---
+  static String _keyResumenLocal(String idLocal) =>
+      'cache_resumen_local_$idLocal';
+
+  Future<void> guardarResumenLocal({
+    required String idLocal,
+    required ResumenSemanal resumen,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _keyResumenLocal(idLocal),
+        jsonEncode({
+          'resumen': resumen.toJson(),
+          'guardadoEn': DateTime.now().toIso8601String(),
+        }),
+      );
+    } catch (_) {}
+  }
+
+  Future<CachedResumenLocal?> obtenerResumenLocal(String idLocal) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final crudo = prefs.getString(_keyResumenLocal(idLocal));
+      if (crudo == null || crudo.isEmpty) return null;
+
+      final data = jsonDecode(crudo) as Map<String, dynamic>;
+      final resumenJson = data['resumen'] as Map<String, dynamic>?;
+      final guardadoEnCrudo = data['guardadoEn'] as String?;
+      if (resumenJson == null || guardadoEnCrudo == null) return null;
+
+      return CachedResumenLocal(
+        resumen: ResumenSemanal.fromJson(resumenJson),
+        guardadoEn: DateTime.parse(guardadoEnCrudo),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> limpiarResumenLocal(String idLocal) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_keyResumenLocal(idLocal));
+    } catch (_) {}
+  }
+
+  // --- Cache de la lista de parcelas (para funcionar sin servidor/internet) ---
   static const _claveListaParcelas = 'cache_lista_parcelas';
 
   Future<void> guardarLista(List<Parcela> parcelas) async {
