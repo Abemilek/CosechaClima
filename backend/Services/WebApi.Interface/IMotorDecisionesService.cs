@@ -5,4 +5,7 @@ namespace WebApi.Interface;
 public interface IMotorDecisionesService {
     Task<Alerta> CalcularSemaforo (int parcelaId);
     Task<ResumenSemanal> CalcularResumenSemanal (int parcelaId, int dias = 7);
+    Task<ResumenSemanal> CalcularResumenSemanalAnonimo(
+        int cultivoId, int? etapaFenologicaId, int tipoSueloId,
+        decimal latitud, decimal longitud, DateTime fechaSiembra, int dias = 7);
 }
