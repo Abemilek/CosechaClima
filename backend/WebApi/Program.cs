@@ -235,20 +235,18 @@ using (var scope = app.Services.CreateScope())
                 if (passwordInsegura)
                 {
                     app.Logger.LogWarning(
-                        "Admin inicial creado: {Email} -- ADMIN_SEED_PASSWORD no estaba definida " +
-                        "(o era insegura), se genero esta clave temporal, cambiala al iniciar sesion: {Password}",
-                        emailAdmin, passwordFinal);
+                        "Admin inicial creado exitosamente -- ADMIN_SEED_PASSWORD no estaba definida " +
+                        "(o era insegura). Se genero una clave temporal y debe ser cambiada de inmediato.");
                 }
                 else
                 {
-                    app.Logger.LogInformation("Admin inicial creado: {Email}", emailAdmin);
+                    app.Logger.LogInformation("Admin inicial creado exitosamente.");
                 }
             }
             else if (!existente.EsAdmin)
             {
                 await usuarioService.MarcarComoAdmin(existente.Id);
-                app.Logger.LogInformation(
-                    "Rol Admin otorgado a usuario existente: {Email}", emailAdmin);
+                app.Logger.LogInformation("Rol Admin otorgado a usuario existente.");
             }
         }
     }
