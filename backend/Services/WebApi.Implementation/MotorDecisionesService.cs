@@ -169,6 +169,28 @@ public class MotorDecisionesService : IMotorDecisionesService
         var umbrales = await _umbralService.ObtenerPorUsuario(parcela.UsuarioId)
             ?? new UmbralConfiguracion { UsuarioId = parcela.UsuarioId };
 
+        return await EvaluarResumenSemanal(
+            parcela.CultivoId, etapaFenologicaId, parcela.TipoSueloId,
+            latitud, longitud, umbrales, dias);
+    }
+
+    public async Task<ResumenSemanal> CalcularResumenSemanalAnonimo(
+        int cultivoId, int? etapaFenologicaId, int tipoSueloId,
+        decimal latitud, decimal longitud, DateTime fechaSiembra, int dias = 7)
+    {
+        var umbrales = new UmbralConfiguracion();
+
+        var etapaId = etapaFenologicaId
+            ?? (await _etapaFenologicaService.CalcularDesdeFecha(fechaSiembra)).Id;
+
+        return await EvaluarResumenSemanal(
+            cultivoId, etapaId, tipoSueloId, latitud, longitud, umbrales, dias);
+    }
+
+    private async Task<ResumenSemanal> EvaluarResumenSemanal(
+        int cultivoId, int etapaFenologicaId, int tipoSueloId,
+        decimal latitud, decimal longitud, UmbralConfiguracion umbrales, int dias)
+    {
         var pronostico = await _proveedorClimaticoService.ObtenerPronosticoDiario(latitud, longitud, dias);
 
         var resumen = new ResumenSemanal();
@@ -197,7 +219,7 @@ public class MotorDecisionesService : IMotorDecisionesService
             foreach (var eventoId in eventosActivos)
             {
                 var regla = await _reglaDecisionService.ObtenerPorClave(
-                    eventoId, parcela.CultivoId, etapaFenologicaId, parcela.TipoSueloId);
+                    eventoId, cultivoId, etapaFenologicaId, tipoSueloId);
 
                 if (regla is null) continue;
 

@@ -3,7 +3,45 @@
 Todos los cambios notables de este proyecto se documentan en este archivo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionado siguiendo [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] - Correcciones por auditoría técnica 
+## [Unreleased] - Modo offline completo y flujo unificado de invitado
+
+Motivado por pruebas en un teléfono real sin datos móviles: la app debía seguir
+siendo útil (clima, parcelas y plan semanal) sin conexión, y el productor nuevo
+no debía toparse con un login obligatorio para probarla.
+
+### Added
+- **Pronóstico público con caché**: `GET /api/clima/pronostico` se guarda en el teléfono (hasta 4 ubicaciones). Sin conexión o con el servidor caído, la pantalla "El clima de tu zona" muestra el último pronóstico descargado con un aviso visible, en vez de "No se pudo conectar con el servidor".
+- **Catálogos con caché**: cultivos, tipos de suelo, etapas fenológicas y eventos climáticos quedan guardados tras la primera descarga; el registro de parcelas sigue funcionando sin internet.
+- **Plan semanal invitado con caché**: el resumen de una parcela sin cuenta también se guarda para mostrarlo sin conexión.
+- **Cola local de umbrales**: los umbrales configurados sin conexión (o durante el registro invitado) se suben solos al iniciar sesión / recuperar la conexión.
+
+### Changed
+- **Una sola pantalla de parcelas para invitado y cuenta**: "Mis parcelas" ya no exige iniciar sesión. Sin cuenta, muestra las parcelas guardadas en el teléfono con un aviso arriba ("Iniciá sesión para no perderlas"), sin bloquear el registro. Con cuenta, sube automáticamente lo que haya quedado local y lista todo junto.
+- **Una sola pantalla para crear parcela**: el flujo de invitado (pantalla simplificada) se elimina; el mismo asistente de 5 pasos funciona con o sin cuenta. Sin GPS usa el centro del municipio (mismo criterio que el servidor).
+- **Selector de municipio/departamento rediseñado** (antes: grid de 25 tarjetas que obligaba a hacer scroll buscando el tuyo): buscador con filtrado en vivo que ignora tildes, lista compacta agrupada con Carazo primero, el último municipio elegido se recuerda para el próximo registro y, al detectar el GPS, se preselecciona el departamento más cercano. Patrón oficial de Flutter para elegir entre muchas opciones (Autocomplete/RawAutocomplete).
+- **Registro de parcela más corto**: el último paso ya no muestra 3 sliders, variedad, riego y horario SMS. Solo pide el área y deja las alertas con los valores recomendados; esa configuración se movió a "Ajustar mis alertas" dentro de la parcela (revelación progresiva: pedir solo lo necesario en el primer uso). Además, registrar una parcela ya no vuelve a guardar umbrales: se evita pisar los que el productor ya había personalizado (el servidor aplica los recomendados cuando no hay ninguno).
+- **Pantalla de parcela simplificada**: de 4 pestañas a 3 (Inicio, Mi cuaderno, Semana). Se eliminó la pestaña "Alertas" que repetía el mismo riesgo y acciones que Inicio, y se quitaron los botones duplicados "Ver el detalle día por día" (ya es una pestaña) y "¿Cómo calculamos esto?" (ahora en el menú). Inicio tiene "tirar para actualizar".
+- **Acciones con nombre en vez de iconos sueltos**: en "Mis parcelas" los tres iconos del encabezado (bitácora, umbrales, cerrar sesión) pasan a un solo menú "Más" con opciones escritas; "Umbrales" se renombra a **"Ajustar mis alertas"** en toda la app (lenguaje del productor, no técnico).
+- **Accesibilidad** según las guías de Flutter/Android: área táctil mínima de 48 dp en las acciones de la bitácora, botón atrás nativo con etiqueta, y "tirar para actualizar" también en bitácora y lista de parcelas.
+- **Tutorial actualizado**: hablaba de "3 acciones para hoy" y umbrales; ahora describe el semáforo de riesgo, el plan semanal y el cuaderno de campo, como funciona la app actual.
+- **Crear parcela sin conexión estando logueado**: la parcela queda guardada en el teléfono y se sube a la cuenta sola cuando vuelva internet (antes se perdía con un error de red).
+
+### Removed
+- `GuestParcelaWizardScreen`: reemplazada por el asistente único `CrearParcelaWizardScreen` con `esInvitado`.
+
+## [Unreleased] - Pruebas en dispositivo real: conectividad, catálogo de cultivos, plan semanal y modo invitado
+
+Motivado por pruebas en un dispositivo real con `ngrok` como túnel de desarrollo.
+
+### Fixed
+- **Error crudo de ngrok en vez del modo sin conexión**: cuando el túnel de desarrollo (ngrok) está caído, devuelve una página de error HTML/texto con estado HTTP (no una falla de socket), y el cliente la mostraba tal cual ("ERR_NGROK_3200...") sin usar el respaldo con caché. Ahora `ApiClient` solo confía en respuestas que sean el JSON estructurado que nuestra propia API siempre devuelve; cualquier otra cosa (túnel caído, proxy, portal cautivo de wifi) se trata como problema de conectividad y activa el mismo respaldo con caché que ya funcionaba para desconexiones reales.
+- **Solo se mostraban 2 cultivos al crear una parcela**: el selector estaba literalmente limitado con `cultivos.take(2)`, remanente de cuando solo existían Maíz y Frijol. Ya obtiene la lista completa del catálogo (ahora 5, y cualquier cultivo que un admin agregue después desde el panel).
+
+### Added
+- **Modo invitado**: un productor puede registrar una parcela y ver su plan semanal completo sin crear cuenta (patrón "probar antes de registrarte", como Duolingo). Se guarda localmente en el teléfono; un banner permanente pero no bloqueante invita a iniciar sesión "para no perder tus datos", y al hacerlo todas las parcelas guardadas localmente se suben automáticamente a la cuenta. Nuevo endpoint anónimo `POST /api/motor/resumen-semanal-anonimo` (sin persistir nada) para calcular el plan sin necesidad de una parcela guardada en la base de datos.
+- La pantalla principal de una parcela ahora muestra **"Tu plan para esta semana"** (con el día más crítico señalado) en vez de "Tus 3 acciones de hoy": las acciones vienen del resumen semanal, no de una evaluación reactiva diaria, siguiendo la recomendación central de la auditoría técnica.
+
+## [Unreleased] - Correcciones por auditoría técnica (profesor de psicología del producto + revisión propia)
 
 Motivadas por dos rondas de retroalimentación: una auditoría en vivo con productores de Carazo (enfocada en escalabilidad y frecuencia de las alertas) y reportes propios de comportamiento fuera de línea.
 

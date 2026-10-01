@@ -235,9 +235,8 @@ using (var scope = app.Services.CreateScope())
                 if (passwordInsegura)
                 {
                     app.Logger.LogWarning(
-                        "Admin inicial creado: {Email} -- ADMIN_SEED_PASSWORD no estaba definida " +
-                        "(o era insegura), se genero una clave temporal. Restablecela de forma segura al iniciar sesion.",
-                        emailAdmin);
+                        "Admin inicial creado exitosamente -- ADMIN_SEED_PASSWORD no estaba definida " +
+                        "(o era insegura). Se genero una clave temporal y debe ser cambiada de inmediato.");
                 }
                 else
                 {

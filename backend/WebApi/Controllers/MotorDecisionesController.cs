@@ -46,6 +46,33 @@ public class MotorDecisionesController : ControllerBase
         return Ok(dto);
     }
 
+    [AllowAnonymous]
+    [HttpPost("resumen-semanal-anonimo")]
+    [EnableRateLimiting("motor")]
+    public async Task<ActionResult<ResumenSemanalDto>> ObtenerResumenSemanalAnonimo(
+        [FromBody] ResumenSemanalAnonimoRequestDto datos)
+    {
+        var resumen = await _motorDecisionesService.CalcularResumenSemanalAnonimo(
+            datos.CultivoId, datos.EtapaFenologicaId, datos.TipoSueloId,
+            datos.Latitud, datos.Longitud, datos.FechaSiembra);
+
+        return Ok(new ResumenSemanalDto
+        {
+            Dias = resumen.Dias.Select(d => new DiaResumenSemanalDto
+            {
+                Fecha = d.Fecha,
+                NivelRiesgo = d.NivelRiesgo,
+                TemperaturaMax = d.TemperaturaMax,
+                TemperaturaMin = d.TemperaturaMin,
+                Precipitacion = d.Precipitacion,
+            }).ToList(),
+            NivelRiesgoMaximo = resumen.NivelRiesgoMaximo,
+            DiaMasCritico = resumen.DiaMasCritico,
+            DescripcionAlerta = resumen.DescripcionAlerta,
+            AccionesDeLaSemana = resumen.AccionesDeLaSemana,
+        });
+    }
+
     [HttpGet("resumen-semanal/{parcelaId:int}")]
     [EnableRateLimiting("motor")]
     public async Task<ActionResult<ResumenSemanalDto>> ObtenerResumenSemanal(int parcelaId)
