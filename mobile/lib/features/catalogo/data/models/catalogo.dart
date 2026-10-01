@@ -10,6 +10,12 @@ class Cultivo {
     nombre: json['nombre'] as String,
     nombreCientifico: json['nombreCientifico'] as String?,
   );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'nombre': nombre,
+    'nombreCientifico': nombreCientifico,
+  };
 }
 
 class TipoSuelo {
@@ -24,6 +30,12 @@ class TipoSuelo {
     nombre: json['nombre'] as String,
     descripcion: json['descripcion'] as String?,
   );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'nombre': nombre,
+    'descripcion': descripcion,
+  };
 }
 
 class EtapaFenologica {
@@ -46,6 +58,13 @@ class EtapaFenologica {
         descripcion: json['descripcion'] as String?,
         diasDesdeSiembra: json['diasDesdeSiembra'] as int?,
       );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'nombre': nombre,
+    'descripcion': descripcion,
+    'diasDesdeSiembra': diasDesdeSiembra,
+  };
 }
 
 class EventoClimatico {
@@ -61,4 +80,10 @@ class EventoClimatico {
         nombre: json['nombre'] as String,
         descripcion: json['descripcion'] as String?,
       );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'nombre': nombre,
+    'descripcion': descripcion,
+  };
 }

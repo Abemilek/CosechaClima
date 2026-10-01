@@ -53,4 +53,13 @@ class UmbralRequest {
     'tieneRiego': tieneRiego,
     'horarioSms': horarioSms,
   };
+
+  factory UmbralRequest.fromJson(Map<String, dynamic> json) => UmbralRequest(
+    lluviaIntensaMm: json['lluviaIntensaMm'] as int? ?? 100,
+    vientoFuerteKmh: json['vientoFuerteKmh'] as int? ?? 40,
+    caniculaDias: json['caniculaDias'] as int? ?? 7,
+    variedadCultivo: json['variedadCultivo'] as String? ?? 'Criollo',
+    tieneRiego: json['tieneRiego'] as bool? ?? false,
+    horarioSms: json['horarioSms'] as String? ?? '06:00',
+  );
 }

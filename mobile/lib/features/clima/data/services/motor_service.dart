@@ -18,4 +18,27 @@ class MotorService {
     final json = await _client.get('/motor/resumen-semanal/$parcelaId');
     return ResumenSemanal.fromJson(json as Map<String, dynamic>);
   }
+
+  Future<ResumenSemanal> obtenerResumenSemanalAnonimo({
+    required int cultivoId,
+    int? etapaFenologicaId,
+    required int tipoSueloId,
+    required double latitud,
+    required double longitud,
+    required DateTime fechaSiembra,
+  }) async {
+    final json = await _client.post(
+      '/motor/resumen-semanal-anonimo',
+      auth: false,
+      body: {
+        'cultivoId': cultivoId,
+        'etapaFenologicaId': ?etapaFenologicaId,
+        'tipoSueloId': tipoSueloId,
+        'latitud': latitud,
+        'longitud': longitud,
+        'fechaSiembra': fechaSiembra.toIso8601String(),
+      },
+    );
+    return ResumenSemanal.fromJson(json as Map<String, dynamic>);
+  }
 }
