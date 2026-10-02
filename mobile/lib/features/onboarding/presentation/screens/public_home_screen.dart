@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/cache/clima_publico_cache.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/location_service.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../routing/no_animation_route.dart';
 import '../../../auth/presentation/screens/login_sheet.dart';
 import '../../../auth/presentation/view_models/auth_view_model.dart';
 import '../../../clima/data/models/clima.dart';
@@ -26,17 +28,26 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
   static const _lonPorDefecto = -86.1990;
 
   late final ClimaService _climaService;
+  final _cache = ClimaPublicoCache();
 
   List<PronosticoPublico> _pronostico = [];
   bool _cargando = true;
   String? _error;
   String _ubicacionTexto = 'Carazo (aproximado)';
+  DateTime? _datosGuardadosEn;
 
   @override
   void initState() {
     super.initState();
     _climaService = ClimaService(ApiClient());
     unawaited(_cargarPronostico());
+  }
+
+  Future<void> _iniciarSesion() async {
+    await mostrarLoginContextual(
+      context,
+      motivo: 'Iniciá sesión para no perder tus parcelas',
+    );
   }
 
   Future<void> _cargarPronostico({bool usarGps = false}) async {
@@ -66,44 +77,59 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
 
     List<PronosticoPublico>? resultado;
     String? error;
+    DateTime? datosGuardadosEn;
+
+    Future<void> usarCache() async {
+      final cache = await _cache.obtener(latitud: lat, longitud: lon);
+      if (cache == null) return;
+      resultado = cache.pronostico;
+      datosGuardadosEn = cache.guardadoEn;
+      if (cache.ubicacionTexto != textoUbicacion) {
+        textoUbicacion = cache.ubicacionTexto;
+      }
+    }
 
     try {
-      resultado = await _climaService.obtenerPronosticoPublico(
+      final descargado = await _climaService.obtenerPronosticoPublico(
         latitud: lat,
         longitud: lon,
       );
-    } on ApiException catch (e) {
-      error = e.message;
+      resultado = descargado;
+      unawaited(
+        _cache.guardar(
+          latitud: lat,
+          longitud: lon,
+          ubicacionTexto: textoUbicacion,
+          pronostico: descargado,
+        ),
+      );
     } on NetworkException catch (e) {
-      error = e.message;
+      await usarCache();
+      if (resultado == null) error = e.message;
     } on TimeoutApiException catch (e) {
-      error = e.message;
+      await usarCache();
+      if (resultado == null) error = e.message;
+    } on ApiException catch (e) {
+      if (e.esErrorDeServidor) await usarCache();
+      if (resultado == null) error = e.message;
     }
 
     if (!mounted) return;
+    final pronostico = resultado;
     setState(() {
       _cargando = false;
       _error = error;
+      _datosGuardadosEn = datosGuardadosEn;
       _ubicacionTexto = textoUbicacion;
-      if (resultado != null) _pronostico = resultado;
+      if (pronostico != null) _pronostico = pronostico;
     });
   }
 
   Future<void> _irAMisParcelas() async {
-    final auth = context.read<AuthViewModel>();
-
-    if (!auth.estaAutenticado) {
-      final ok = await mostrarLoginContextual(
-        context,
-        motivo: 'Para guardar tu parcela necesitás una cuenta',
-      );
-      if (ok != true) return;
-    }
-
     if (!mounted) return;
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(builder: (_) => const ParcelaListScreen()),
-    );
+    await Navigator.of(
+      context,
+    ).push<void>(noAnimationRoute<void>((_) => const ParcelaListScreen()));
   }
 
   @override
@@ -121,8 +147,14 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
               _Encabezado(
                 nombre: auth.nombre,
                 estaAutenticado: auth.estaAutenticado,
+                onIniciarSesion: _iniciarSesion,
               ),
               const SizedBox(height: 20),
+
+              if (_datosGuardadosEn != null) ...[
+                _BannerDatosGuardados(guardadoEn: _datosGuardadosEn!),
+                const SizedBox(height: 12),
+              ],
 
               _TarjetaUbicacion(
                 texto: _ubicacionTexto,
@@ -167,8 +199,13 @@ const _tituloSeccion = TextStyle(
 class _Encabezado extends StatelessWidget {
   final String? nombre;
   final bool estaAutenticado;
+  final Future<void> Function() onIniciarSesion;
 
-  const _Encabezado({required this.nombre, required this.estaAutenticado});
+  const _Encabezado({
+    required this.nombre,
+    required this.estaAutenticado,
+    required this.onIniciarSesion,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -204,7 +241,47 @@ class _Encabezado extends StatelessWidget {
             ],
           ),
         ),
+        if (!estaAutenticado)
+          TextButton(
+            onPressed: onIniciarSesion,
+            child: const Text('Iniciar sesión'),
+          ),
       ],
+    );
+  }
+}
+
+class _BannerDatosGuardados extends StatelessWidget {
+  final DateTime guardadoEn;
+
+  const _BannerDatosGuardados({required this.guardadoEn});
+
+  @override
+  Widget build(BuildContext context) {
+    final hora =
+        '${guardadoEn.hour.toString().padLeft(2, '0')}:'
+        '${guardadoEn.minute.toString().padLeft(2, '0')}';
+    final dia = '${guardadoEn.day}/${guardadoEn.month}';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.amberBg,
+        borderRadius: BorderRadius.circular(AppRadius.cardSmall),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.wifi_off, size: 18, color: Color(0xFFA56800)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Sin conexión: este es el pronóstico guardado el $dia a las $hora.',
+              style: const TextStyle(fontSize: 12, color: Color(0xFFA56800)),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

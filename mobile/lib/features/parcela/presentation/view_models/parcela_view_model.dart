@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/cache/guest_parcela_store.dart';
 import '../../../../core/cache/parcela_cache.dart';
+import '../../../../core/config/municipio_centroide.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../catalogo/data/models/catalogo.dart';
 import '../../../catalogo/data/services/catalogo_service.dart';
@@ -26,6 +28,7 @@ class ParcelaViewModel extends ChangeNotifier {
   String? _error;
   bool _mostrandoDatosGuardados = false;
   DateTime? _datosGuardadosEn;
+  bool _guardadaLocalmente = false;
 
   List<Parcela> get parcelas => _parcelas;
   List<Cultivo> get cultivos => _cultivos;
@@ -38,6 +41,8 @@ class ParcelaViewModel extends ChangeNotifier {
   String? get error => _error;
   bool get mostrandoDatosGuardados => _mostrandoDatosGuardados;
   DateTime? get datosGuardadosEn => _datosGuardadosEn;
+
+  bool get guardadaLocalmente => _guardadaLocalmente;
 
   Future<void> cargarParcelas() async {
     _cargando = true;
@@ -74,6 +79,8 @@ class ParcelaViewModel extends ChangeNotifier {
   }
 
   Future<void> cargarCatalogos() async {
+    _error = null;
+    notifyListeners();
     try {
       final resultados = await Future.wait([
         _catalogoService.obtenerCultivos(),
@@ -101,6 +108,7 @@ class ParcelaViewModel extends ChangeNotifier {
   Future<bool> crearParcela(ParcelaRequest request) async {
     _cargando = true;
     _error = null;
+    _guardadaLocalmente = false;
     notifyListeners();
     try {
       await _parcelaService.crear(request);
@@ -109,16 +117,65 @@ class ParcelaViewModel extends ChangeNotifier {
     } on ApiException catch (e) {
       _error = e.message;
       return false;
-    } on NetworkException catch (e) {
-      _error = e.message;
-      return false;
-    } on TimeoutApiException catch (e) {
-      _error = e.message;
-      return false;
+    } on NetworkException {
+      return _guardarLocalPendiente(request);
+    } on TimeoutApiException {
+      return _guardarLocalPendiente(request);
     } finally {
       _cargando = false;
       notifyListeners();
     }
+  }
+
+  Future<bool> _guardarLocalPendiente(ParcelaRequest request) async {
+    Cultivo? cultivo;
+    for (final c in _cultivos) {
+      if (c.id == request.cultivoId) {
+        cultivo = c;
+        break;
+      }
+    }
+    TipoSuelo? suelo;
+    for (final s in _tiposSuelo) {
+      if (s.id == request.tipoSueloId) {
+        suelo = s;
+        break;
+      }
+    }
+    if (cultivo == null || suelo == null) {
+      _error =
+          'Sin conexión, y todavía no se descargaron los catálogos. '
+          'Probá de nuevo en un momento.';
+      return false;
+    }
+
+    final latitud =
+        request.latitud ?? MunicipioCentroide.latitud(request.municipio);
+    final longitud =
+        request.longitud ?? MunicipioCentroide.longitud(request.municipio);
+    if (latitud == null || longitud == null) {
+      _error =
+          'Sin conexión hace falta una ubicación GPS o un municipio '
+          'conocido para guardar la parcela.';
+      return false;
+    }
+
+    await GuestParcelaStore().agregar(
+      cultivoId: cultivo.id,
+      cultivoNombre: cultivo.nombre,
+      tipoSueloId: suelo.id,
+      tipoSueloNombre: suelo.nombre,
+      etapaFenologicaId: request.etapaFenologicaId,
+      latitud: latitud,
+      longitud: longitud,
+      municipio: request.municipio,
+      comunidad: request.comunidad,
+      fechaSiembra: request.fechaSiembra,
+      areaMzs: request.areaMzs,
+    );
+    _guardadaLocalmente = true;
+    _error = null;
+    return true;
   }
 
   Future<bool> actualizarParcela(

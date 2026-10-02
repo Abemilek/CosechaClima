@@ -166,13 +166,16 @@ class _BitacoraScreenState extends State<BitacoraScreen> {
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: entradas.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, i) => _TimelineCard(
-        entrada: entradas[i],
-        onMarcar: (numero) => _marcarAccion(entradas[i], numero),
+    return RefreshIndicator(
+      onRefresh: _cargar,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: entradas.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        itemBuilder: (context, i) => _TimelineCard(
+          entrada: entradas[i],
+          onMarcar: (numero) => _marcarAccion(entradas[i], numero),
+        ),
       ),
     );
   }
@@ -254,13 +257,15 @@ class _TimelineCard extends StatelessWidget {
   Widget _accionTile(int numero, String texto, bool completada) {
     return InkWell(
       onTap: completada ? null : () => onMarcar(numero),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 48),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           children: [
             Icon(
               completada ? Icons.check_circle : Icons.radio_button_unchecked,
-              size: 20,
+              size: 22,
               color: completada ? AppColors.green : AppColors.muted,
             ),
             const SizedBox(width: 10),
