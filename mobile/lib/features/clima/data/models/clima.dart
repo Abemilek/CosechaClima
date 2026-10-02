@@ -104,6 +104,14 @@ class PronosticoPublico {
         precipitacion: (json['precipitacion'] as num?)?.toDouble(),
         vientoVelocidad: (json['vientoVelocidad'] as num?)?.toDouble(),
       );
+
+  Map<String, dynamic> toJson() => {
+    'fecha': fecha.toIso8601String(),
+    'temperaturaMax': temperaturaMax,
+    'temperaturaMin': temperaturaMin,
+    'precipitacion': precipitacion,
+    'vientoVelocidad': vientoVelocidad,
+  };
 }
 
 class DiaResumenSemanal {
@@ -129,6 +137,14 @@ class DiaResumenSemanal {
         temperaturaMin: (json['temperaturaMin'] as num?)?.toDouble(),
         precipitacion: (json['precipitacion'] as num?)?.toDouble(),
       );
+
+  Map<String, dynamic> toJson() => {
+    'fecha': fecha.toIso8601String(),
+    'nivelRiesgo': nivelRiesgo,
+    'temperaturaMax': temperaturaMax,
+    'temperaturaMin': temperaturaMin,
+    'precipitacion': precipitacion,
+  };
 }
 
 class ResumenSemanal {
@@ -159,4 +175,12 @@ class ResumenSemanal {
         .map((e) => e.toString())
         .toList(),
   );
+
+  Map<String, dynamic> toJson() => {
+    'dias': dias.map((d) => d.toJson()).toList(),
+    'nivelRiesgoMaximo': nivelRiesgoMaximo,
+    'diaMasCritico': diaMasCritico?.toIso8601String(),
+    'descripcionAlerta': descripcionAlerta,
+    'accionesDeLaSemana': accionesDeLaSemana,
+  };
 }

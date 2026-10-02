@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/cache/parcela_cache.dart';
 import '../../../../core/network/api_client.dart';
@@ -56,6 +55,7 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
 
   DatosClimaticos? _clima;
   Semaforo? _semaforo;
+  ResumenSemanal? _resumenSemanal;
   DateTime? _climaGuardadoEn;
   final Set<int> _accionesRegistradas = {};
 
@@ -79,6 +79,7 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
       _requiereUmbrales = false;
       _clima = null;
       _semaforo = null;
+      _resumenSemanal = null;
       _climaGuardadoEn = null;
     });
 
@@ -100,9 +101,17 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
       if (!mounted) return;
       final semaforo = await _motorService.obtenerSemaforo(parcela.id);
       if (!mounted) return;
+      ResumenSemanal? resumenSemanal;
+      try {
+        resumenSemanal = await _motorService.obtenerResumenSemanal(parcela.id);
+      } catch (_) {
+        resumenSemanal = null;
+      }
+      if (!mounted) return;
       setState(() {
         _clima = clima;
         _semaforo = semaforo;
+        _resumenSemanal = resumenSemanal;
         _climaGuardadoEn = null;
       });
       unawaited(
@@ -110,9 +119,9 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
           parcelaId: parcela.id,
           clima: clima,
           semaforo: semaforo,
+          resumenSemanal: resumenSemanal,
         ),
       );
-
       unawaited(
         NotificacionRiesgoService.instancia.evaluarCambioDeRiesgo(
           parcelaId: parcela.id,
@@ -144,6 +153,7 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
       setState(() {
         _clima = cache.clima;
         _semaforo = cache.semaforo;
+        _resumenSemanal = cache.resumenSemanal;
         _climaGuardadoEn = cache.guardadoEn;
         _error = null;
       });
@@ -297,27 +307,6 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
     }
   }
 
-  Future<void> _abrirSms() async {
-    final semaforo = _semaforo;
-    if (semaforo == null) return;
-    final acciones = semaforo.acciones.take(3).toList();
-    final cuerpo = StringBuffer(
-      'ALERTA CosechaClima: riesgo ${semaforo.nivelRiesgo} - ${semaforo.descripcionAlerta}. ',
-    );
-    for (var i = 0; i < acciones.length; i++) {
-      cuerpo.write('${i + 1}) ${acciones[i]}. ');
-    }
-    final uri = Uri(
-      scheme: 'sms',
-      path: '',
-      queryParameters: {'body': cuerpo.toString()},
-    );
-    final abierto = await launchUrl(uri);
-    if (!abierto && mounted) {
-      _mostrarError('No se pudo abrir la app de mensajes en este dispositivo.');
-    }
-  }
-
   Color get _colorRiesgo => RiesgoUi.colorPara(_semaforo?.nivelRiesgo);
 
   @override
@@ -334,11 +323,7 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
               padding: const EdgeInsets.fromLTRB(20, 12, 12, 8),
               child: Row(
                 children: [
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back),
-                    color: AppColors.greenDark,
-                  ),
+                  const BackButton(color: AppColors.greenDark),
                   const AppAvatar(icon: Icons.eco_outlined),
                   const SizedBox(width: 10),
                   Expanded(
@@ -367,6 +352,7 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
                     ),
                   ),
                   IconButton(
+                    tooltip: 'Ajustar mis alertas',
                     onPressed: () async {
                       final guardado = await Navigator.of(context).push<bool>(
                         noAnimationRoute<bool>((_) => const UmbralesScreen()),
@@ -387,6 +373,11 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
                     onSelected: (opcion) {
                       if (opcion == 'editar') _editarParcela();
                       if (opcion == 'eliminar') _eliminarParcela();
+                      if (opcion == 'acerca') {
+                        Navigator.of(context).push(
+                          noAnimationRoute<void>((_) => const AcercaDeScreen()),
+                        );
+                      }
                     },
                     itemBuilder: (context) => const [
                       PopupMenuItem(
@@ -394,6 +385,14 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
                         child: ListTile(
                           leading: Icon(Icons.edit_outlined),
                           title: Text('Editar parcela'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'acerca',
+                        child: ListTile(
+                          leading: Icon(Icons.info_outline),
+                          title: Text('¿Cómo calculamos esto?'),
                           contentPadding: EdgeInsets.zero,
                         ),
                       ),
@@ -451,6 +450,7 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
                     sinCoordenadas: !parcela.tieneCoordenadas,
                     clima: _clima,
                     semaforo: _semaforo,
+                    resumenSemanal: _resumenSemanal,
                     parcela: parcela,
                     colorRiesgo: _colorRiesgo,
                     climaGuardadoEn: _climaGuardadoEn,
@@ -471,24 +471,6 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
                       }
                     }),
                     onGuardarBitacora: _registrarEnBitacora,
-                  ),
-                  _AlertasTab(
-                    cargando: _cargando,
-                    error: _error,
-                    requiereUmbrales: _requiereUmbrales,
-                    sinCoordenadas: !parcela.tieneCoordenadas,
-                    semaforo: _semaforo,
-                    colorRiesgo: _colorRiesgo,
-                    climaGuardadoEn: _climaGuardadoEn,
-                    onReintentar: _cargarTodo,
-                    onIrAUmbrales: () async {
-                      final guardado = await Navigator.of(context).push<bool>(
-                        noAnimationRoute<bool>((_) => const UmbralesScreen()),
-                      );
-                      if (guardado == true) unawaited(_cargarTodo());
-                    },
-                    onEditar: _editarParcela,
-                    onAbrirSms: _abrirSms,
                   ),
                   BitacoraScreen(parcelaId: parcela.id, mostrarAppBar: false),
                   ResumenSemanalTab(
@@ -519,8 +501,7 @@ class _BottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = [
       (Icons.home_outlined, 'Inicio'),
-      (Icons.warning_amber_outlined, 'Alertas'),
-      (Icons.calendar_month_outlined, 'Mi cuaderno'),
+      (Icons.menu_book_outlined, 'Mi cuaderno'),
       (Icons.date_range_outlined, 'Semana'),
     ];
     return Container(
@@ -640,6 +621,7 @@ class _HomeTab extends StatelessWidget {
   final bool sinCoordenadas;
   final DatosClimaticos? clima;
   final Semaforo? semaforo;
+  final ResumenSemanal? resumenSemanal;
   final Parcela parcela;
   final Color colorRiesgo;
   final DateTime? climaGuardadoEn;
@@ -657,6 +639,7 @@ class _HomeTab extends StatelessWidget {
     required this.sinCoordenadas,
     required this.clima,
     required this.semaforo,
+    required this.resumenSemanal,
     required this.parcela,
     required this.colorRiesgo,
     required this.climaGuardadoEn,
@@ -696,7 +679,7 @@ class _HomeTab extends StatelessWidget {
           else if (requiereUmbrales)
             FilledButton(
               onPressed: onIrAUmbrales,
-              child: const Text('Configurar mis umbrales'),
+              child: const Text('Ajustar mis alertas'),
             )
           else
             OutlinedButton(
@@ -728,68 +711,87 @@ class _HomeTab extends StatelessWidget {
       );
     }
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
-      children: [
-        if (climaGuardadoEn != null) ...[
-          _CacheBanner(guardadoEn: climaGuardadoEn!),
-          const SizedBox(height: 4),
+    return RefreshIndicator(
+      onRefresh: onReintentar,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
+        children: [
+          if (climaGuardadoEn != null) ...[
+            _CacheBanner(guardadoEn: climaGuardadoEn!),
+            const SizedBox(height: 4),
+          ],
+          if (clima != null)
+            _SummaryCard(clima: clima!, parcela: parcela, semaforo: semaforo),
+          const SizedBox(height: 16),
+          if (semaforo != null) ...[
+            _RiskCard(semaforo: semaforo!, color: colorRiesgo),
+            const SizedBox(height: 20),
+            Builder(
+              builder: (context) {
+                final resumen = resumenSemanal;
+                final acciones =
+                    resumen?.accionesDeLaSemana ?? semaforo!.acciones;
+                final tituloPlan = resumen != null
+                    ? 'Tu plan para esta semana'
+                    : 'Acciones recomendadas ahora';
+                final diaCritico = resumen?.diaMasCritico;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tituloPlan,
+                      style: const TextStyle(
+                        fontFamily: 'Georgia',
+                        fontFamilyFallback: ['Times New Roman', 'serif'],
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    if (diaCritico != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'El día más delicado sería el '
+                        '${DateFormat('EEEE d', 'es').format(diaCritico)}.',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.muted,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    ...acciones.asMap().entries.map(
+                      (entry) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _ActionTile(
+                          numero: entry.key + 1,
+                          texto: entry.value,
+                          completada: accionesRegistradas.contains(entry.key),
+                          color: colorRiesgo,
+                          onTap: () => onToggleAccion(entry.key),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: onGuardarBitacora,
+              icon: const Icon(Icons.menu_book_outlined, size: 18),
+              label: const Text('Guardar en mi cuaderno'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: onReintentar,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Actualizar clima'),
+            ),
+          ],
         ],
-        if (clima != null)
-          _SummaryCard(clima: clima!, parcela: parcela, semaforo: semaforo),
-        const SizedBox(height: 16),
-        if (semaforo != null) ...[
-          _RiskCard(semaforo: semaforo!, color: colorRiesgo),
-          const SizedBox(height: 20),
-          const Text(
-            'Tus 3 acciones de hoy',
-            style: TextStyle(
-              fontFamily: 'Georgia',
-              fontFamilyFallback: ['Times New Roman', 'serif'],
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: AppColors.ink,
-            ),
-          ),
-          const SizedBox(height: 10),
-          ...semaforo!.acciones.asMap().entries.map(
-            (entry) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _ActionTile(
-                numero: entry.key + 1,
-                texto: entry.value,
-                completada: accionesRegistradas.contains(entry.key),
-                color: colorRiesgo,
-                onTap: () => onToggleAccion(entry.key),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          FilledButton.icon(
-            onPressed: onGuardarBitacora,
-            icon: const Icon(Icons.menu_book_outlined, size: 18),
-            label: const Text('Guardar en mi cuaderno'),
-          ),
-          const SizedBox(height: 20),
-          OutlinedButton.icon(
-            onPressed: onReintentar,
-            icon: const Icon(Icons.refresh, size: 18),
-            label: const Text('Actualizar clima'),
-          ),
-          const SizedBox(height: 12),
-          Center(
-            child: TextButton.icon(
-              onPressed: () => Navigator.of(
-                context,
-              ).push(noAnimationRoute<void>((_) => const AcercaDeScreen())),
-              icon: const Icon(Icons.info_outline, size: 16),
-              label: const Text(
-                '¿Cómo calculamos esto? Acerca de CosechaClima',
-              ),
-            ),
-          ),
-        ],
-      ],
+      ),
     );
   }
 }
@@ -1061,234 +1063,6 @@ class _ActionTile extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _AlertasTab extends StatelessWidget {
-  final bool cargando;
-  final String? error;
-  final bool requiereUmbrales;
-  final bool sinCoordenadas;
-  final Semaforo? semaforo;
-  final Color colorRiesgo;
-  final DateTime? climaGuardadoEn;
-  final Future<void> Function() onReintentar;
-  final VoidCallback onIrAUmbrales;
-  final VoidCallback onEditar;
-  final Future<void> Function() onAbrirSms;
-
-  const _AlertasTab({
-    required this.cargando,
-    required this.error,
-    required this.requiereUmbrales,
-    required this.sinCoordenadas,
-    required this.semaforo,
-    required this.colorRiesgo,
-    required this.climaGuardadoEn,
-    required this.onReintentar,
-    required this.onIrAUmbrales,
-    required this.onEditar,
-    required this.onAbrirSms,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (cargando) {
-      return const AppLoadingMessage(message: 'Calculando alertas...');
-    }
-
-    if (error != null) {
-      return ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          const SizedBox(height: 40),
-          _DetailStateMessage(
-            icon: sinCoordenadas ? Icons.my_location : Icons.info_outline,
-            title: sinCoordenadas
-                ? 'Faltan coordenadas'
-                : requiereUmbrales
-                ? 'Faltan umbrales'
-                : 'No se pudo calcular',
-            message: error!,
-            action: sinCoordenadas
-                ? FilledButton.icon(
-                    onPressed: onEditar,
-                    icon: const Icon(Icons.my_location, size: 18),
-                    label: const Text('Agregar coordenadas'),
-                  )
-                : requiereUmbrales
-                ? FilledButton(
-                    onPressed: onIrAUmbrales,
-                    child: const Text('Configurar umbrales'),
-                  )
-                : OutlinedButton.icon(
-                    onPressed: onReintentar,
-                    icon: const Icon(Icons.refresh, size: 18),
-                    label: const Text('Reintentar'),
-                  ),
-          ),
-        ],
-      );
-    }
-
-    if (semaforo == null) {
-      return ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          const SizedBox(height: 40),
-          _DetailStateMessage(
-            icon: Icons.warning_amber_outlined,
-            title: 'Sin alerta calculada',
-            message:
-                'Todavía no hay una alerta para esta parcela. Actualizá para '
-                'consultar clima y reglas de decisión.',
-            action: OutlinedButton.icon(
-              onPressed: onReintentar,
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Actualizar alerta'),
-            ),
-          ),
-        ],
-      );
-    }
-
-    return ListView(
-      padding: const EdgeInsets.all(18),
-      children: [
-        if (climaGuardadoEn != null) ...[
-          _CacheBanner(guardadoEn: climaGuardadoEn!),
-          const SizedBox(height: 10),
-        ],
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Protocolo de alerta',
-              style: TextStyle(
-                fontFamily: 'Georgia',
-                fontFamilyFallback: ['Times New Roman', 'serif'],
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                color: AppColors.ink,
-              ),
-            ),
-            AppPill(
-              text: semaforo!.nivelRiesgo,
-              variant: RiesgoUi.variantePara(semaforo!.nivelRiesgo),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: colorRiesgo.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(AppRadius.card),
-            border: Border.all(color: colorRiesgo.withValues(alpha: 0.4)),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: colorRiesgo,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.warning_amber_rounded,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      semaforo!.descripcionAlerta,
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        ...semaforo!.acciones.asMap().entries.map(
-          (e) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    color: colorRiesgo.withValues(alpha: 0.16),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      '${e.key + 1}',
-                      style: TextStyle(
-                        color: colorRiesgo,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(child: Text(e.value)),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        FilledButton.icon(
-          style: FilledButton.styleFrom(
-            backgroundColor: colorRiesgo,
-            foregroundColor:
-                ThemeData.estimateBrightnessForColor(colorRiesgo) ==
-                    Brightness.dark
-                ? Colors.white
-                : AppColors.ink,
-          ),
-          onPressed: onAbrirSms,
-          icon: const Icon(Icons.sms_outlined, size: 18),
-          label: const Text('Preparar SMS'),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.mint,
-            borderRadius: BorderRadius.circular(AppRadius.cardSmall),
-          ),
-          child: const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Sobre este botón',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-              SizedBox(height: 6),
-              Text(
-                'Abre tu app de mensajes con la alerta ya escrita, para que se la '
-                'envíes a un contacto de confianza. Funciona con señal de '
-                'telefonía aunque no tengas datos móviles — pero para calcular '
-                'la alerta en sí, la app sí necesita conexión al servidor.',
-                style: TextStyle(fontSize: 13, color: AppColors.ink),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

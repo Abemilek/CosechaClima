@@ -3,14 +3,20 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/cache/guest_parcela_migration.dart';
+import '../../../../core/cache/guest_parcela_store.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../routing/auth_gate.dart';
 import '../../../../routing/no_animation_route.dart';
 import '../../../../shared/widgets/app_avatar.dart';
 import '../../../../shared/widgets/app_loading_message.dart';
 import '../../../../shared/widgets/confirm_dialog.dart';
+import '../../../auth/presentation/screens/login_sheet.dart';
 import '../../../auth/presentation/view_models/auth_view_model.dart';
 import '../../../bitacora/presentation/screens/bitacora_screen.dart';
+import '../../../onboarding/presentation/screens/guest_parcela_detail_screen.dart';
+import '../../../umbral/data/services/umbral_service.dart';
 import '../../../umbral/presentation/screens/umbrales_screen.dart';
 import '../../data/models/parcela.dart';
 import '../view_models/parcela_view_model.dart';
@@ -25,14 +31,51 @@ class ParcelaListScreen extends StatefulWidget {
 }
 
 class _ParcelaListScreenState extends State<ParcelaListScreen> {
+  final _store = GuestParcelaStore();
+  List<GuestParcela> _locales = [];
+  bool _cargandoLocales = true;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = context.read<ParcelaViewModel>();
-      unawaited(provider.cargarParcelas());
-      unawaited(provider.cargarCatalogos());
+      unawaited(_recargar());
     });
+  }
+
+  Future<void> _recargar() async {
+    if (!mounted) return;
+    final auth = context.read<AuthViewModel>();
+    final provider = context.read<ParcelaViewModel>();
+
+    if (auth.estaAutenticado) {
+      await provider.cargarParcelas();
+
+      final enLinea =
+          !provider.mostrandoDatosGuardados && provider.error == null;
+      if (enLinea) {
+        unawaited(UmbralService(ApiClient()).sincronizarPendientes());
+        final migradas = await migrarParcelasInvitadoACuenta();
+        if (migradas > 0) await provider.cargarParcelas();
+      }
+      unawaited(provider.cargarCatalogos());
+    }
+
+    final locales = await _store.listar();
+    if (!mounted) return;
+    setState(() {
+      _locales = locales;
+      _cargandoLocales = false;
+    });
+  }
+
+  Future<void> _iniciarSesion() async {
+    final ok = await mostrarLoginContextual(
+      context,
+      motivo: 'Iniciá sesión para no perder tus parcelas',
+    );
+    if (ok != true || !mounted) return;
+    await _recargar();
   }
 
   Future<void> _cerrarSesion() async {
@@ -53,10 +96,29 @@ class _ParcelaListScreenState extends State<ParcelaListScreen> {
     );
   }
 
+  Future<void> _nuevaParcela() async {
+    final auth = context.read<AuthViewModel>();
+    final creada = await Navigator.of(context).push<bool>(
+      noAnimationRoute<bool>(
+        (_) => CrearParcelaWizardScreen(esInvitado: !auth.estaAutenticado),
+      ),
+    );
+    if (creada == true) unawaited(_recargar());
+  }
+
+  Future<void> _abrirDetalleLocal(GuestParcela parcela) async {
+    await Navigator.of(context).push<void>(
+      noAnimationRoute<void>((_) => GuestParcelaDetailScreen(parcela: parcela)),
+    );
+    unawaited(_recargar());
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ParcelaViewModel>();
-    final nombre = context.watch<AuthViewModel>().nombre;
+    final auth = context.watch<AuthViewModel>();
+    final nombre = auth.nombre;
+    final esInvitado = !auth.estaAutenticado;
 
     return Scaffold(
       backgroundColor: AppColors.cream,
@@ -82,7 +144,9 @@ class _ParcelaListScreenState extends State<ParcelaListScreen> {
                           ),
                         ),
                         Text(
-                          nombre != null ? 'Hola, $nombre' : 'Mis parcelas',
+                          !esInvitado && nombre != null
+                              ? 'Hola, $nombre'
+                              : 'Mis parcelas',
                           style: const TextStyle(
                             fontFamily: 'Georgia',
                             fontFamilyFallback: ['Times New Roman', 'serif'],
@@ -94,32 +158,64 @@ class _ParcelaListScreenState extends State<ParcelaListScreen> {
                       ],
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Toda mi bitácora',
-                    icon: const Icon(Icons.menu_book_outlined),
-                    color: AppColors.greenDark,
-                    onPressed: () => Navigator.of(context).push(
-                      noAnimationRoute<void>((_) => const BitacoraScreen()),
+                  if (!esInvitado)
+                    PopupMenuButton<String>(
+                      icon: const Icon(
+                        Icons.more_vert,
+                        color: AppColors.greenDark,
+                      ),
+                      tooltip: 'Más opciones',
+                      onSelected: (opcion) {
+                        if (opcion == 'cuaderno') {
+                          Navigator.of(context).push(
+                            noAnimationRoute<void>(
+                              (_) => const BitacoraScreen(),
+                            ),
+                          );
+                        }
+                        if (opcion == 'alertas') {
+                          Navigator.of(context).push(
+                            noAnimationRoute<void>(
+                              (_) => const UmbralesScreen(),
+                            ),
+                          );
+                        }
+                        if (opcion == 'salir') _cerrarSesion();
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(
+                          value: 'cuaderno',
+                          child: ListTile(
+                            leading: Icon(Icons.menu_book_outlined),
+                            title: Text('Mi cuaderno'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'alertas',
+                          child: ListTile(
+                            leading: Icon(Icons.tune),
+                            title: Text('Ajustar mis alertas'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'salir',
+                          child: ListTile(
+                            leading: Icon(Icons.logout, color: AppColors.red),
+                            title: Text(
+                              'Cerrar sesión',
+                              style: TextStyle(color: AppColors.red),
+                            ),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  IconButton(
-                    tooltip: 'Umbrales de riesgo',
-                    icon: const Icon(Icons.tune),
-                    color: AppColors.greenDark,
-                    onPressed: () => Navigator.of(context).push(
-                      noAnimationRoute<void>((_) => const UmbralesScreen()),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Cerrar sesión',
-                    icon: const Icon(Icons.logout),
-                    color: AppColors.muted,
-                    onPressed: _cerrarSesion,
-                  ),
                 ],
               ),
             ),
-            Expanded(child: _buildBody(provider)),
+            Expanded(child: _buildBody(provider, esInvitado)),
           ],
         ),
       ),
@@ -127,54 +223,215 @@ class _ParcelaListScreenState extends State<ParcelaListScreen> {
         backgroundColor: AppColors.green,
         icon: const Icon(Icons.add),
         label: const Text('Nueva parcela'),
-        onPressed: () async {
-          final creada = await Navigator.of(context).push<bool>(
-            noAnimationRoute<bool>((_) => const CrearParcelaWizardScreen()),
-          );
-          if (creada == true) unawaited(provider.cargarParcelas());
-        },
+        onPressed: _nuevaParcela,
       ),
     );
   }
 
-  Widget _buildBody(ParcelaViewModel provider) {
-    if (provider.cargando && provider.parcelas.isEmpty) {
+  Widget _buildBody(ParcelaViewModel provider, bool esInvitado) {
+    if (esInvitado) {
+      if (_cargandoLocales && _locales.isEmpty) {
+        return const AppLoadingMessage(message: 'Cargando tus parcelas...');
+      }
+      if (_locales.isEmpty) {
+        return _EstadoVacio(
+          icono: Icons.agriculture_outlined,
+          mensaje:
+              'Todavía no registrás ninguna parcela.\n'
+              'Tocá "Nueva parcela" para empezar.',
+          onAccion: _recargar,
+          accionTexto: 'Actualizar',
+        );
+      }
+      return Column(
+        children: [
+          _BannerInvitado(
+            cantidad: _locales.length,
+            onIniciarSesion: _iniciarSesion,
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _recargar,
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(18, 6, 18, 100),
+                itemCount: _locales.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 12),
+                itemBuilder: (context, i) => _ParcelaLocalCard(
+                  parcela: _locales[i],
+                  onTap: () => _abrirDetalleLocal(_locales[i]),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final hayServidor = provider.parcelas.isNotEmpty;
+    final hayLocales = _locales.isNotEmpty;
+
+    if ((provider.cargando || _cargandoLocales) &&
+        !hayServidor &&
+        !hayLocales) {
       return const AppLoadingMessage(message: 'Cargando tus parcelas...');
     }
 
-    if (provider.error != null && provider.parcelas.isEmpty) {
+    if (provider.error != null && !hayServidor && !hayLocales) {
       return _EstadoVacio(
         icono: Icons.wifi_off,
         mensaje: provider.error!,
         accionTexto: 'Reintentar',
-        onAccion: provider.cargarParcelas,
+        onAccion: _recargar,
       );
     }
 
-    if (provider.parcelas.isEmpty) {
+    if (!hayServidor && !hayLocales) {
       return _EstadoVacio(
         icono: Icons.agriculture_outlined,
         mensaje:
-            'Todavía no registrás ninguna parcela.\nTocá "Nueva parcela" para empezar.',
-        onAccion: provider.cargarParcelas,
+            'Todavía no registrás ninguna parcela.\n'
+            'Tocá "Nueva parcela" para empezar.',
+        onAccion: _recargar,
         accionTexto: 'Actualizar',
       );
     }
+
+    final tarjetas = <Widget>[
+      ...provider.parcelas.map((p) => _ParcelaCard(parcela: p)),
+      ..._locales.map(
+        (p) =>
+            _ParcelaLocalCard(parcela: p, onTap: () => _abrirDetalleLocal(p)),
+      ),
+    ];
 
     return Column(
       children: [
         if (provider.mostrandoDatosGuardados)
           _BannerSinConexion(provider: provider),
+        if (hayLocales)
+          _BannerPendientes(
+            cantidad: _locales.length,
+            onSincronizar: _recargar,
+          ),
         Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(18, 6, 18, 100),
-            itemCount: provider.parcelas.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 12),
-            itemBuilder: (context, i) =>
-                _ParcelaCard(parcela: provider.parcelas[i]),
+          child: RefreshIndicator(
+            onRefresh: _recargar,
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(18, 6, 18, 100),
+              itemCount: tarjetas.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              itemBuilder: (context, i) => tarjetas[i],
+            ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _BannerInvitado extends StatelessWidget {
+  final int cantidad;
+  final VoidCallback onIniciarSesion;
+
+  const _BannerInvitado({
+    required this.cantidad,
+    required this.onIniciarSesion,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(18, 0, 18, 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.mint,
+        borderRadius: BorderRadius.circular(AppRadius.cardSmall),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.shield_outlined,
+                color: AppColors.greenDark,
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  cantidad == 1
+                      ? 'Tu parcela está guardada solo en este teléfono. '
+                            'Iniciá sesión para no perderla.'
+                      : 'Tus $cantidad parcelas están guardadas solo en este '
+                            'teléfono. Iniciá sesión para no perderlas.',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.greenDark,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.greenDark,
+                minimumSize: const Size(0, 40),
+              ),
+              onPressed: onIniciarSesion,
+              child: const Text('Iniciar sesión'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BannerPendientes extends StatelessWidget {
+  final int cantidad;
+  final VoidCallback onSincronizar;
+
+  const _BannerPendientes({
+    required this.cantidad,
+    required this.onSincronizar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(18, 0, 18, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.amberBg,
+        borderRadius: BorderRadius.circular(AppRadius.cardSmall),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.cloud_upload_outlined,
+            size: 18,
+            color: Color(0xFFA56800),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              cantidad == 1
+                  ? 'Tenés 1 parcela guardada en este teléfono. Se va a subir '
+                        'a tu cuenta cuando haya conexión.'
+                  : 'Tenés $cantidad parcelas guardadas en este teléfono. Se '
+                        'van a subir a tu cuenta cuando haya conexión.',
+              style: const TextStyle(fontSize: 12, color: Color(0xFFA56800)),
+            ),
+          ),
+          TextButton(onPressed: onSincronizar, child: const Text('Reintentar')),
+        ],
+      ),
     );
   }
 }
@@ -228,12 +485,14 @@ class _ParcelaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cultivo = context.read<ParcelaViewModel>().cultivos.where(
-      (c) => c.id == parcela.cultivoId,
-    );
-    final nombreCultivo = cultivo.isNotEmpty
-        ? cultivo.first.nombre
-        : 'Parcela #${parcela.id}';
+    final cultivos = context.read<ParcelaViewModel>().cultivos;
+    String? nombreCultivo;
+    for (final c in cultivos) {
+      if (c.id == parcela.cultivoId) {
+        nombreCultivo = c.nombre;
+        break;
+      }
+    }
 
     return Material(
       color: AppColors.paper,
@@ -260,7 +519,7 @@ class _ParcelaCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      nombreCultivo,
+                      nombreCultivo ?? 'Parcela #${parcela.id}',
                       style: const TextStyle(
                         fontFamily: 'Georgia',
                         fontFamilyFallback: ['Times New Roman', 'serif'],
@@ -274,6 +533,70 @@ class _ParcelaCard extends StatelessWidget {
                         if (parcela.municipio != null) parcela.municipio,
                         '${parcela.areaMzs} mzs',
                         if (!parcela.tieneCoordenadas) 'sin GPS',
+                      ].join(' · '),
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppColors.muted),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ParcelaLocalCard extends StatelessWidget {
+  final GuestParcela parcela;
+  final VoidCallback onTap;
+
+  const _ParcelaLocalCard({required this.parcela, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.paper,
+      borderRadius: BorderRadius.circular(AppRadius.cardSmall),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.cardSmall),
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 96),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.cardSmall),
+            border: Border.all(color: const Color(0xFFEFE0D3)),
+            boxShadow: AppShadows.soft,
+          ),
+          child: Row(
+            children: [
+              const AppAvatar(icon: Icons.eco_outlined),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      parcela.cultivoNombre,
+                      style: const TextStyle(
+                        fontFamily: 'Georgia',
+                        fontFamilyFallback: ['Times New Roman', 'serif'],
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    Text(
+                      [
+                        parcela.tipoSueloNombre,
+                        '${parcela.areaMzs} mzs',
+                        if (parcela.municipio != null) parcela.municipio,
                       ].join(' · '),
                       style: const TextStyle(
                         color: AppColors.muted,

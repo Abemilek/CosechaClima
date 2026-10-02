@@ -130,9 +130,9 @@ class _UmbralesScreenState extends State<UmbralesScreen> {
         ),
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Umbrales guardados')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tus alertas quedaron guardadas')),
+      );
       Navigator.of(context).pop(true);
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -168,9 +168,9 @@ class _UmbralesScreenState extends State<UmbralesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.cream,
-      appBar: AppBar(title: const Text('Umbrales')),
+      appBar: AppBar(title: const Text('Ajustar mis alertas')),
       body: _cargando
-          ? const AppLoadingMessage(message: 'Cargando umbrales...')
+          ? const AppLoadingMessage(message: 'Cargando tus alertas...')
           : SafeArea(
               child: ListView(
                 padding: const EdgeInsets.all(20),
@@ -288,7 +288,7 @@ class _UmbralesScreenState extends State<UmbralesScreen> {
                   FilledButton(
                     onPressed: _guardando ? null : _guardar,
                     child: Text(
-                      _guardando ? 'Guardando...' : 'Guardar umbrales',
+                      _guardando ? 'Guardando...' : 'Guardar mis alertas',
                     ),
                   ),
                 ],

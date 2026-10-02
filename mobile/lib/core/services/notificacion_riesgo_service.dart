@@ -15,7 +15,6 @@ class NotificacionRiesgoService {
   static const _prefsPrefix = 'ultimo_riesgo_parcela_';
   static const _prefsFechaPrefix = 'ultima_notificacion_parcela_';
   static const _ordenRiesgo = {'bajo': 0, 'medio': 1, 'alto': 2};
-
   static const _intervaloMinimoEntreAvisos = Duration(days: 2);
 
   Future<void> _asegurarInicializado() async {

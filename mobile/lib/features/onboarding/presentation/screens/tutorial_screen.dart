@@ -25,24 +25,24 @@ class _TutorialStep {
 const _steps = [
   _TutorialStep(
     icon: Icons.traffic,
-    title: 'Tu semáforo del día',
+    title: 'Tu semáforo de riesgo',
     body:
-        'Analizamos clima, cultivo, etapa, suelo y tus umbrales para decirte '
-        'si hoy hay riesgo bajo, medio o alto.',
+        'Revisamos el clima de tu zona junto con tu cultivo, la etapa y el '
+        'suelo para decirte si el riesgo es bajo, medio o alto.',
   ),
   _TutorialStep(
     icon: Icons.checklist,
-    title: '3 acciones para hoy',
+    title: 'Tu plan de la semana',
     body:
-        'Nada de teoría ni videos largos. Cada alerta te dice exactamente '
-        'tres cosas que podés hacer en tu parcela.',
+        'Sin teoría ni videos largos: te damos pocas acciones concretas para '
+        'hacer en tu parcela y el día más delicado de la semana.',
   ),
   _TutorialStep(
     icon: Icons.menu_book_outlined,
-    title: 'Historial en tu bitácora',
+    title: 'Tu cuaderno de campo',
     body:
-        'Registrá qué acciones cumpliste y consultá el historial de alertas '
-        'de tu parcela cuando quieras, incluso días después.',
+        'Marcá lo que ya hiciste y quedate con el historial de tu parcela, '
+        'aunque pase el tiempo o no tengas internet.',
   ),
 ];
 

@@ -4,22 +4,22 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/cache/guest_parcela_store.dart';
+import '../../../../core/cache/ubicacion_preferida_store.dart';
+import '../../../../core/config/municipio_centroide.dart';
 import '../../../../core/config/zona_cobertura.dart';
-import '../../../../core/network/api_client.dart';
-import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/app_avatar.dart';
 import '../../../../shared/widgets/app_loading_message.dart';
 import '../../../../shared/widgets/location_picker_field.dart';
-import '../../../../shared/widgets/umbral_form.dart';
 import '../../../catalogo/data/models/catalogo.dart';
-import '../../../umbral/data/models/umbral.dart';
-import '../../../umbral/data/services/umbral_service.dart';
 import '../../data/models/parcela.dart';
 import '../view_models/parcela_view_model.dart';
 
 class CrearParcelaWizardScreen extends StatefulWidget {
-  const CrearParcelaWizardScreen({super.key});
+  final bool esInvitado;
+
+  const CrearParcelaWizardScreen({super.key, this.esInvitado = false});
 
   @override
   State<CrearParcelaWizardScreen> createState() =>
@@ -29,10 +29,10 @@ class CrearParcelaWizardScreen extends StatefulWidget {
 class _CrearParcelaWizardScreenState extends State<CrearParcelaWizardScreen> {
   final _pageController = PageController();
   final _areaCtrl = TextEditingController(text: '1');
-  final _municipioCtrl = TextEditingController(text: 'Jinotepe');
   final _comunidadCtrl = TextEditingController();
   final _latitudCtrl = TextEditingController();
   final _longitudCtrl = TextEditingController();
+  final _ubicacionPreferida = UbicacionPreferidaStore();
 
   int _step = 0;
   static const _totalSteps = 5;
@@ -44,12 +44,8 @@ class _CrearParcelaWizardScreenState extends State<CrearParcelaWizardScreen> {
   String _fechaExactaTexto = DateFormat('yyyy-MM-dd').format(DateTime.now());
   String _municipioSeleccionado = 'Jinotepe';
 
-  double _lluviaIntensaMm = 100;
-  double _vientoFuerteKmh = 40;
-  double _caniculaDias = 7;
-  String _variedadCultivo = 'Criollo';
-  bool _tieneRiego = false;
-  TimeOfDay _horarioSms = const TimeOfDay(hour: 6, minute: 0);
+  bool _municipioElegidoManualmente = false;
+
   bool _guardando = false;
 
   static const _municipios = [
@@ -175,29 +171,46 @@ class _CrearParcelaWizardScreenState extends State<CrearParcelaWizardScreen> {
     ),
   ];
 
-  static const _variedades = ['Criollo', 'Híbrido', 'Mejorado'];
-  static const _horarios = [
-    TimeOfDay(hour: 5, minute: 0),
-    TimeOfDay(hour: 6, minute: 0),
-    TimeOfDay(hour: 7, minute: 0),
-    TimeOfDay(hour: 8, minute: 0),
-  ];
-
   @override
   void initState() {
     super.initState();
     unawaited(context.read<ParcelaViewModel>().cargarCatalogos());
+    unawaited(_cargarUbicacionPreferida());
   }
 
   @override
   void dispose() {
     _pageController.dispose();
     _areaCtrl.dispose();
-    _municipioCtrl.dispose();
     _comunidadCtrl.dispose();
     _latitudCtrl.dispose();
     _longitudCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _cargarUbicacionPreferida() async {
+    final guardado = await _ubicacionPreferida.obtener();
+    if (!mounted || guardado == null) return;
+    if (_municipios.any((m) => m.nombre == guardado)) {
+      setState(() => _municipioSeleccionado = guardado);
+    }
+  }
+
+  void _seleccionarMunicipio(String municipio) {
+    setState(() {
+      _municipioSeleccionado = municipio;
+      _municipioElegidoManualmente = true;
+    });
+  }
+
+  void _onCoordenadasCambiaron() {
+    final lat = double.tryParse(_latitudCtrl.text.trim());
+    final lon = double.tryParse(_longitudCtrl.text.trim());
+    setState(() {
+      if (_municipioElegidoManualmente || lat == null || lon == null) return;
+      final cercano = MunicipioCentroide.masCercano(lat, lon);
+      if (cercano != null) _municipioSeleccionado = cercano;
+    });
   }
 
   bool get _puedeAvanzar {
@@ -252,62 +265,142 @@ class _CrearParcelaWizardScreenState extends State<CrearParcelaWizardScreen> {
     );
 
     final provider = context.read<ParcelaViewModel>();
+
+    if (widget.esInvitado) {
+      final guardada = await _guardarInvitado(provider, request);
+      if (!mounted) return;
+      setState(() => _guardando = false);
+      if (!guardada) return;
+      await _ubicacionPreferida.guardar(request.municipio ?? '');
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+      return;
+    }
+
     final ok = await provider.crearParcela(request);
     if (!mounted) return;
 
     if (!ok) {
       setState(() => _guardando = false);
-      if (provider.error != null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(provider.error!)));
-      }
+      if (provider.error != null) _mostrarSnack(provider.error!);
       return;
     }
 
-    try {
-      final horario =
-          '${_horarioSms.hour.toString().padLeft(2, '0')}:'
-          '${_horarioSms.minute.toString().padLeft(2, '0')}';
-      await UmbralService(ApiClient()).guardar(
-        UmbralRequest(
-          lluviaIntensaMm: _lluviaIntensaMm.round(),
-          vientoFuerteKmh: _vientoFuerteKmh.round(),
-          caniculaDias: _caniculaDias.round(),
-          variedadCultivo: _variedadCultivo,
-          tieneRiego: _tieneRiego,
-          horarioSms: horario,
-        ),
+    setState(() => _guardando = false);
+    if (provider.guardadaLocalmente) {
+      _mostrarSnack(
+        'Guardamos tu parcela en el teléfono. La subimos a tu cuenta '
+        'cuando tengas internet.',
       );
-    } on ApiException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
-      }
-    } on NetworkException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
-      }
-    } on TimeoutApiException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _guardando = false);
-        Navigator.of(context).pop(true);
+    }
+    await _ubicacionPreferida.guardar(request.municipio ?? '');
+    if (!mounted) return;
+    Navigator.of(context).pop(true);
+  }
+
+  Future<bool> _guardarInvitado(
+    ParcelaViewModel provider,
+    ParcelaRequest request,
+  ) async {
+    Cultivo? cultivo;
+    for (final c in provider.cultivos) {
+      if (c.id == request.cultivoId) {
+        cultivo = c;
+        break;
       }
     }
+    TipoSuelo? suelo;
+    for (final s in provider.tiposSuelo) {
+      if (s.id == request.tipoSueloId) {
+        suelo = s;
+        break;
+      }
+    }
+    if (cultivo == null || suelo == null) {
+      _mostrarSnack(
+        'No se pudieron cargar los cultivos. Revisá tu conexión e intentá '
+        'de nuevo.',
+      );
+      return false;
+    }
+
+    final latitud =
+        request.latitud ?? MunicipioCentroide.latitud(request.municipio);
+    final longitud =
+        request.longitud ?? MunicipioCentroide.longitud(request.municipio);
+    if (latitud == null || longitud == null) {
+      _mostrarSnack(
+        'Necesitamos tu ubicación GPS o un municipio de la lista para '
+        'calcular el clima.',
+      );
+      return false;
+    }
+
+    await GuestParcelaStore().agregar(
+      cultivoId: cultivo.id,
+      cultivoNombre: cultivo.nombre,
+      tipoSueloId: suelo.id,
+      tipoSueloNombre: suelo.nombre,
+      etapaFenologicaId: request.etapaFenologicaId,
+      latitud: latitud,
+      longitud: longitud,
+      municipio: request.municipio,
+      comunidad: request.comunidad,
+      fechaSiembra: request.fechaSiembra,
+      areaMzs: request.areaMzs,
+    );
+    return true;
+  }
+
+  void _mostrarSnack(String mensaje) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(mensaje)));
   }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ParcelaViewModel>();
+    final sinCatalogos =
+        provider.cultivos.isEmpty && provider.tiposSuelo.isEmpty;
+
+    if (sinCatalogos && !provider.cargando && provider.error != null) {
+      return Scaffold(
+        backgroundColor: AppColors.cream,
+        appBar: AppBar(
+          backgroundColor: AppColors.cream,
+          elevation: 0,
+          title: const Text('Nueva parcela'),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.cloud_off_outlined,
+                  size: 40,
+                  color: AppColors.muted,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  provider.error!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: AppColors.muted),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: () => provider.cargarCatalogos(),
+                  child: const Text('Reintentar'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.cream,
@@ -321,13 +414,17 @@ class _CrearParcelaWizardScreenState extends State<CrearParcelaWizardScreen> {
                 title: _step <= 1
                     ? 'CosechaClima'
                     : _step == 4
-                    ? 'Umbrales'
+                    ? 'Confirmar'
                     : 'Paso ${_step + 1} de $_totalSteps',
                 onBack: () =>
                     _step == 0 ? Navigator.of(context).pop() : _goTo(_step - 1),
               ),
               const SizedBox(height: 10),
               _ProgressDots(total: _totalSteps, activeIndex: _step),
+              if (widget.esInvitado) ...[
+                const SizedBox(height: 12),
+                const _AvisoInvitado(),
+              ],
               Expanded(
                 child: PageView(
                   controller: _pageController,
@@ -341,17 +438,11 @@ class _CrearParcelaWizardScreenState extends State<CrearParcelaWizardScreen> {
                     ),
                     _LocationStep(
                       municipio: _municipioSeleccionado,
-                      municipioCtrl: _municipioCtrl,
                       comunidadCtrl: _comunidadCtrl,
                       latitudCtrl: _latitudCtrl,
                       longitudCtrl: _longitudCtrl,
-                      onMunicipioChanged: (value) {
-                        setState(() {
-                          _municipioSeleccionado = value;
-                          _municipioCtrl.text = value;
-                        });
-                      },
-                      onChanged: () => setState(() {}),
+                      onMunicipioChanged: _seleccionarMunicipio,
+                      onChanged: _onCoordenadasCambiaron,
                     ),
                     _DateStep(
                       fecha: _fechaSiembra,
@@ -372,28 +463,8 @@ class _CrearParcelaWizardScreenState extends State<CrearParcelaWizardScreen> {
                       selectedId: _tipoSueloId,
                       onSelect: (id) => setState(() => _tipoSueloId = id),
                     ),
-                    _ThresholdsStep(
-                      lluviaIntensaMm: _lluviaIntensaMm,
-                      vientoFuerteKmh: _vientoFuerteKmh,
-                      caniculaDias: _caniculaDias,
-                      variedadCultivo: _variedadCultivo,
-                      tieneRiego: _tieneRiego,
-                      horarioSms: _horarioSms,
-                      variedades: _variedades,
-                      horarios: _horarios,
+                    _ConfirmStep(
                       areaCtrl: _areaCtrl,
-                      onLluviaChanged: (v) =>
-                          setState(() => _lluviaIntensaMm = v),
-                      onVientoChanged: (v) =>
-                          setState(() => _vientoFuerteKmh = v),
-                      onCaniculaChanged: (v) =>
-                          setState(() => _caniculaDias = v),
-                      onVariedadChanged: (v) => setState(
-                        () => _variedadCultivo = v ?? _variedadCultivo,
-                      ),
-                      onRiegoChanged: (v) => setState(() => _tieneRiego = v),
-                      onHorarioChanged: (v) =>
-                          setState(() => _horarioSms = v ?? _horarioSms),
                       onAreaChanged: () => setState(() {}),
                     ),
                   ],
@@ -407,9 +478,7 @@ class _CrearParcelaWizardScreenState extends State<CrearParcelaWizardScreen> {
                           : '¡Ver mi semáforo!')
                     : _step == 1
                     ? 'Confirmar ubicación'
-                    : _step == 3
-                    ? 'Configurar alertas'
-                    : _step == 2
+                    : _step >= 2
                     ? 'Siguiente paso'
                     : 'Continuar',
                 icon: _step == _totalSteps - 1
@@ -439,6 +508,35 @@ class _PrototypeScreen extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       child: child,
+    );
+  }
+}
+
+class _AvisoInvitado extends StatelessWidget {
+  const _AvisoInvitado();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.mint,
+        borderRadius: BorderRadius.circular(AppRadius.cardSmall),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.shield_outlined, size: 16, color: AppColors.greenDark),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Estás sin cuenta: esta parcela queda guardada en este teléfono. '
+              'Iniciá sesión para no perderla.',
+              style: TextStyle(fontSize: 11.5, color: AppColors.greenDark),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -609,18 +707,17 @@ class _CropStep extends StatelessWidget {
               'Seleccioná el cultivo principal para recibir alertas según sus necesidades hídricas.',
         ),
         _ChoiceGrid(
-          children: cultivos.take(2).map((cultivo) {
-            final esFrijol = _normalizar(cultivo.nombre).contains('frijol');
+          children: cultivos.asMap().entries.map((entry) {
+            final indice = entry.key;
+            final cultivo = entry.value;
             return _ChoiceTile(
-              icon: Icons.eco_outlined,
+              icon: _iconoPara(cultivo.nombre),
               title: cultivo.nombre,
-              subtitle: esFrijol
-                  ? 'Phaseolus'
-                  : cultivo.nombreCientifico ?? 'Zea mays',
+              subtitle: cultivo.nombreCientifico ?? cultivo.nombre,
               selected: selectedId == cultivo.id,
-              avatarVariant: esFrijol
-                  ? AppAvatarVariant.soil
-                  : AppAvatarVariant.mint,
+              avatarVariant: indice.isEven
+                  ? AppAvatarVariant.mint
+                  : AppAvatarVariant.soil,
               onTap: () => onSelect(cultivo.id),
             );
           }).toList(),
@@ -629,16 +726,26 @@ class _CropStep extends StatelessWidget {
           variant: _InfoCardVariant.flat,
           icon: Icons.warning_amber_outlined,
           text:
-              'El maíz y el frijol tienen umbrales diferentes para sequía, lluvia y viento.',
+              'Cada cultivo tiene umbrales propios de sequía, lluvia y viento; '
+              'elegí el que sembraste para que las alertas sean precisas.',
         ),
       ],
     );
   }
+
+  static IconData _iconoPara(String nombreCultivo) {
+    final nombre = _normalizar(nombreCultivo);
+    if (nombre.contains('cafe')) return Icons.coffee_outlined;
+    if (nombre.contains('arroz')) return Icons.water_drop_outlined;
+    if (nombre.contains('frijol')) return Icons.spa_outlined;
+    if (nombre.contains('maiz')) return Icons.eco_outlined;
+    if (nombre.contains('sorgo')) return Icons.grass_outlined;
+    return Icons.eco_outlined;
+  }
 }
 
-class _LocationStep extends StatelessWidget {
+class _LocationStep extends StatefulWidget {
   final String municipio;
-  final TextEditingController municipioCtrl;
   final TextEditingController comunidadCtrl;
   final TextEditingController latitudCtrl;
   final TextEditingController longitudCtrl;
@@ -647,7 +754,6 @@ class _LocationStep extends StatelessWidget {
 
   const _LocationStep({
     required this.municipio,
-    required this.municipioCtrl,
     required this.comunidadCtrl,
     required this.latitudCtrl,
     required this.longitudCtrl,
@@ -656,12 +762,41 @@ class _LocationStep extends StatelessWidget {
   });
 
   @override
+  State<_LocationStep> createState() => _LocationStepState();
+}
+
+class _LocationStepState extends State<_LocationStep> {
+  final _busquedaCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _busquedaCtrl.dispose();
+    super.dispose();
+  }
+
+  List<_MunicipioOption> get _filtrados {
+    final consulta = _normalizar(_busquedaCtrl.text.trim());
+    if (consulta.isEmpty) {
+      return _CrearParcelaWizardScreenState._municipios;
+    }
+    return _CrearParcelaWizardScreenState._municipios
+        .where(
+          (m) =>
+              _normalizar(m.nombre).contains(consulta) ||
+              _normalizar(m.subtitulo).contains(consulta),
+        )
+        .toList();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final lat = double.tryParse(latitudCtrl.text.trim());
-    final lon = double.tryParse(longitudCtrl.text.trim());
+    final lat = double.tryParse(widget.latitudCtrl.text.trim());
+    final lon = double.tryParse(widget.longitudCtrl.text.trim());
     final tieneCoordenadas = lat != null && lon != null;
     final fueraDeNicaragua =
         tieneCoordenadas && !ZonaCobertura.estaDentroDeNicaragua(lat, lon);
+    final consulta = _busquedaCtrl.text.trim();
+    final filtrados = _filtrados;
 
     return _PrototypeStack(
       topMargin: 24,
@@ -673,9 +808,9 @@ class _LocationStep extends StatelessWidget {
               'respaldo aproximado para cuando no podés activar el GPS.',
         ),
         LocationPickerField(
-          latitudCtrl: latitudCtrl,
-          longitudCtrl: longitudCtrl,
-          onChanged: onChanged,
+          latitudCtrl: widget.latitudCtrl,
+          longitudCtrl: widget.longitudCtrl,
+          onChanged: widget.onChanged,
         ),
         if (fueraDeNicaragua)
           const _InfoCard(
@@ -691,40 +826,173 @@ class _LocationStep extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Municipio o departamento (respaldo sin GPS)',
-                  style: _eyebrowStyle,
+                const Expanded(
+                  child: Text(
+                    'Municipio o departamento (respaldo sin GPS)',
+                    style: _eyebrowStyle,
+                  ),
                 ),
-                Text(
-                  'Nicaragua',
-                  style: _eyebrowStyle.copyWith(color: AppColors.green),
-                ),
+                if (widget.municipio.isNotEmpty) ...[
+                  const Icon(
+                    Icons.check_circle,
+                    size: 14,
+                    color: AppColors.green,
+                  ),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      widget.municipio,
+                      overflow: TextOverflow.ellipsis,
+                      style: _eyebrowStyle.copyWith(color: AppColors.green),
+                    ),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 12),
-            _ChoiceGrid(
-              children: _CrearParcelaWizardScreenState._municipios.map((m) {
-                return _ChoiceTile(
-                  icon: m.icono,
-                  title: m.nombre,
-                  subtitle: m.subtitulo,
-                  selected: municipio == m.nombre,
-                  compactTitle: true,
-                  minHeight: 116,
-                  onTap: () => onMunicipioChanged(m.nombre),
-                );
-              }).toList(),
+            TextField(
+              controller: _busquedaCtrl,
+              onChanged: (_) => setState(() {}),
+              textInputAction: TextInputAction.search,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+              decoration: InputDecoration(
+                isDense: true,
+                prefixIcon: const Icon(Icons.search, size: 20),
+                hintText: 'Buscá tu municipio o departamento',
+                suffixIcon: _busquedaCtrl.text.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Limpiar búsqueda',
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: () => setState(_busquedaCtrl.clear),
+                      ),
+                border: const OutlineInputBorder(),
+              ),
             ),
+            const SizedBox(height: 12),
+            if (filtrados.isEmpty)
+              _SinResultadosUbicacion(consulta: consulta)
+            else if (consulta.isNotEmpty)
+              ...filtrados.map(_crearFila)
+            else ...[
+              const _GrupoUbicacion(titulo: 'CARAZO'),
+              ...filtrados.where((m) => m.esCarazo).map(_crearFila),
+              const _GrupoUbicacion(titulo: 'RESTO DEL PAÍS'),
+              ...filtrados.where((m) => !m.esCarazo).map(_crearFila),
+            ],
           ],
         ),
         _TextFieldBlock(
           label: 'COMUNIDAD (OPCIONAL)',
-          controller: comunidadCtrl,
+          controller: widget.comunidadCtrl,
           hintText: 'Ej: El Rosario',
         ),
       ],
+    );
+  }
+
+  Widget _crearFila(_MunicipioOption municipio) {
+    final seleccionado = widget.municipio == municipio.nombre;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: seleccionado ? const Color(0xFFEDF8ED) : AppColors.paper,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () {
+            FocusScope.of(context).unfocus();
+            widget.onMunicipioChanged(municipio.nombre);
+          },
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 58),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: seleccionado ? AppColors.green : const Color(0xFFEFE0D3),
+                width: seleccionado ? 2 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  municipio.icono,
+                  size: 20,
+                  color: seleccionado ? AppColors.greenDark : AppColors.muted,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        municipio.nombre,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      Text(
+                        municipio.subtitulo,
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  seleccionado
+                      ? Icons.check_circle
+                      : Icons.radio_button_unchecked,
+                  size: 20,
+                  color: seleccionado ? AppColors.green : AppColors.soft,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GrupoUbicacion extends StatelessWidget {
+  final String titulo;
+
+  const _GrupoUbicacion({required this.titulo});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 8),
+      child: Text(titulo, style: _eyebrowStyle),
+    );
+  }
+}
+
+class _SinResultadosUbicacion extends StatelessWidget {
+  final String consulta;
+
+  const _SinResultadosUbicacion({required this.consulta});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.paper,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFEFE0D3)),
+      ),
+      child: Text(
+        'No encontramos "$consulta". Probá con otro nombre o usá el GPS.',
+        style: const TextStyle(color: AppColors.muted, fontSize: 13),
+      ),
     );
   }
 }
@@ -869,53 +1137,16 @@ class _SoilStep extends StatelessWidget {
             ),
           ],
         ),
-        const _InfoCard(
-          variant: _InfoCardVariant.warning,
-          title: 'Recomendación del informe V5.1',
-          text:
-              'El tipo de suelo es parte del motor de reglas: evento climático, cultivo, etapa y suelo.',
-        ),
       ],
     );
   }
 }
 
-class _ThresholdsStep extends StatelessWidget {
-  final double lluviaIntensaMm;
-  final double vientoFuerteKmh;
-  final double caniculaDias;
-  final String variedadCultivo;
-  final bool tieneRiego;
-  final TimeOfDay horarioSms;
-  final List<String> variedades;
-  final List<TimeOfDay> horarios;
+class _ConfirmStep extends StatelessWidget {
   final TextEditingController areaCtrl;
-  final ValueChanged<double> onLluviaChanged;
-  final ValueChanged<double> onVientoChanged;
-  final ValueChanged<double> onCaniculaChanged;
-  final ValueChanged<String?> onVariedadChanged;
-  final ValueChanged<bool> onRiegoChanged;
-  final ValueChanged<TimeOfDay?> onHorarioChanged;
   final VoidCallback onAreaChanged;
 
-  const _ThresholdsStep({
-    required this.lluviaIntensaMm,
-    required this.vientoFuerteKmh,
-    required this.caniculaDias,
-    required this.variedadCultivo,
-    required this.tieneRiego,
-    required this.horarioSms,
-    required this.variedades,
-    required this.horarios,
-    required this.areaCtrl,
-    required this.onLluviaChanged,
-    required this.onVientoChanged,
-    required this.onCaniculaChanged,
-    required this.onVariedadChanged,
-    required this.onRiegoChanged,
-    required this.onHorarioChanged,
-    required this.onAreaChanged,
-  });
+  const _ConfirmStep({required this.areaCtrl, required this.onAreaChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -923,18 +1154,11 @@ class _ThresholdsStep extends StatelessWidget {
       topMargin: 22,
       children: [
         const _StepHeader(
-          eyebrow: 'CONFIGURACION PERSONAL',
-          title: 'Ajustá tus alertas',
+          eyebrow: 'ÚLTIMO PASO',
+          title: 'Casi listo',
           subtitle:
-              'Podés dejar los valores recomendados o adaptarlos a tu experiencia en la parcela.',
-        ),
-        UmbralForm(
-          lluviaIntensaMm: lluviaIntensaMm,
-          vientoFuerteKmh: vientoFuerteKmh,
-          caniculaDias: caniculaDias,
-          onLluviaChanged: onLluviaChanged,
-          onVientoChanged: onVientoChanged,
-          onCaniculaChanged: onCaniculaChanged,
+              'Solo falta el tamaño de tu parcela. Las alertas van a usar los '
+              'valores recomendados y los podés ajustar cuando quieras.',
         ),
         _TextFieldBlock(
           label: 'AREA (MANZANAS)',
@@ -943,25 +1167,14 @@ class _ThresholdsStep extends StatelessWidget {
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           onChanged: (_) => onAreaChanged(),
         ),
-        _SelectBlock<String>(
-          label: 'Variedad del cultivo',
-          value: variedadCultivo,
-          items: variedades,
-          itemLabel: (v) => v == 'Criollo' ? 'Criollo tradicional' : v,
-          onChanged: onVariedadChanged,
-        ),
-        _ToggleCard(
-          title: 'Disponibilidad de riego',
-          subtitle: 'Modifica las acciones ante sequía.',
-          value: tieneRiego,
-          onChanged: onRiegoChanged,
-        ),
-        _SelectBlock<TimeOfDay>(
-          label: 'Horario de alertas SMS',
-          value: horarioSms,
-          items: horarios,
-          itemLabel: (h) => h.format(context),
-          onChanged: onHorarioChanged,
+        const _InfoCard(
+          variant: _InfoCardVariant.flat,
+          icon: Icons.check_circle_outline,
+          title: 'Valores recomendados',
+          text:
+              'Lluvia intensa 100 mm · viento fuerte 40 km/h · canícula 7 días. '
+              'Podés cambiarlos después en "Ajustar mis alertas", dentro de tu '
+              'parcela.',
         ),
       ],
     );
@@ -994,8 +1207,6 @@ class _ChoiceTile extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final AppAvatarVariant avatarVariant;
-  final bool compactTitle;
-  final double minHeight;
 
   const _ChoiceTile({
     required this.icon,
@@ -1004,8 +1215,6 @@ class _ChoiceTile extends StatelessWidget {
     required this.selected,
     required this.onTap,
     this.avatarVariant = AppAvatarVariant.mint,
-    this.compactTitle = false,
-    this.minHeight = 138,
   });
 
   @override
@@ -1017,7 +1226,7 @@ class _ChoiceTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         onTap: onTap,
         child: Container(
-          constraints: BoxConstraints(minHeight: minHeight),
+          constraints: const BoxConstraints(minHeight: 138),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
@@ -1035,10 +1244,10 @@ class _ChoiceTile extends StatelessWidget {
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontFamily: 'Georgia',
-                  fontFamilyFallback: const ['Times New Roman', 'serif'],
-                  fontSize: compactTitle ? 17 : 22,
+                  fontFamilyFallback: ['Times New Roman', 'serif'],
+                  fontSize: 22,
                   fontWeight: FontWeight.w800,
                   height: 1.05,
                   color: AppColors.ink,
@@ -1276,100 +1485,6 @@ class _TextFieldBlock extends StatelessWidget {
   }
 }
 
-class _SelectBlock<T> extends StatelessWidget {
-  final String label;
-  final T value;
-  final List<T> items;
-  final String Function(T value) itemLabel;
-  final ValueChanged<T?> onChanged;
-
-  const _SelectBlock({
-    required this.label,
-    required this.value,
-    required this.items,
-    required this.itemLabel,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: _labelStyle),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<T>(
-          initialValue: value,
-          items: items
-              .map(
-                (item) => DropdownMenuItem<T>(
-                  value: item,
-                  child: Text(itemLabel(item)),
-                ),
-              )
-              .toList(),
-          onChanged: onChanged,
-        ),
-      ],
-    );
-  }
-}
-
-class _ToggleCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  const _ToggleCard({
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.paper,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: () => onChanged(!value),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 66),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFFE8D8C8)),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(color: AppColors.muted),
-                    ),
-                  ],
-                ),
-              ),
-              Switch(value: value, onChanged: onChanged),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _PrototypeButton extends StatelessWidget {
   final String text;
   final IconData icon;
@@ -1426,6 +1541,19 @@ class _MunicipioOption {
     required this.subtitulo,
     required this.icono,
   });
+
+  static const _municipiosCarazo = {
+    'Diriamba',
+    'Jinotepe',
+    'San Marcos',
+    'Dolores',
+    'El Rosario',
+    'La Conquista',
+    'La Paz de Carazo',
+    'Santa Teresa',
+  };
+
+  bool get esCarazo => _municipiosCarazo.contains(nombre);
 }
 
 List<Widget> _spaced(List<Widget> children, double gap) {

@@ -107,21 +107,22 @@ class ApiClient {
       onSessionExpired?.call();
     }
 
-    String message = 'Error inesperado ($status)';
+    String? message;
     if (rawBody != null) {
       try {
         final decoded = jsonDecode(rawBody);
         if (decoded is Map<String, dynamic>) {
           message =
-              (decoded['title'] ??
-                      decoded['mensaje'] ??
-                      decoded['message'] ??
-                      message)
-                  .toString();
+              (decoded['title'] ?? decoded['mensaje'] ?? decoded['message'])
+                  ?.toString();
         }
-      } catch (_) {
-        message = rawBody;
-      }
+      } catch (_) {}
+    }
+
+    if (message == null) {
+      throw const NetworkException(
+        'No se pudo conectar con el servidor. Revisá tu conexión.',
+      );
     }
 
     throw ApiException(status, message);
