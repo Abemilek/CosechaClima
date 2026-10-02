@@ -44,8 +44,7 @@ class UmbralService {
     try {
       await _client.post('/umbrales', body: pendiente.toJson());
       await _limpiarPendientes();
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   Future<void> _encolar(UmbralRequest request) async {

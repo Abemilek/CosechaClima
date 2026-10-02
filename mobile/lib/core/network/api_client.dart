@@ -116,8 +116,7 @@ class ApiClient {
               (decoded['title'] ?? decoded['mensaje'] ?? decoded['message'])
                   ?.toString();
         }
-      } catch (_) {
-      }
+      } catch (_) {}
     }
 
     if (message == null) {
