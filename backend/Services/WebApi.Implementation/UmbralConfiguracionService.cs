@@ -1,4 +1,4 @@
-using Microsoft.Data.SqlClient;
+using Npgsql;
 using WebApi.Implementation.Connection;
 using WebApi.Interface;
 using WebApi.Models;
@@ -17,10 +17,10 @@ public class UmbralConfiguracionService : IUmbralConfiguracionService
     public async Task<UmbralConfiguracion?> ObtenerPorUsuario(int usuarioId)
     {
         using var connection = _connectionBD.CrearConexion();
-        using var command = new SqlCommand(
-            "SELECT Id, UsuarioId, LluviaIntensaMm, VientoFuerteKmh, CaniculaDias, " +
-            "VariedadCultivo, TieneRiego, HorarioSms " +
-            "FROM UmbralConfiguracion WHERE UsuarioId = @UsuarioId", connection);
+        using var command = new NpgsqlCommand(
+            "SELECT id, usuario_id, lluvia_intensa_mm, viento_fuerte_kmh, canicula_dias, " +
+            "variedad_cultivo, tiene_riego, horario_sms " +
+            "FROM umbrales_configuracion WHERE usuario_id = @UsuarioId", connection);
         command.Parameters.AddWithValue("@UsuarioId", usuarioId);
 
         await connection.OpenAsync();
@@ -37,57 +37,56 @@ public class UmbralConfiguracionService : IUmbralConfiguracionService
                 CaniculaDias = reader.GetInt32(4),
                 VariedadCultivo = reader.GetString(5),
                 TieneRiego = reader.GetBoolean(6),
-                HorarioSms = TimeOnly.FromTimeSpan(reader.GetTimeSpan(7))
+                HorarioSms = reader.GetFieldValue<TimeOnly>(7)
             };
         }
 
         return null;
     }
 
+    /// <summary>
+    /// Un solo statement atomico (INSERT ... ON CONFLICT DO UPDATE) en lugar de
+    /// "leer y luego insertar/actualizar", que podia duplicar bajo concurrencia.
+    /// usuario_id es UNIQUE, que es lo que habilita el ON CONFLICT.
+    /// </summary>
     public async Task<int> CrearOActualizar(UmbralConfiguracion umbral)
     {
-        var existente = await ObtenerPorUsuario(umbral.UsuarioId);
-
         using var connection = _connectionBD.CrearConexion();
+        using var command = new NpgsqlCommand(
+            "INSERT INTO umbrales_configuracion (usuario_id, lluvia_intensa_mm, viento_fuerte_kmh, " +
+            "canicula_dias, variedad_cultivo, tiene_riego, horario_sms) " +
+            "VALUES (@UsuarioId, @Lluvia, @Viento, @Canicula, @Variedad, @Riego, @Horario) " +
+            "ON CONFLICT (usuario_id) DO UPDATE SET " +
+            "lluvia_intensa_mm = EXCLUDED.lluvia_intensa_mm, " +
+            "viento_fuerte_kmh = EXCLUDED.viento_fuerte_kmh, " +
+            "canicula_dias = EXCLUDED.canicula_dias, " +
+            "variedad_cultivo = EXCLUDED.variedad_cultivo, " +
+            "tiene_riego = EXCLUDED.tiene_riego, " +
+            "horario_sms = EXCLUDED.horario_sms " +
+            "RETURNING id", connection);
+
+        command.Parameters.AddWithValue("@UsuarioId", umbral.UsuarioId);
+        command.Parameters.AddWithValue("@Lluvia", umbral.LluviaIntensaMm);
+        command.Parameters.AddWithValue("@Viento", umbral.VientoFuerteKmh);
+        command.Parameters.AddWithValue("@Canicula", umbral.CaniculaDias);
+        command.Parameters.AddWithValue("@Variedad", umbral.VariedadCultivo);
+        command.Parameters.AddWithValue("@Riego", umbral.TieneRiego);
+        command.Parameters.AddWithValue("@Horario", umbral.HorarioSms);
+
         await connection.OpenAsync();
-
-        if (existente is null)
-        {
-            using var commandInsert = new SqlCommand(
-                "INSERT INTO UmbralConfiguracion (UsuarioId, LluviaIntensaMm, VientoFuerteKmh, " +
-                "CaniculaDias, VariedadCultivo, TieneRiego, HorarioSms) " +
-                "OUTPUT INSERTED.Id " +
-                "VALUES (@UsuarioId, @Lluvia, @Viento, @Canicula, @Variedad, @Riego, @Horario)",
-                connection);
-
-            AgregarParametros(commandInsert, umbral);
-            var result = await commandInsert.ExecuteScalarAsync();
-            return Convert.ToInt32(result);
-        }
-        else
-        {
-            using var commandUpdate = new SqlCommand(
-                "UPDATE UmbralConfiguracion SET LluviaIntensaMm = @Lluvia, " +
-                "VientoFuerteKmh = @Viento, CaniculaDias = @Canicula, " +
-                "VariedadCultivo = @Variedad, TieneRiego = @Riego, HorarioSms = @Horario " +
-                "WHERE Id = @Id", connection);
-
-            AgregarParametros(commandUpdate, umbral);
-            commandUpdate.Parameters.AddWithValue("@Id", existente.Id);
-            await commandUpdate.ExecuteNonQueryAsync();
-            return existente.Id;
-        }
+        var result = await command.ExecuteScalarAsync();
+        return Convert.ToInt32(result);
     }
 
     public async Task<bool> ActualizarUmbrales(int id, int? lluvia, int? viento, int? canicula)
     {
         using var connection = _connectionBD.CrearConexion();
-        using var command = new SqlCommand(
-            "UPDATE UmbralConfiguracion SET " +
-            "LluviaIntensaMm = COALESCE(@Lluvia, LluviaIntensaMm), " +
-            "VientoFuerteKmh = COALESCE(@Viento, VientoFuerteKmh), " +
-            "CaniculaDias = COALESCE(@Canicula, CaniculaDias) " +
-            "WHERE Id = @Id", connection);
+        using var command = new NpgsqlCommand(
+            "UPDATE umbrales_configuracion SET " +
+            "lluvia_intensa_mm = COALESCE(@Lluvia, lluvia_intensa_mm), " +
+            "viento_fuerte_kmh = COALESCE(@Viento, viento_fuerte_kmh), " +
+            "canicula_dias = COALESCE(@Canicula, canicula_dias) " +
+            "WHERE id = @Id", connection);
 
         command.Parameters.AddWithValue("@Lluvia", (object?)lluvia ?? DBNull.Value);
         command.Parameters.AddWithValue("@Viento", (object?)viento ?? DBNull.Value);
@@ -97,16 +96,5 @@ public class UmbralConfiguracionService : IUmbralConfiguracionService
         await connection.OpenAsync();
         var filasAfectadas = await command.ExecuteNonQueryAsync();
         return filasAfectadas > 0;
-    }
-
-    private static void AgregarParametros(SqlCommand command, UmbralConfiguracion umbral)
-    {
-        command.Parameters.AddWithValue("@UsuarioId", umbral.UsuarioId);
-        command.Parameters.AddWithValue("@Lluvia", umbral.LluviaIntensaMm);
-        command.Parameters.AddWithValue("@Viento", umbral.VientoFuerteKmh);
-        command.Parameters.AddWithValue("@Canicula", umbral.CaniculaDias);
-        command.Parameters.AddWithValue("@Variedad", umbral.VariedadCultivo);
-        command.Parameters.AddWithValue("@Riego", umbral.TieneRiego);
-        command.Parameters.AddWithValue("@Horario", umbral.HorarioSms.ToTimeSpan());
     }
 }

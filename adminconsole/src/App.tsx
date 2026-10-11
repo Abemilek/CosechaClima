@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getToken, logout } from './api';
+import { alExpirarSesion, logout, restaurarSesion } from './api';
 import LoginPage from './LoginPage';
 import UsuariosPage from './UsuariosPage';
 import ReglasPage from './ReglasPage';
@@ -13,30 +13,40 @@ interface Sesion {
   email: string;
 }
 
-const SESION_KEY = 'cosechaclima_admin_sesion';
-
 export default function App() {
-  const [sesion, setSesion] = useState<Sesion | null>(() => {
-    if (!getToken()) return null;
-    const guardada = localStorage.getItem(SESION_KEY);
-    return guardada ? (JSON.parse(guardada) as Sesion) : null;
-  });
+  const [sesion, setSesion] = useState<Sesion | null>(null);
+  const [restaurando, setRestaurando] = useState(true);
   const [vista, setVista] = useState<Vista>('usuarios');
   const [pidiendoConfirmacion, setPidiendoConfirmacion] = useState(false);
 
+  // Al abrir (o recargar) el panel se intenta recuperar la sesión con la cookie de refresh.
   useEffect(() => {
-    if (sesion) localStorage.setItem(SESION_KEY, JSON.stringify(sesion));
-  }, [sesion]);
+    let cancelado = false;
+    restaurarSesion().then((datos) => {
+      if (cancelado) return;
+      if (datos) setSesion({ nombre: datos.nombre, email: datos.email });
+      setRestaurando(false);
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  // Si el refresh falla en cualquier llamada, se vuelve al login.
+  useEffect(() => alExpirarSesion(() => setSesion(null)), []);
 
   function onLoggedIn(nombre: string, email: string) {
     setSesion({ nombre, email });
   }
 
-  function cerrarSesion() {
-    logout();
-    localStorage.removeItem(SESION_KEY);
+  async function cerrarSesion() {
+    await logout();
     setSesion(null);
     setPidiendoConfirmacion(false);
+  }
+
+  if (restaurando) {
+    return <div className="login-shell muted">Cargando...</div>;
   }
 
   if (!sesion) {
@@ -98,7 +108,7 @@ export default function App() {
       {pidiendoConfirmacion && (
         <ConfirmModal
           titulo="¿Deseas cerrar la sesión?"
-          mensaje="Vas a salir del panel administrativo."
+          mensaje="Vas a salir del Admin Console."
           confirmarTexto="Cerrar sesión"
           peligroso
           onConfirmar={cerrarSesion}

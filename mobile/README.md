@@ -218,7 +218,7 @@ The app **doesn't require an account**. The onboarding shows only once (first la
 | Onboarding | Yes | Yes |
 | Area forecast (approximate Carazo, or "Use my location") | Yes | Yes |
 | Plots, thresholds, plot weather, traffic light, logbook | No, asks to sign in | Yes |
-| Admin panel | No | Admin role only |
+| Admin Console | No | Admin role only |
 
 **Sign-in is requested at a single point.** Tapping "Mis parcelas" on the public home opens a contextual login (`mostrarLoginContextual`) explaining why. On success, the app continues to what the user wanted to do; on cancel, it stays where it was.
 
@@ -258,12 +258,14 @@ The `ApiClient` class handles:
 
 ## API integration
 
-The app communicates with the backend via REST endpoints. Without an account it only uses `GET /api/clima/pronostico` (public). With an account, the typical flow to see a plot's risk status:
+The risk traffic light and the weekly plan are computed **on the device**; the backend is only used for accounts, plots, logbook and rule updates.
 
-1. `POST /api/clima/actualizar/{parcelaId}` -- fetch latest weather data
-2. `POST /api/motor/semaforo` -- calculate risk traffic light
-3. Show risk card with color-coded severity and 3 actions
-4. `POST /api/logs` -- save to the field logbook when the user confirms
+- **Weather:** the app calls Open-Meteo directly (`api.open-meteo.com`), keeps a local copy (fresh for 2 h, usable offline for up to 3 days) and shows the required CC BY 4.0 attribution.
+- **Rules:** `assets/reglas/paquete_reglas.json` ships inside the app (catalogs + 540 rules). On startup (at most every 6 h) it asks `GET /api/reglas/paquete` with `If-None-Match`; if an admin changed something it downloads the new package, otherwise it gets `304`.
+- **Engine:** `lib/core/motor/motor_local.dart` (pure Dart, unit-tested in `test/core/motor`).
+- **Session:** 15-minute access token + rotated refresh token, both in `flutter_secure_storage`; `ApiClient` renews transparently on `401` and only logs out if the server rejects the refresh token.
+- **With an account**, typical flow for a plot: `GET /api/parcelas/{id}` (if online) -> local calculation -> `PUT /api/alertas/parcela/{id}` (best effort, keeps the admin audit trail) -> `POST /api/logs` when the user confirms an action.
+- **Zero animations** remains a hard rule: nothing added in this change uses animation widgets.
 
 See the [API Reference](../docs/api-reference.md) for full endpoint documentation.
 

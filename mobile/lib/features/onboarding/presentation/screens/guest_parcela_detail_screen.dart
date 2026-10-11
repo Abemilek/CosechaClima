@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/cache/guest_parcela_migration.dart';
 import '../../../../core/cache/guest_parcela_store.dart';
 import '../../../../core/cache/parcela_cache.dart';
-import '../../../../core/network/api_client.dart';
+import '../../../../core/motor/motor_local.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../routing/no_animation_route.dart';
@@ -18,7 +18,7 @@ import '../../../../shared/widgets/app_pill.dart';
 import '../../../auth/presentation/screens/login_sheet.dart';
 import '../../../auth/presentation/view_models/auth_view_model.dart';
 import '../../../clima/data/models/clima.dart';
-import '../../../clima/data/services/motor_service.dart';
+import '../../../clima/data/services/motor_local_service.dart';
 
 class GuestParcelaDetailScreen extends StatefulWidget {
   final GuestParcela parcela;
@@ -31,7 +31,7 @@ class GuestParcelaDetailScreen extends StatefulWidget {
 }
 
 class _GuestParcelaDetailScreenState extends State<GuestParcelaDetailScreen> {
-  late final MotorService _motorService;
+  final _motorLocal = MotorLocalService();
   final _cache = ParcelaCache();
   ResumenSemanal? _resumen;
   bool _cargando = true;
@@ -42,7 +42,6 @@ class _GuestParcelaDetailScreenState extends State<GuestParcelaDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _motorService = MotorService(ApiClient());
     unawaited(_cargar());
   }
 
@@ -64,19 +63,15 @@ class _GuestParcelaDetailScreenState extends State<GuestParcelaDetailScreen> {
     }
 
     try {
-      final calculado = await _motorService.obtenerResumenSemanalAnonimo(
-        cultivoId: widget.parcela.cultivoId,
-        etapaFenologicaId: widget.parcela.etapaFenologicaId,
-        tipoSueloId: widget.parcela.tipoSueloId,
-        latitud: widget.parcela.latitud,
-        longitud: widget.parcela.longitud,
-        fechaSiembra: widget.parcela.fechaSiembra,
+      final calculado = await _motorLocal.resumenSemanal(
+        EntradaMotor.deInvitado(widget.parcela),
       );
-      resultado = calculado;
+      resultado = calculado.resumen;
+      if (calculado.desdeCache) guardadoEn = calculado.descargadaEn;
       unawaited(
         _cache.guardarResumenLocal(
           idLocal: widget.parcela.idLocal,
-          resumen: calculado,
+          resumen: calculado.resumen,
         ),
       );
     } on NetworkException catch (e) {
@@ -85,9 +80,8 @@ class _GuestParcelaDetailScreenState extends State<GuestParcelaDetailScreen> {
     } on TimeoutApiException catch (e) {
       await usarCache();
       if (resultado == null) error = e.message;
-    } on ApiException catch (e) {
-      if (e.esErrorDeServidor) await usarCache();
-      if (resultado == null) error = e.message;
+    } on MotorLocalException catch (e) {
+      error = e.mensaje;
     }
 
     if (!mounted) return;

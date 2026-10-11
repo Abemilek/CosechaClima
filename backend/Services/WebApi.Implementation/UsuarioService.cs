@@ -1,4 +1,4 @@
-using Microsoft.Data.SqlClient;
+using Npgsql;
 using WebApi.Implementation.Connection;
 using WebApi.Implementation.Security;
 using WebApi.Interface;
@@ -9,8 +9,8 @@ namespace WebApi.Implementation;
 public class UsuarioService : IUsuarioService
 {
     private const string ColumnasUsuario =
-        "Id, Nombre, Email, GoogleUid, PasswordHash, PasswordSalt, " +
-        "Proveedor, FotoUrl, FechaRegistro, Activo, EsAdmin";
+        "id, nombre, email, google_uid, password_hash, password_salt, " +
+        "proveedor, foto_url, fecha_registro, activo, es_admin";
 
     private readonly ConnectionBD _connectionBD;
 
@@ -29,17 +29,17 @@ public class UsuarioService : IUsuarioService
         usuario.Proveedor = ProveedorAuth.Email;
 
         using var connection = _connectionBD.CrearConexion();
-        using var command = new SqlCommand(
-            "INSERT INTO Usuarios (Nombre, Email, PasswordHash, PasswordSalt, Proveedor) " +
-            "OUTPUT INSERTED.Id " +
-            "VALUES (@Nombre, @Email, @PasswordHash, @PasswordSalt, @Proveedor)",
+        using var command = new NpgsqlCommand(
+            "INSERT INTO usuarios (nombre, email, password_hash, password_salt, proveedor) " +
+            "VALUES (@Nombre, @Email, @PasswordHash, @PasswordSalt, @Proveedor) " +
+            "RETURNING id",
             connection);
 
         command.Parameters.AddWithValue("@Nombre", usuario.Nombre);
         command.Parameters.AddWithValue("@Email", usuario.Email.Trim().ToLowerInvariant());
         command.Parameters.AddWithValue("@PasswordHash", usuario.PasswordHash);
         command.Parameters.AddWithValue("@PasswordSalt", usuario.PasswordSalt);
-        command.Parameters.AddWithValue("@Proveedor", (byte)ProveedorAuth.Email);
+        command.Parameters.AddWithValue("@Proveedor", (short)ProveedorAuth.Email);
 
         await connection.OpenAsync();
         var result = await command.ExecuteScalarAsync();
@@ -87,16 +87,16 @@ public class UsuarioService : IUsuarioService
         }
 
         using var connection = _connectionBD.CrearConexion();
-        using var command = new SqlCommand(
-            "INSERT INTO Usuarios (Nombre, Email, GoogleUid, Proveedor, FotoUrl) " +
-            "OUTPUT INSERTED.Id " +
-            "VALUES (@Nombre, @Email, @GoogleUid, @Proveedor, @FotoUrl)",
+        using var command = new NpgsqlCommand(
+            "INSERT INTO usuarios (nombre, email, google_uid, proveedor, foto_url) " +
+            "VALUES (@Nombre, @Email, @GoogleUid, @Proveedor, @FotoUrl) " +
+            "RETURNING id",
             connection);
 
         command.Parameters.AddWithValue("@Nombre", datosGoogle.Nombre);
         command.Parameters.AddWithValue("@Email", email);
         command.Parameters.AddWithValue("@GoogleUid", datosGoogle.Uid);
-        command.Parameters.AddWithValue("@Proveedor", (byte)ProveedorAuth.Google);
+        command.Parameters.AddWithValue("@Proveedor", (short)ProveedorAuth.Google);
         command.Parameters.AddWithValue("@FotoUrl", (object?)datosGoogle.FotoUrl ?? DBNull.Value);
 
         await connection.OpenAsync();
@@ -118,8 +118,8 @@ public class UsuarioService : IUsuarioService
     private async Task ActualizarPerfilGoogle(int usuarioId, UsuarioGoogle datosGoogle)
     {
         using var connection = _connectionBD.CrearConexion();
-        using var command = new SqlCommand(
-            "UPDATE Usuarios SET Nombre = @Nombre, FotoUrl = @FotoUrl WHERE Id = @Id",
+        using var command = new NpgsqlCommand(
+            "UPDATE usuarios SET nombre = @Nombre, foto_url = @FotoUrl WHERE id = @Id",
             connection);
 
         command.Parameters.AddWithValue("@Nombre", datosGoogle.Nombre);
@@ -133,8 +133,8 @@ public class UsuarioService : IUsuarioService
     private async Task VincularGoogle(int usuarioId, UsuarioGoogle datosGoogle)
     {
         using var connection = _connectionBD.CrearConexion();
-        using var command = new SqlCommand(
-            "UPDATE Usuarios SET GoogleUid = @GoogleUid, FotoUrl = @FotoUrl WHERE Id = @Id",
+        using var command = new NpgsqlCommand(
+            "UPDATE usuarios SET google_uid = @GoogleUid, foto_url = @FotoUrl WHERE id = @Id",
             connection);
 
         command.Parameters.AddWithValue("@GoogleUid", datosGoogle.Uid);
@@ -148,8 +148,8 @@ public class UsuarioService : IUsuarioService
     private async Task<Usuario?> ObtenerPorGoogleUid(string googleUid)
     {
         using var connection = _connectionBD.CrearConexion();
-        using var command = new SqlCommand(
-            $"SELECT {ColumnasUsuario} FROM Usuarios WHERE GoogleUid = @GoogleUid", connection);
+        using var command = new NpgsqlCommand(
+            $"SELECT {ColumnasUsuario} FROM usuarios WHERE google_uid = @GoogleUid", connection);
         command.Parameters.AddWithValue("@GoogleUid", googleUid);
 
         await connection.OpenAsync();
@@ -161,8 +161,8 @@ public class UsuarioService : IUsuarioService
     public async Task MarcarComoAdmin(int usuarioId)
     {
         using var connection = _connectionBD.CrearConexion();
-        using var command = new SqlCommand(
-            "UPDATE Usuarios SET EsAdmin = 1 WHERE Id = @Id", connection);
+        using var command = new NpgsqlCommand(
+            "UPDATE usuarios SET es_admin = true WHERE id = @Id", connection);
         command.Parameters.AddWithValue("@Id", usuarioId);
 
         await connection.OpenAsync();
@@ -174,8 +174,8 @@ public class UsuarioService : IUsuarioService
         var lista = new List<Usuario>();
 
         using var connection = _connectionBD.CrearConexion();
-        using var command = new SqlCommand(
-            $"SELECT {ColumnasUsuario} FROM Usuarios ORDER BY FechaRegistro DESC", connection);
+        using var command = new NpgsqlCommand(
+            $"SELECT {ColumnasUsuario} FROM usuarios ORDER BY fecha_registro DESC, id DESC", connection);
 
         await connection.OpenAsync();
         using var lector = await command.ExecuteReaderAsync();
@@ -189,8 +189,8 @@ public class UsuarioService : IUsuarioService
     public async Task<bool> CambiarRol(int usuarioId, bool esAdmin)
     {
         using var connection = _connectionBD.CrearConexion();
-        using var command = new SqlCommand(
-            "UPDATE Usuarios SET EsAdmin = @EsAdmin WHERE Id = @Id", connection);
+        using var command = new NpgsqlCommand(
+            "UPDATE usuarios SET es_admin = @EsAdmin WHERE id = @Id", connection);
         command.Parameters.AddWithValue("@EsAdmin", esAdmin);
         command.Parameters.AddWithValue("@Id", usuarioId);
 
@@ -202,21 +202,39 @@ public class UsuarioService : IUsuarioService
     public async Task<bool> CambiarActivo(int usuarioId, bool activo)
     {
         using var connection = _connectionBD.CrearConexion();
-        using var command = new SqlCommand(
-            "UPDATE Usuarios SET Activo = @Activo WHERE Id = @Id", connection);
-        command.Parameters.AddWithValue("@Activo", activo);
-        command.Parameters.AddWithValue("@Id", usuarioId);
-
         await connection.OpenAsync();
-        var filas = await command.ExecuteNonQueryAsync();
+
+        // Al desactivar una cuenta tambien se revocan sus refresh tokens, en la misma transaccion:
+        // asi no puede renovar sesion (el access token vigente expira solo en minutos).
+        using var transaccion = await connection.BeginTransactionAsync();
+
+        int filas;
+        using (var command = new NpgsqlCommand(
+            "UPDATE usuarios SET activo = @Activo WHERE id = @Id", connection, transaccion))
+        {
+            command.Parameters.AddWithValue("@Activo", activo);
+            command.Parameters.AddWithValue("@Id", usuarioId);
+            filas = await command.ExecuteNonQueryAsync();
+        }
+
+        if (!activo && filas > 0)
+        {
+            using var revocar = new NpgsqlCommand(
+                "UPDATE refresh_tokens SET revocado_en = now() " +
+                "WHERE usuario_id = @Id AND revocado_en IS NULL", connection, transaccion);
+            revocar.Parameters.AddWithValue("@Id", usuarioId);
+            await revocar.ExecuteNonQueryAsync();
+        }
+
+        await transaccion.CommitAsync();
         return filas > 0;
     }
 
     public async Task<Usuario?> ObtenerPorId(int id)
     {
         using var connection = _connectionBD.CrearConexion();
-        using var command = new SqlCommand(
-            $"SELECT {ColumnasUsuario} FROM Usuarios WHERE Id = @Id", connection);
+        using var command = new NpgsqlCommand(
+            $"SELECT {ColumnasUsuario} FROM usuarios WHERE id = @Id", connection);
         command.Parameters.AddWithValue("@Id", id);
 
         await connection.OpenAsync();
@@ -228,8 +246,8 @@ public class UsuarioService : IUsuarioService
     public async Task<Usuario?> ObtenerPorEmail(string email)
     {
         using var connection = _connectionBD.CrearConexion();
-        using var command = new SqlCommand(
-            $"SELECT {ColumnasUsuario} FROM Usuarios WHERE Email = @Email", connection);
+        using var command = new NpgsqlCommand(
+            $"SELECT {ColumnasUsuario} FROM usuarios WHERE email = @Email", connection);
         command.Parameters.AddWithValue("@Email", email.Trim().ToLowerInvariant());
 
         await connection.OpenAsync();
@@ -238,7 +256,7 @@ public class UsuarioService : IUsuarioService
         return await lector.ReadAsync() ? MapUsuario(lector) : null;
     }
 
-    private static Usuario MapUsuario(SqlDataReader lector)
+    private static Usuario MapUsuario(NpgsqlDataReader lector)
     {
         return new Usuario
         {
@@ -248,7 +266,7 @@ public class UsuarioService : IUsuarioService
             GoogleUid = lector.IsDBNull(3) ? null : lector.GetString(3),
             PasswordHash = lector.IsDBNull(4) ? null : lector.GetString(4),
             PasswordSalt = lector.IsDBNull(5) ? null : lector.GetString(5),
-            Proveedor = (ProveedorAuth)lector.GetByte(6),
+            Proveedor = (ProveedorAuth)lector.GetInt16(6),
             FotoUrl = lector.IsDBNull(7) ? null : lector.GetString(7),
             FechaRegistro = lector.GetDateTime(8),
             Activo = lector.GetBoolean(9),

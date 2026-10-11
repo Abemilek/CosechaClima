@@ -40,6 +40,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    # Catálogos + reglas agroclimáticas embebidos: la app calcula alertas sin conexión desde el primer uso.
+    - assets/reglas/paquete_reglas.json
 
 flutter_launcher_icons:
   android: true

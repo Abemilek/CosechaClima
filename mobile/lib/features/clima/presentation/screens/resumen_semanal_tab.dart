@@ -1,89 +1,52 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../core/network/api_client.dart';
-import '../../../../core/network/api_exception.dart';
+import '../../../../core/clima/open_meteo_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/utils/riesgo_ui.dart';
 import '../../../../shared/widgets/app_loading_message.dart';
 import '../../../../shared/widgets/app_pill.dart';
 import '../../data/models/clima.dart';
-import '../../data/services/motor_service.dart';
 
-class ResumenSemanalTab extends StatefulWidget {
-  final int parcelaId;
+/// Resumen de la semana. El cálculo lo hace la pantalla de detalle (motor local);
+/// esta pestaña solo lo muestra, así que no hace ninguna petición propia.
+class ResumenSemanalTab extends StatelessWidget {
+  final ResumenSemanal? resumenSemanal;
+  final bool cargando;
+  final String? error;
   final bool sinCoordenadas;
+  final Future<void> Function() onRefrescar;
 
   const ResumenSemanalTab({
     super.key,
-    required this.parcelaId,
+    required this.resumenSemanal,
+    required this.cargando,
+    required this.error,
     required this.sinCoordenadas,
+    required this.onRefrescar,
   });
 
   @override
-  State<ResumenSemanalTab> createState() => _ResumenSemanalTabState();
-}
-
-class _ResumenSemanalTabState extends State<ResumenSemanalTab> {
-  late final MotorService _motorService;
-  ResumenSemanal? _resumen;
-  bool _cargando = true;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _motorService = MotorService(ApiClient());
-    if (!widget.sinCoordenadas) {
-      unawaited(_cargar());
-    } else {
-      _cargando = false;
-    }
-  }
-
-  Future<void> _cargar() async {
-    setState(() {
-      _cargando = true;
-      _error = null;
-    });
-    try {
-      final resumen = await _motorService.obtenerResumenSemanal(
-        widget.parcelaId,
-      );
-      if (mounted) setState(() => _resumen = resumen);
-    } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
-    } on NetworkException catch (e) {
-      if (mounted) setState(() => _error = e.message);
-    } on TimeoutApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
-    } finally {
-      if (mounted) setState(() => _cargando = false);
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (widget.sinCoordenadas) {
+    if (sinCoordenadas) {
       return const _MensajeCentrado(
         icono: Icons.location_off_outlined,
         texto:
             'Agregá la ubicación de tu parcela para ver el resumen de la semana.',
       );
     }
-    if (_cargando) {
+    if (cargando) {
       return const AppLoadingMessage(message: 'Calculando la semana...');
     }
-    if (_error != null) {
+    final mensajeError = error;
+    if (mensajeError != null) {
       return _MensajeCentrado(
         icono: Icons.cloud_off_outlined,
-        texto: _error!,
-        onReintentar: _cargar,
+        texto: mensajeError,
+        onReintentar: onRefrescar,
       );
     }
-    final resumen = _resumen;
+    final resumen = resumenSemanal;
     if (resumen == null || resumen.dias.isEmpty) {
       return const _MensajeCentrado(
         icono: Icons.cloud_off_outlined,
@@ -92,7 +55,7 @@ class _ResumenSemanalTabState extends State<ResumenSemanalTab> {
     }
 
     return RefreshIndicator(
-      onRefresh: _cargar,
+      onRefresh: onRefrescar,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
         children: [
@@ -189,6 +152,11 @@ class _ResumenSemanalTabState extends State<ResumenSemanalTab> {
             'falta revisarlo todos los días, con una vez a la semana alcanza '
             'para programar tus labores.',
             style: TextStyle(fontSize: 12, color: AppColors.muted, height: 1.4),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            OpenMeteoClient.atribucion,
+            style: TextStyle(fontSize: 11, color: AppColors.muted),
           ),
         ],
       ),

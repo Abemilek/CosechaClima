@@ -10,6 +10,9 @@ namespace WebApi.Implementation.Security;
 
 public class TokenGenerator : ITokenGenerator
 {
+    // Access token corto: la sesion larga la mantiene el refresh token (rotado).
+    public const int DuracionPorDefectoMinutos = 15;
+
     private readonly IConfiguration _configuration;
 
     public TokenGenerator(IConfiguration configuration)
@@ -21,7 +24,7 @@ public class TokenGenerator : ITokenGenerator
     {
         var jwtConfig = _configuration.GetSection("Jwt");
         var secretKey = jwtConfig["SecretKey"]!;
-        var duration = int.Parse(jwtConfig["DurationMinutes"]!);
+        var duration = int.TryParse(jwtConfig["DurationMinutes"], out var minutos) && minutos > 0 ? minutos : DuracionPorDefectoMinutos;
 
         if (Encoding.UTF8.GetByteCount(secretKey) < 32)
         {

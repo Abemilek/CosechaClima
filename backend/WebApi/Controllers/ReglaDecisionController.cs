@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using WebApi.Interface;
 using Microsoft.AspNetCore.Authorization;
 using WebApi.Dto;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace WebApi.Controllers;
 
@@ -15,6 +16,27 @@ public class ReglaDecisionController : ControllerBase
     public ReglaDecisionController(IReglaDecisionService reglaDecisionService)
     {
         _reglaDecisionService = reglaDecisionService;
+    }
+
+    /// <summary>
+    /// Paquete publico (catalogos + reglas activas) que la app usa para calcular alertas en el dispositivo.
+    /// Soporta If-None-Match: si la version no cambio responde 304 sin cuerpo.
+    /// </summary>
+    [HttpGet("paquete")]
+    [AllowAnonymous]
+    [EnableRateLimiting("publico")]
+    public async Task<IActionResult> ObtenerPaquete()
+    {
+        var paquete = await _reglaDecisionService.ObtenerPaquete();
+        var etag = $"\"{paquete.Version}\"";
+
+        Response.Headers.ETag = etag;
+        Response.Headers.CacheControl = "public, max-age=300";
+
+        if (Request.Headers.IfNoneMatch.Contains(etag))
+            return StatusCode(StatusCodes.Status304NotModified);
+
+        return Ok(paquete);
     }
 
     [HttpGet]
@@ -35,10 +57,11 @@ public class ReglaDecisionController : ControllerBase
 
     [Authorize(Roles = "Admin")]
     [HttpPost("aplicar-contenido-preliminar")]
-    public async Task<IActionResult> AplicarContenidoPreliminar()
+    public async Task<IActionResult> AplicarContenidoPreliminar([FromQuery] bool sobrescribir = false)
     {
-        await _reglaDecisionService.AplicarContenidoPreliminar();
-        return Ok(new {message = "contenido preliminar aplicado reglas representativas"});
+        // Por defecto solo rellena reglas aun PENDIENTES. sobrescribir=true pisa tambien las editadas.
+        await _reglaDecisionService.AplicarContenidoPreliminar(soloPendientes: !sobrescribir);
+        return Ok(new {message = "contenido preliminar aplicado"});
     }
 
     [Authorize(Roles = "Admin")]

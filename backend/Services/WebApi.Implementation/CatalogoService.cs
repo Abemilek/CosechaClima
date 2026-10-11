@@ -1,5 +1,5 @@
 using System.Linq;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 using WebApi.Implementation.Connection;
 using WebApi.Interface;
 using WebApi.Models;
@@ -22,8 +22,8 @@ public class CatalogoService : ICatalogoService
         var lista = new List<Cultivo>();
 
         using var connection = _connectionBD.CrearConexion();
-        using var command = new SqlCommand(
-            "SELECT Id, Nombre, NombreCientifico FROM Cultivos ORDER BY Nombre", connection);
+        using var command = new NpgsqlCommand(
+            "SELECT id, nombre, nombre_cientifico FROM cultivos ORDER BY nombre", connection);
 
         await connection.OpenAsync();
         using var reader = await command.ExecuteReaderAsync();
@@ -46,8 +46,8 @@ public class CatalogoService : ICatalogoService
         var lista = new List<TipoSuelo>();
 
         using var connection = _connectionBD.CrearConexion();
-        using var command = new SqlCommand(
-            "SELECT Id, Nombre, Descripcion FROM TipoSuelo ORDER BY Nombre", connection);
+        using var command = new NpgsqlCommand(
+            "SELECT id, nombre, descripcion FROM tipos_suelo ORDER BY nombre", connection);
 
         await connection.OpenAsync();
         using var reader = await command.ExecuteReaderAsync();
@@ -70,8 +70,8 @@ public class CatalogoService : ICatalogoService
         var lista = new List<EventoClimatico>();
 
         using var connection = _connectionBD.CrearConexion();
-        using var command = new SqlCommand(
-            "SELECT Id, Nombre, Descripcion FROM EventoClimatico ORDER BY Id", connection);
+        using var command = new NpgsqlCommand(
+            "SELECT id, nombre, descripcion FROM eventos_climaticos ORDER BY id", connection);
 
         await connection.OpenAsync();
         using var reader = await command.ExecuteReaderAsync();
@@ -101,28 +101,29 @@ public class CatalogoService : ICatalogoService
 
     public async Task<bool> CultivoExiste(int id)
     {
-        return await ExisteEnTabla("Cultivos", id);
+        return await ExisteEnTabla("cultivos", id);
     }
 
     public async Task<bool> TipoSueloExiste(int id)
     {
-        return await ExisteEnTabla("TipoSuelo", id);
+        return await ExisteEnTabla("tipos_suelo", id);
     }
 
     public async Task<bool> EtapaFenologicaExiste(int id)
     {
-        return await ExisteEnTabla("EtapaFenologica", id);
+        return await ExisteEnTabla("etapas_fenologicas", id);
     }
 
+    // "tabla" solo recibe literales fijos de esta clase, nunca datos del usuario.
     private async Task<bool> ExisteEnTabla(string tabla, int id)
     {
         using var connection = _connectionBD.CrearConexion();
-        using var command = new SqlCommand(
-            $"SELECT 1 WHERE EXISTS (SELECT 1 FROM {tabla} WHERE Id = @Id)", connection);
+        using var command = new NpgsqlCommand(
+            $"SELECT EXISTS (SELECT 1 FROM {tabla} WHERE id = @Id)", connection);
         command.Parameters.AddWithValue("@Id", id);
 
         await connection.OpenAsync();
         var result = await command.ExecuteScalarAsync();
-        return result is not null;
+        return result is true;
     }
 }

@@ -22,4 +22,5 @@ class SecureStorageKeys {
   SecureStorageKeys._();
 
   static const String token = 'auth_token';
+  static const String refreshToken = 'auth_refresh_token';
 }

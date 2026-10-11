@@ -39,10 +39,10 @@ La app **no obliga a tener cuenta**. El onboarding se muestra una sola vez y des
 | Area | Sin cuenta (invitado) | Con cuenta |
 |---|---|---|
 | Onboarding / tutorial | Si | Si |
-| Pronostico de 5 dias de la zona | Si -- `GET /api/clima/pronostico` (Carazo aproximado, o "Usar mi ubicacion") | Si |
+| Pronostico de 5 dias de la zona | Si -- consulta directa a Open-Meteo desde el telefono (Carazo aproximado, o "Usar mi ubicacion") | Si |
 | Catalogos de referencia | Publicos en la API | Si |
 | Parcelas, umbrales, clima de parcela, semaforo, bitacora | No -- pide iniciar sesion | Si |
-| Panel de administracion | No | Solo rol `Admin` |
+| Admin Console | No | Solo rol `Admin` |
 
 **La sesion se pide en un solo punto.** Al tocar "Mis parcelas" en el inicio publico, la app abre el login contextual (`mostrarLoginContextual`) con el motivo ("Para guardar tu parcela necesitas una cuenta") y, si el login sale bien, continua a lo que el usuario queria hacer. Cancelar deja al usuario donde estaba.
 
@@ -69,11 +69,10 @@ Google en Android requiere que el `serverClientId` sea el Client ID **Web** y qu
 ### 0. Inicio publico (sin cuenta)
 
 ```
-GET /api/clima/pronostico?latitud=11.85&longitud=-86.199
-Response: [ { "fecha": "2026-09-20T00:00:00", "temperaturaMax": 31.2, "temperaturaMin": 21.4, "precipitacion": 6.1, "vientoVelocidad": 18.0 }, ... ]
+GET https://api.open-meteo.com/v1/forecast?latitude=11.85&longitude=-86.199&daily=...&timezone=America/Managua
 ```
 
-No requiere token. Si responde `503`, la app muestra un error con boton "Reintentar" (Open-Meteo no disponible). Por defecto se consulta un punto de Carazo (Jinotepe); al tocar "Usar mi ubicacion" se pide el GPS y, si el usuario lo niega o falla, se conserva el punto por defecto.
+La app **no** pasa por el servidor para esto: consulta Open-Meteo directamente y guarda la respuesta (2 h de frescura; hasta 3 dias de vigencia sin conexion). Si Open-Meteo no responde y no hay copia guardada, la app muestra un error con boton "Reintentar". Se muestra la atribucion "Datos meteorologicos: Open-Meteo.com (CC BY 4.0)", requerida por su licencia. Por defecto se consulta un punto de Carazo (Jinotepe); al tocar "Usar mi ubicacion" se pide el GPS y, si el usuario lo niega o falla, se conserva el punto por defecto.
 
 ### 1. Login
 

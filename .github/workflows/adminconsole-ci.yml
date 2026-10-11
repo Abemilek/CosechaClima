@@ -1,16 +1,16 @@
-name: Admin Panel CI
+name: Admin Console CI
 
 on:
   push:
     branches: [ main ]
     paths:
-      - 'admin-panel/**'
-      - '.github/workflows/admin-panel-ci.yml'
+      - 'adminconsole/**'
+      - '.github/workflows/adminconsole-ci.yml'
   pull_request:
     branches: [ main ]
     paths:
-      - 'admin-panel/**'
-      - '.github/workflows/admin-panel-ci.yml'
+      - 'adminconsole/**'
+      - '.github/workflows/adminconsole-ci.yml'
 
 permissions:
   contents: read
@@ -21,7 +21,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: admin-panel
+        working-directory: adminconsole
 
     steps:
       - name: Checkout repositorio
@@ -32,7 +32,7 @@ jobs:
         with:
           node-version: '20'
           cache: npm
-          cache-dependency-path: admin-panel/package-lock.json
+          cache-dependency-path: adminconsole/package-lock.json
 
       - name: Restaurar dependencias
         run: npm ci

@@ -11,10 +11,16 @@ using WebApi;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 using WebApi.Models;
+using Microsoft.AspNetCore.HttpOverrides;
+using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// La API solo recibe JSON pequeño: 256 KB evita cuerpos enormes (el limite por defecto es ~30 MB).
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 256 * 1024);
+
 builder.Services.AddControllers();
+builder.Services.AddMemoryCache();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(opciones =>
 {
@@ -38,13 +44,18 @@ builder.Services.AddCors(opciones =>
 {
     opciones.AddPolicy("FrontendPolicy", politica =>
     {
-        var origenesPermitidos = builder.Configuration
+        var origenesPermitidos = (builder.Configuration
             .GetSection("Cors:AllowedOrigins")
-            .Get<string[]>() ?? [];
+            .Get<string[]>() ?? [])
+            .Where(o => !string.IsNullOrWhiteSpace(o))
+            .ToArray();
 
+        // AllowCredentials hace falta para que el Admin Console envie la cookie HttpOnly del refresh token.
+        // Exige origenes explicitos (nunca "*"), que es justo lo que se configura aqui.
         politica.WithOrigins(origenesPermitidos)
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 
@@ -74,6 +85,33 @@ if (Encoding.UTF8.GetByteCount(secretKey) < 32)
         "32 bytes (256 bits). Generá una con: openssl rand -base64 48");
 }
 
+// ---- Detras de un proxy / balanceador ---------------------------------------------------------
+// Solo se procesan X-Forwarded-For/Proto si se declara de quien confiar (Proxy:KnownProxies o
+// Proxy:KnownNetworks). Sin esa lista se ignoran: asi un cliente no puede falsear su IP para
+// esquivar el rate limiting. Con proxy y sin esta configuracion, RemoteIpAddress seria la IP del
+// proxy y el limite por IP se volveria global.
+var proxiesConfiados = builder.Configuration.GetSection("Proxy:KnownProxies").Get<string[]>() ?? [];
+var redesConfiadas = builder.Configuration.GetSection("Proxy:KnownNetworks").Get<string[]>() ?? [];
+var reenvioHabilitado = proxiesConfiados.Any(p => !string.IsNullOrWhiteSpace(p))
+    || redesConfiadas.Any(r => !string.IsNullOrWhiteSpace(r));
+
+if (reenvioHabilitado)
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(opciones =>
+    {
+        opciones.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        opciones.ForwardLimit = 1;
+        opciones.KnownProxies.Clear();
+        opciones.KnownIPNetworks.Clear();
+
+        foreach (var ip in proxiesConfiados.Where(p => !string.IsNullOrWhiteSpace(p)))
+            opciones.KnownProxies.Add(IPAddress.Parse(ip.Trim()));
+
+        foreach (var red in redesConfiadas.Where(r => !string.IsNullOrWhiteSpace(r)))
+            opciones.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(red.Trim()));
+    });
+}
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -85,7 +123,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = jwtConfig["Issuer"],
             ValidAudience = jwtConfig["Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+            // Por defecto .NET tolera 5 minutos de desfase, que con tokens de 15 min seria un 33% extra de vida.
+            ClockSkew = TimeSpan.FromSeconds(30),
+            ValidAlgorithms = [SecurityAlgorithms.HmacSha256]
         };
     });
 
@@ -97,6 +138,7 @@ builder.Services.AddHttpClient<IProveedorClimaticoService, OpenMeteoService>(cli
 });
 
 builder.Services.AddSingleton<ConnectionBD>();
+builder.Services.AddSingleton<MigradorBD>();
 
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<IParcelaService, ParcelaService>();
@@ -110,6 +152,8 @@ builder.Services.AddScoped<IEtapaFenologicaService, EtapaFenologicaService>();
 builder.Services.AddScoped<ICatalogoService, CatalogoService>();
 builder.Services.AddAuthorization();
 builder.Services.AddScoped<ITokenGenerator, TokenGenerator>();
+builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+builder.Services.AddHostedService<LimpiezaRefreshTokensWorker>();
 builder.Services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
 builder.Services.AddExceptionHandler<ManejadorErroresGlobal>();
 builder.Services.AddProblemDetails();
@@ -127,6 +171,37 @@ builder.Services.AddRateLimiter(opciones =>
             new SlidingWindowRateLimiterOptions
             {
                 PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                SegmentsPerWindow = 2,
+                QueueLimit = 0
+            });
+    });
+
+    // Renovacion de sesion: mas holgada que "auth" (login) porque ocurre en segundo plano y,
+    // en zonas rurales, varias personas pueden salir por la misma IP (NAT del operador).
+    opciones.AddPolicy("refresh", contexto =>
+    {
+        var direccionIp = contexto.Connection.RemoteIpAddress?.ToString() ?? "ip-desconocida";
+
+        return RateLimitPartition.GetSlidingWindowLimiter(direccionIp, _ =>
+            new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                SegmentsPerWindow = 2,
+                QueueLimit = 0
+            });
+    });
+
+    // Endpoints publicos de solo lectura (paquete de reglas).
+    opciones.AddPolicy("publico", contexto =>
+    {
+        var direccionIp = contexto.Connection.RemoteIpAddress?.ToString() ?? "ip-desconocida";
+
+        return RateLimitPartition.GetSlidingWindowLimiter(direccionIp, _ =>
+            new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
                 Window = TimeSpan.FromMinutes(1),
                 SegmentsPerWindow = 2,
                 QueueLimit = 0
@@ -161,7 +236,28 @@ builder.Services.AddRateLimiter(opciones =>
 
 var app = builder.Build();
 
+// Debe ir lo primero: reescribe RemoteIpAddress/Scheme antes de HTTPS redirect y rate limiting.
+if (reenvioHabilitado)
+{
+    app.UseForwardedHeaders();
+}
+else
+{
+    app.Logger.LogInformation(
+        "Proxy:KnownProxies / Proxy:KnownNetworks vacios: se ignoran las cabeceras X-Forwarded-*. " +
+        "Si la API corre detras de un proxy, declara su IP o red (ver .env.example).");
+}
+
 app.UseExceptionHandler();
+
+app.Use(async (contexto, siguiente) =>
+{
+    var cabeceras = contexto.Response.Headers;
+    cabeceras["X-Content-Type-Options"] = "nosniff";
+    cabeceras["Referrer-Policy"] = "no-referrer";
+    cabeceras["X-Frame-Options"] = "DENY";
+    await siguiente();
+});
 
 if (app.Environment.IsDevelopment())
 {
@@ -173,6 +269,7 @@ app.MapHealthChecks("/health");
 
 if (!app.Environment.IsDevelopment())
 {
+    app.UseHsts();
     app.UseHttpsRedirection();
 }
 
@@ -185,6 +282,22 @@ app.UseAuthorization();
 app.UseRateLimiter();
 
 app.MapControllers();
+
+// El esquema se crea/actualiza solo, antes de atender peticiones. Si falla, la API no arranca:
+// seguir sin esquema solo produciria errores confusos mas adelante.
+using (var scopeMigraciones = app.Services.CreateScope())
+{
+    var migrador = scopeMigraciones.ServiceProvider.GetRequiredService<MigradorBD>();
+    await migrador.AplicarPendientesAsync();
+    app.Logger.LogInformation("Migraciones de base de datos verificadas");
+}
+
+if (int.TryParse(builder.Configuration["Jwt:DurationMinutes"], out var minutosJwt) && minutosJwt > 60)
+{
+    app.Logger.LogWarning(
+        "Jwt:DurationMinutes = {Minutos}: un access token tan largo anula la ventaja de la rotacion de " +
+        "refresh tokens. Recomendado: 15.", minutosJwt);
+}
 
 using (var scope = app.Services.CreateScope())
 {

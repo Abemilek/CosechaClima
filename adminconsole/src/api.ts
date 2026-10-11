@@ -1,10 +1,31 @@
-const STORAGE_KEY = 'cosechaclima_admin_token';
-
 export const API_BASE_URL: string =
   (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, '') ||
   'http://localhost:8080';
 
-let tokenEnMemoria: string | null = localStorage.getItem(STORAGE_KEY);
+// El access token vive SOLO en memoria (nunca en localStorage): un XSS no puede leerlo del
+// almacenamiento y desaparece al cerrar la pestaña. La sesión larga la mantiene una cookie
+// HttpOnly con el refresh token, que JavaScript no puede leer.
+let tokenEnMemoria: string | null = null;
+
+// Versiones anteriores del panel guardaban el token en localStorage: se borra si quedó algo.
+try {
+  localStorage.removeItem('cosechaclima_admin_token');
+  localStorage.removeItem('cosechaclima_admin_sesion');
+} catch {
+  /* sin acceso a localStorage: nada que limpiar */
+}
+
+// Defensa CSRF para los endpoints que usan la cookie: una cabecera personalizada obliga al
+// navegador a hacer preflight CORS, que el servidor solo acepta desde los orígenes configurados.
+const CABECERA_CSRF = { 'X-Requested-With': 'cosechaclima-admin' };
+
+type Suscriptor = () => void;
+const suscriptoresExpiracion = new Set<Suscriptor>();
+
+export function alExpirarSesion(cb: Suscriptor): () => void {
+  suscriptoresExpiracion.add(cb);
+  return () => suscriptoresExpiracion.delete(cb);
+}
 
 export function getToken(): string | null {
   return tokenEnMemoria;
@@ -12,8 +33,6 @@ export function getToken(): string | null {
 
 export function setToken(token: string | null) {
   tokenEnMemoria = token;
-  if (token) localStorage.setItem(STORAGE_KEY, token);
-  else localStorage.removeItem(STORAGE_KEY);
 }
 
 export class ApiError extends Error {
@@ -24,9 +43,44 @@ export class ApiError extends Error {
   }
 }
 
+let refrescando: Promise<LoginResponse | null> | null = null;
+
+/** Pide un access token nuevo con la cookie de refresh. Una sola petición a la vez. */
+export function refrescarSesion(): Promise<LoginResponse | null> {
+  if (!refrescando) {
+    refrescando = (async () => {
+      try {
+        const r = await fetch(`${API_BASE_URL}/api/auth/web/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { ...CABECERA_CSRF },
+        });
+        if (!r.ok) {
+          setToken(null);
+          return null;
+        }
+        const datos = (await r.json()) as LoginResponse;
+        if (!datos.esAdmin) {
+          setToken(null);
+          return null;
+        }
+        setToken(datos.token);
+        return datos;
+      } catch {
+        // Sin red: no se puede saber si la sesión sigue viva; no se cierra por esto.
+        return null;
+      } finally {
+        refrescando = null;
+      }
+    })();
+  }
+  return refrescando;
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
+  yaReintentado = false,
 ): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -38,13 +92,22 @@ async function request<T>(
 
   let respuesta: Response;
   try {
-    respuesta = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+    respuesta = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers,
+      credentials: 'include',
+    });
   } catch {
     throw new ApiError(0, 'No se pudo conectar con el servidor. Revisá tu conexión.');
   }
 
   if (respuesta.status === 401) {
+    // El access token dura minutos: se intenta renovar una vez con la cookie antes de rendirse.
+    if (!yaReintentado && (await refrescarSesion())) {
+      return request<T>(path, options, true);
+    }
     setToken(null);
+    suscriptoresExpiracion.forEach((cb) => cb());
     throw new ApiError(401, 'Tu sesión expiró. Iniciá sesión de nuevo.');
   }
 
@@ -81,6 +144,7 @@ export const api = {
 
 export interface LoginResponse {
   token: string;
+  expiraEnSegundos: number;
   nombre: string;
   email: string;
   fotoUrl: string | null;
@@ -132,15 +196,27 @@ export interface Catalogo {
 }
 
 export async function login(email: string, password: string): Promise<LoginResponse> {
-  const datos = await api.post<LoginResponse>('/api/auth/login', { email, password });
-  if (!datos.esAdmin) {
-    throw new ApiError(403, 'Esta cuenta no tiene permisos de administrador.');
-  }
+  // El servidor exige rol de administrador en este endpoint y deja el refresh token en una cookie HttpOnly.
+  const datos = await api.post<LoginResponse>('/api/auth/web/login', { email, password });
   setToken(datos.token);
   return datos;
 }
 
-export function logout() {
+/** Al abrir el panel: si la cookie de refresh sigue vigente, recupera la sesión sin pedir clave. */
+export async function restaurarSesion(): Promise<LoginResponse | null> {
+  return refrescarSesion();
+}
+
+export async function logout(): Promise<void> {
+  try {
+    await fetch(`${API_BASE_URL}/api/auth/web/logout`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { ...CABECERA_CSRF },
+    });
+  } catch {
+    /* si no hay red, igualmente se descarta el token local */
+  }
   setToken(null);
 }
 

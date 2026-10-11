@@ -42,8 +42,9 @@ Los endpoints de autenticacion y el pronostico publico devuelven sus errores de 
 | `POST /api/auth/register` | `409` | `ya existe una cuenta con este correo` |
 | `POST /api/auth/login` | `401` | `correo o contrasena incorrectos` |
 | `POST /api/auth/google` | `401` | `no se pudo validar la cuenta de Google` / `esta cuenta esta desactivada` |
-| `GET /api/clima/pronostico` | `400` | `coordenadas fuera de rango` |
-| `GET /api/clima/pronostico` | `503` | `el servicio de clima no esta disponible por el momento` |
+| `POST /api/auth/refresh` | `401` | `la sesion ya no es valida, inicia sesion de nuevo` |
+| `POST /api/auth/web/login` | `403` | `esta cuenta no tiene permisos de administrador` |
+| `PUT /api/alertas/parcela/{id}` | `400` | `la fecha de la alerta esta fuera del rango permitido` |
 
 Un cliente debe leer `title` y, si no existe, `mensaje`. Los `400` de validacion de DTOs (correo invalido, contrasena de menos de 8 caracteres, falta el `idToken`) usan el formato estandar de validacion de ASP.NET Core.
 

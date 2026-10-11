@@ -37,21 +37,24 @@ curl http://localhost:8080/health
 Esperado: `200 OK` con `Healthy`.
 
 > [!WARNING]
-> `DB_SA_PASSWORD` debe cumplir la politica de complejidad de SQL Server: minimo 8 caracteres combinando al menos 3 de 4 categorias (mayusculas, minusculas, digitos, simbolos).
+> `DB_APP_PASSWORD` debe ser **exactamente la misma** contrasena que escribas dentro de `CONNECTION_STRING`. `DB_ADMIN_PASSWORD` es la del superusuario `postgres` (la API no la usa). Genera ambas con `openssl rand -base64 24`.
 
 > [!WARNING]
-> SQL Server solo aplica `DB_SA_PASSWORD` **la primera vez** que crea el volumen. Si la cambias despues, el contenedor `db` queda `unhealthy` con `Login failed for user 'sa'`. Ademas, los scripts SQL solo crean lo que falta: si el esquema cambio y ya existe un volumen viejo, hay que migrarlo (ver [authentication.md](./authentication.md#migracion-desde-telefono--pin)) o recrearlo. En desarrollo se resuelve todo con `docker compose down -v && docker compose up --build`, que **borra los datos**.
+> PostgreSQL solo aplica las contrasenas **la primera vez** que inicializa el volumen. Para cambiarlas despues: `ALTER ROLE cosechaclima_app PASSWORD '...'`. Las migraciones (`backend/Scripts/migrations`) se aplican solas al arrancar la API y solo ejecutan las que faltan. En desarrollo, para empezar de cero: `docker compose down -v && docker compose up --build`, que **borra los datos**.
 
 ## Que levanta `compose.yaml`
 
 | Contenedor | Descripcion | Orden |
 |---|---|---|
-| `cosechaclima-db` | SQL Server 2022 | Primero (con healthcheck) |
-| `cosechaclima-db-init` | Ejecuta esquema SQL y seed de catalogos | Segundo (espera a que db este healthy) |
-| `cosechaclima-api` | API ASP.NET Core 10 en http://localhost:8080 | Tercero (espera a que db-init termine) |
+| `cosechaclima-db` | PostgreSQL 18; la primera vez crea el rol `cosechaclima_app` (sin privilegios de superusuario) y su base | Primero (con healthcheck) |
+| `cosechaclima-api` | API ASP.NET Core 10 en http://localhost:8080; al arrancar aplica las migraciones y siembra reglas | Segundo (espera a que db este healthy) |
+| `cosechaclima-adminconsole` | Admin Console en http://localhost:5174 | Tercero (espera a que la API este healthy) |
 
 > [!NOTE]
 > El archivo `compose.yaml` esta en la **raiz del proyecto**, no dentro de `/backend`. Todas las variables se leen del `.env` en la raiz.
+
+> [!NOTE]
+> Para probar el Admin Console por `http://localhost` (sin TLS) pon `AUTH_COOKIE_SECURE=false` en el `.env`; en produccion deja `true` y sirve panel y API bajo HTTPS.
 
 ## Primer uso de la API
 
@@ -63,8 +66,8 @@ Hay endpoints publicos que no piden token:
 # Catalogos
 curl http://localhost:8080/api/catalogos/cultivos
 
-# Pronostico de 5 dias por coordenadas
-curl "http://localhost:8080/api/clima/pronostico?latitud=11.85&longitud=-86.199"
+# Paquete de reglas (lo que la app descarga para calcular alertas en el dispositivo)
+curl -i http://localhost:8080/api/reglas/paquete
 ```
 
 ### 1. Registrar un usuario

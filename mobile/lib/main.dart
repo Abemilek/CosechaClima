@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import 'core/config/environment.dart';
 import 'core/error/error_reporter.dart';
+import 'core/motor/reglas_repository.dart';
 import 'core/network/api_client.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/data/services/auth_service.dart';
@@ -57,6 +58,9 @@ class _CosechaClimaAppState extends State<CosechaClimaApp> {
       ParcelaService(_apiClient),
       CatalogoService(_apiClient),
     );
+
+    // Reglas agroclimáticas: se revisa si hay una versión nueva (como máximo cada 6 h, sin bloquear).
+    unawaited(ReglasRepository.instancia.actualizarSiHaceFalta());
 
     ApiClient.onSessionExpired = () {
       unawaited(_authProvider.cerrarSesion());

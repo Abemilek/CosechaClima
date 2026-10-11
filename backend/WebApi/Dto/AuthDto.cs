@@ -31,9 +31,22 @@ public class GoogleLoginDto
     public string IdToken { get; set; } = string.Empty;
 }
 
+public class RefreshDto
+{
+    [Required, MaxLength(200)]
+    public string RefreshToken { get; set; } = string.Empty;
+}
+
 public class LoginResponseDto
 {
+    /// <summary>Access token (JWT) de vida corta.</summary>
     public string Token { get; set; } = string.Empty;
+
+    /// <summary>Refresh token de un solo uso (movil). En web va en una cookie HttpOnly y este campo es null.</summary>
+    public string? RefreshToken { get; set; }
+
+    /// <summary>Segundos de vida del access token.</summary>
+    public int ExpiraEnSegundos { get; set; }
     public string Nombre { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string? FotoUrl { get; set; }

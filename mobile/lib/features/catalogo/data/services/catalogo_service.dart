@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../../../../core/cache/catalogo_cache.dart';
+import '../../../../core/motor/reglas_repository.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../models/catalogo.dart';
@@ -23,11 +24,11 @@ class CatalogoService {
     } on NetworkException {
       final cache = await _cache.obtenerCultivos();
       if (cache != null && cache.isNotEmpty) return cache;
-      rethrow;
+      return (await ReglasRepository.instancia.obtener()).cultivos;
     } on TimeoutApiException {
       final cache = await _cache.obtenerCultivos();
       if (cache != null && cache.isNotEmpty) return cache;
-      rethrow;
+      return (await ReglasRepository.instancia.obtener()).cultivos;
     }
   }
 
@@ -42,11 +43,11 @@ class CatalogoService {
     } on NetworkException {
       final cache = await _cache.obtenerTiposSuelo();
       if (cache != null && cache.isNotEmpty) return cache;
-      rethrow;
+      return (await ReglasRepository.instancia.obtener()).tiposSuelo;
     } on TimeoutApiException {
       final cache = await _cache.obtenerTiposSuelo();
       if (cache != null && cache.isNotEmpty) return cache;
-      rethrow;
+      return (await ReglasRepository.instancia.obtener()).tiposSuelo;
     }
   }
 
@@ -62,11 +63,11 @@ class CatalogoService {
     } on NetworkException {
       final cache = await _cache.obtenerEtapas();
       if (cache != null && cache.isNotEmpty) return cache;
-      rethrow;
+      return (await ReglasRepository.instancia.obtener()).etapas;
     } on TimeoutApiException {
       final cache = await _cache.obtenerEtapas();
       if (cache != null && cache.isNotEmpty) return cache;
-      rethrow;
+      return (await ReglasRepository.instancia.obtener()).etapas;
     }
   }
 
@@ -82,11 +83,11 @@ class CatalogoService {
     } on NetworkException {
       final cache = await _cache.obtenerEventos();
       if (cache != null && cache.isNotEmpty) return cache;
-      rethrow;
+      return (await ReglasRepository.instancia.obtener()).eventos;
     } on TimeoutApiException {
       final cache = await _cache.obtenerEventos();
       if (cache != null && cache.isNotEmpty) return cache;
-      rethrow;
+      return (await ReglasRepository.instancia.obtener()).eventos;
     }
   }
 }

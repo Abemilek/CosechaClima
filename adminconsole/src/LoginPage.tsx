@@ -30,7 +30,7 @@ export default function LoginPage({ onLoggedIn }: Props) {
       <div className="login-card">
         <h1 style={{ fontSize: 22, marginBottom: 4 }}>CosechaClima</h1>
         <p className="muted" style={{ marginTop: 0, marginBottom: 20 }}>
-          Panel administrativo
+          Admin Console
         </p>
         <form onSubmit={onSubmit}>
           <div className="field">

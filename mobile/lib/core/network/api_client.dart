@@ -9,12 +9,16 @@ import '../config/constants.dart';
 import '../security/secure_storage.dart';
 import 'api_exception.dart';
 
+enum _ResultadoRefresh { exito, rechazado, sinConexion }
+
 class ApiClient {
   final http.Client _client;
 
   ApiClient({http.Client? client}) : _client = client ?? http.Client();
 
   static VoidCallback? onSessionExpired;
+
+  static Future<_ResultadoRefresh>? _refrescando;
 
   Uri _uri(String path, [Map<String, dynamic>? query]) {
     final cleanPath = path.startsWith('/') ? path : '/$path';
@@ -38,15 +42,15 @@ class ApiClient {
     String path, {
     Map<String, dynamic>? query,
     bool auth = true,
-  }) => _send(() async {
+  }) => _send(auth: auth, () async {
     final res = await _client
         .get(_uri(path, query), headers: await _headers(auth: auth))
         .timeout(ApiConfig.timeout);
-    return _handle(res, auth: auth);
+    return _handle(res);
   });
 
   Future<dynamic> post(String path, {Object? body, bool auth = true}) =>
-      _send(() async {
+      _send(auth: auth, () async {
         final res = await _client
             .post(
               _uri(path),
@@ -54,11 +58,11 @@ class ApiClient {
               body: body == null ? null : jsonEncode(body),
             )
             .timeout(ApiConfig.timeout);
-        return _handle(res, auth: auth);
+        return _handle(res);
       });
 
   Future<dynamic> put(String path, {Object? body, bool auth = true}) =>
-      _send(() async {
+      _send(auth: auth, () async {
         final res = await _client
             .put(
               _uri(path),
@@ -66,17 +70,44 @@ class ApiClient {
               body: body == null ? null : jsonEncode(body),
             )
             .timeout(ApiConfig.timeout);
-        return _handle(res, auth: auth);
+        return _handle(res);
       });
 
-  Future<dynamic> delete(String path, {bool auth = true}) => _send(() async {
-    final res = await _client
-        .delete(_uri(path), headers: await _headers(auth: auth))
-        .timeout(ApiConfig.timeout);
-    return _handle(res, auth: auth);
-  });
+  Future<dynamic> delete(String path, {bool auth = true}) =>
+      _send(auth: auth, () async {
+        final res = await _client
+            .delete(_uri(path), headers: await _headers(auth: auth))
+            .timeout(ApiConfig.timeout);
+        return _handle(res);
+      });
 
-  Future<dynamic> _send(Future<dynamic> Function() request) async {
+  Future<dynamic> _send(
+    Future<dynamic> Function() request, {
+    required bool auth,
+  }) async {
+    try {
+      return await _ejecutar(request);
+    } on ApiException catch (e) {
+      if (!auth || !e.esNoAutorizado) rethrow;
+
+      switch (await _refrescarSesion()) {
+        case _ResultadoRefresh.exito:
+          try {
+            return await _ejecutar(request);
+          } on ApiException catch (e2) {
+            if (e2.esNoAutorizado) onSessionExpired?.call();
+            rethrow;
+          }
+        case _ResultadoRefresh.rechazado:
+          onSessionExpired?.call();
+          rethrow;
+        case _ResultadoRefresh.sinConexion:
+          throw const NetworkException();
+      }
+    }
+  }
+
+  Future<dynamic> _ejecutar(Future<dynamic> Function() request) async {
     try {
       return await request();
     } on TimeoutException {
@@ -90,7 +121,61 @@ class ApiClient {
     }
   }
 
-  dynamic _handle(http.Response res, {required bool auth}) {
+  Future<_ResultadoRefresh> _refrescarSesion() {
+    final enCurso = _refrescando;
+    if (enCurso != null) return enCurso;
+
+    final nuevo = _renovar().whenComplete(() => _refrescando = null);
+    _refrescando = nuevo;
+    return nuevo;
+  }
+
+  Future<_ResultadoRefresh> _renovar() async {
+    final refresh = await SecureStorage.read(SecureStorageKeys.refreshToken);
+    if (refresh == null || refresh.isEmpty) return _ResultadoRefresh.rechazado;
+
+    try {
+      final res = await _client
+          .post(
+            _uri('/auth/refresh'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'refreshToken': refresh}),
+          )
+          .timeout(ApiConfig.timeout);
+
+      if (res.statusCode == 200) {
+        final json = jsonDecode(res.body) as Map<String, dynamic>;
+        final token = json['token'] as String?;
+        final nuevoRefresh = json['refreshToken'] as String?;
+        if (token == null || nuevoRefresh == null) {
+          return _ResultadoRefresh.rechazado;
+        }
+        await SecureStorage.write(SecureStorageKeys.refreshToken, nuevoRefresh);
+        await SecureStorage.write(SecureStorageKeys.token, token);
+        return _ResultadoRefresh.exito;
+      }
+
+      if (res.statusCode == 400 ||
+          res.statusCode == 401 ||
+          res.statusCode == 403) {
+        return _ResultadoRefresh.rechazado;
+      }
+
+      return _ResultadoRefresh.sinConexion;
+    } on TimeoutException {
+      return _ResultadoRefresh.sinConexion;
+    } on SocketException {
+      return _ResultadoRefresh.sinConexion;
+    } on HttpException {
+      return _ResultadoRefresh.sinConexion;
+    } on http.ClientException {
+      return _ResultadoRefresh.sinConexion;
+    } on FormatException {
+      return _ResultadoRefresh.sinConexion;
+    }
+  }
+
+  dynamic _handle(http.Response res) {
     final status = res.statusCode;
     final rawBody = res.body.isEmpty ? null : res.body;
 
@@ -103,10 +188,6 @@ class ApiClient {
       }
     }
 
-    if (status == 401 && auth) {
-      onSessionExpired?.call();
-    }
-
     String? message;
     if (rawBody != null) {
       try {
@@ -117,6 +198,10 @@ class ApiClient {
                   ?.toString();
         }
       } catch (_) {}
+    }
+
+    if (status == 401) {
+      throw ApiException(401, message ?? 'Tu sesión expiró. Iniciá sesión.');
     }
 
     if (message == null) {

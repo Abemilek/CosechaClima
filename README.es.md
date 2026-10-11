@@ -5,7 +5,7 @@
   ![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4)
   ![C#](https://img.shields.io/badge/C%23-13-239120)
   ![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B)
-  ![SQL Server 2022](https://img.shields.io/badge/SQL_Server-2022-CC2927)
+  ![PostgreSQL 18](https://img.shields.io/badge/PostgreSQL-18-336791)
   ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED)
   ![License MIT](https://img.shields.io/badge/license-MIT-green)
 </div>
@@ -60,33 +60,33 @@ CosechaClima traduce datos climáticos abiertos en una recomendación accionable
 
 ```mermaid
 flowchart TD
-    A["App Flutter (solo productores)"] -->|"HTTPS + JWT"| B["ASP.NET Core 10 API"]
-    P["Panel Admin (Vite + React)"] -->|"HTTPS + JWT, rol Admin"| B
-    B --> C["Motor de Decisiones"]
-    C --> D["Arbol de 216 Reglas Agronomicas"]
-    B --> E["Open-Meteo API"]
-    B --> F["SQL Server 2022"]
-    F --> G["ADO.NET - Queries optimizadas con OPENJSON"]
-    B --> H["Rate Limiting + JWT Auth con Jti"]
+    A["App Flutter (solo productores)"] -->|"pronostico directo"| E["Open-Meteo API"]
+    A --> M["Motor de decisiones en el dispositivo + reglas embebidas (offline)"]
+    A -->|"HTTPS + JWT 15 min + refresh token"| B["ASP.NET Core 10 API (delgada)"]
+    P["Admin Console (Vite + React)"] -->|"HTTPS, rol Admin, cookie HttpOnly"| B
+    M -.->|"paquete de reglas (ETag)"| B
+    B --> F["PostgreSQL 18"]
+    F --> G["Npgsql - SQL explicito, migraciones versionadas"]
+    B --> H["Rate Limiting + JWT con Jti + refresh tokens rotados"]
     A -->|"Login con Google"| I["Google Sign-In"]
     B -->|"Valida el ID Token"| I
 ```
 
-Arquitectura en capas estricta: cada capa solo conoce a la inmediatamente inferior a través de una interfaz. El motor de decisiones, por ejemplo, no sabe si los datos climáticos vienen de Open-Meteo o de cualquier otra fuente; solo conoce `IProveedorClimaticoService`.
+**Offline-first:** el semáforo y el plan semanal se calculan **en el teléfono** con datos de Open-Meteo (con copia local) y 540 reglas agronómicas embebidas en la app, así que siguen funcionando sin conexión. El servidor es delgado: cuentas, parcelas, bitácora, actualización de reglas y Admin Console. Ver [docs/plan-b-offline-first.md](docs/plan-b-offline-first.md).
 
 ## Stack tecnologico
 
 | Capa | Tecnologia | Justificacion |
 |---|---|---|
 | Backend | ASP.NET Core 10 | LTS vigente, tipado fuerte, rendimiento |
-| Base de datos | SQL Server 2022 (Docker) | Developer Edition, gratuita |
-| Acceso a datos | ADO.NET con OPENJSON | Control total sobre consultas, batch updates optimizados |
-| Autenticacion | JWT Bearer + correo/contraseña (PBKDF2 + salt) + Google Sign-In + Jti | Google Sign-In es gratuito: sin SMS ni servicios de pago |
-| Datos climaticos | [Open-Meteo](https://open-meteo.com) | Pronostico real hasta 16 dias, sin API key, gratuito |
+| Base de datos | PostgreSQL 18 (Docker) | Gratuita, uso comercial permitido (SQL Server Developer no tiene licencia para producción) |
+| Acceso a datos | Npgsql, SQL explícito (sin ORM) | Control total sobre consultas, upserts `ON CONFLICT`, migraciones versionadas. Ver [docs/postgresql.md](docs/postgresql.md) |
+| Autenticacion | JWT Bearer de 15 min + refresh token rotado + correo/contraseña (PBKDF2 + salt) + Google Sign-In + Jti | Google Sign-In es gratuito: sin SMS ni servicios de pago |
+| Datos climaticos | [Open-Meteo](https://open-meteo.com) (consultado directo desde la app) | Pronostico real hasta 16 dias, sin API key. Gratuito solo para uso **no comercial**; atribución CC BY 4.0 visible en la app |
 | Notificaciones | `flutter_local_notifications` (en el dispositivo) | Sin Firebase/FCM: costo de infraestructura cero |
 | Contenedorizacion | Docker multi-stage (Alpine / nginx) | Imagen optimizada, usuario no-root |
 | Cliente movil | Flutter (solo productores, sin animaciones) | Codigo unico multiplataforma |
-| Panel admin | Vite + React, sin framework de UI ni libs de animacion | Bundle de ~50 KB gzip, servido como estaticos por nginx |
+| Admin Console | Vite + React, sin framework de UI ni libs de animacion | Bundle de ~50 KB gzip, servido como estaticos por nginx |
 | CI/CD | GitHub Actions | Build y test automatizados |
 
 ## Estructura del repositorio
@@ -102,7 +102,7 @@ CosechaClima/
 |   |-- Scripts/                   # Esquema SQL, seed, reglas JSON
 |   |-- Dockerfile                 # Build multi-stage (SDK -> Alpine)
 |-- mobile/                        # App Flutter (solo productores)
-|-- admin-panel/                   # Panel web admin (Vite + React + nginx)
+|-- adminconsole/                   # Admin Console web (Vite + React + nginx)
 |-- docs/                          # Documentacion tecnica
 |-- compose.yaml                   # Docker Compose (raiz del proyecto)
 |-- .env.example                   # Plantilla de variables de entorno (raiz)
@@ -124,7 +124,7 @@ cp .env.example .env
 docker compose up --build -d
 ```
 
-Esto levanta tres servicios: `db` (SQL Server + esquema/seed), `api` (el backend, puerto 8080) y `admin-panel` (el panel web, puerto 5174).
+Esto levanta tres servicios: `db` (PostgreSQL 18), `api` (el backend, puerto 8080; aplica las migraciones SQL al arrancar) y `adminconsole` (el panel web, puerto 5174).
 
 Verificacion:
 
@@ -134,17 +134,20 @@ curl http://localhost:8080/health
 
 Esperado: `200 OK` con `Healthy`.
 
-Abri el panel admin en `http://localhost:5174` e inicia sesion con la cuenta admin sembrada. Si no configuraste `ADMIN_SEED_PASSWORD` (o era muy debil), revisa los logs de la API para ver la clave generada automaticamente:
+Abri el Admin Console en `http://localhost:5174` e inicia sesion con la cuenta admin sembrada. Si no configuraste `ADMIN_SEED_PASSWORD` (o era muy debil), revisa los logs de la API para ver la clave generada automaticamente:
 
 ```bash
 docker compose logs api | grep -i "admin"
 ```
 
 > [!WARNING]
-> `DB_SA_PASSWORD` debe cumplir la politica de complejidad de SQL Server: minimo 8 caracteres combinando al menos 3 de 4 categorias (mayusculas, minusculas, digitos, simbolos).
+> `DB_APP_PASSWORD` debe ser la misma contraseña que pongas dentro de `CONNECTION_STRING`. `DB_ADMIN_PASSWORD` es el superusuario `postgres` (la API no lo usa).
 
 > [!WARNING]
-> SQL Server solo aplica `DB_SA_PASSWORD` la primera vez que crea el volumen. Si la cambias despues, `db` queda `unhealthy` con `Login failed for user 'sa'`. En desarrollo: `docker compose down -v && docker compose up --build` (borra los datos).
+> PostgreSQL solo aplica las contraseñas la primera vez que inicializa el volumen. Para cambiarlas después: `ALTER ROLE cosechaclima_app PASSWORD '...'`. En desarrollo: `docker compose down -v && docker compose up --build` (borra los datos).
+
+> [!NOTE]
+> Para probar el Admin Console por `http://localhost` sin TLS pon `AUTH_COOKIE_SECURE=false` en el `.env`. Detrás de un proxy inverso define `PROXY_KNOWN_PROXY` / `PROXY_KNOWN_NETWORK` para que el rate limiting por IP vea la IP real del cliente.
 
 > [!NOTE]
 > `ASPNETCORE_ENVIRONMENT` es `Production` por defecto (Swagger oculto). Para desarrollo local poner `ASPNETCORE_ENVIRONMENT=Development` en `.env` y abrir `http://localhost:8080/swagger`.
@@ -153,15 +156,15 @@ docker compose logs api | grep -i "admin"
 > **Google Sign-In es opcional.** Sin Client IDs, la app sigue funcionando con correo y contraseña. Para activarlo ver [docs/google-sign-in-setup.md](docs/google-sign-in-setup.md). La app movil tiene su propio `mobile/.env` (`API_URL` y `GOOGLE_SERVER_CLIENT_ID`).
 
 > [!NOTE]
-> `compose.yaml` inicia automaticamente: SQL Server, scripts de esquema y seed, la API (Dockerfile multi-stage) y el panel admin (compilado con Vite, servido por nginx). Ver [backend/README.es.md](backend/README.es.md), [mobile/README.es.md](mobile/README.es.md) y [admin-panel/](admin-panel/) para instrucciones detalladas de cada componente.
+> `compose.yaml` inicia automaticamente: PostgreSQL, la API (que aplica las migraciones) (Dockerfile multi-stage) y el Admin Console (compilado con Vite, servido por nginx). Ver [backend/README.es.md](backend/README.es.md), [mobile/README.es.md](mobile/README.es.md) y [adminconsole/](adminconsole/) para instrucciones detalladas de cada componente.
 
 ## Seguridad
 
-- Autenticacion JWT con expiracion configurable y claim `Jti` para unicidad de token.
+- Access tokens JWT de 15 minutos (claim `Jti`) renovados con refresh tokens de un solo uso y rotados (se guarda su SHA-256; reutilizarlos revoca toda la sesión). Admin Console: access token solo en memoria + cookie `HttpOnly` `SameSite=Strict`.
 - Inicio de sesion con Google: el ID Token se valida siempre en el servidor (firma, audiencia, expiracion y correo verificado).
 - Contrasenas almacenadas exclusivamente como hash PBKDF2-SHA256 + salt individual por usuario (minimo 8 caracteres). Las cuentas de Google no tienen contraseña local.
 - Comparacion de hash en tiempo constante (`CryptographicOperations.FixedTimeEquals`).
-- Modo invitado acotado: solo `/api/auth/*`, el pronostico por coordenadas, los catalogos y `/health` son publicos; todo lo demas exige JWT.
+- Modo invitado acotado: solo `/api/auth/*`, el paquete de reglas, los catalogos y `/health` son publicos; todo lo demas exige JWT.
 - Control de acceso por propietario (ownership) en todos los recursos, derivado del token.
 - Rol `Admin` separado para operaciones administrativas, otorgado solo via seed de base de datos.
 - Rate Limiting en endpoints de autenticacion (register, login y Google) y en el motor de decisiones.
@@ -174,7 +177,7 @@ Detalle completo en [docs/security.md](docs/security.md).
 
 ## Costo de infraestructura
 
-**$0.** SQL Server Developer Edition, Open-Meteo, ASP.NET Core, las notificaciones locales y todo el stack (incluyendo el panel admin) son gratuitos para este caso de uso. El proyecto corre completo en una laptop via Docker Compose.
+**$0 para desarrollo y uso no comercial.** PostgreSQL, ASP.NET Core, las notificaciones locales y todo el stack (incluyendo el Admin Console) son gratuitos y el proyecto corre completo en una laptop via Docker Compose. Dos salvedades para producción: la API gratuita de Open-Meteo es **solo para uso no comercial** (para uso comercial hay que contratar su plan de pago) y hace falta un servidor para alojar la API y la base de datos.
 
 ## Como contribuir
 
