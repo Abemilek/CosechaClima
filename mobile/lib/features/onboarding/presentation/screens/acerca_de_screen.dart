@@ -29,16 +29,19 @@ class AcercaDeScreen extends StatelessWidget {
               icon: Icons.cloud_outlined,
               titulo: 'Fuente de datos climáticos',
               detalle:
-                  'Usamos Open-Meteo, un servicio meteorológico gratuito y de '
-                  'código abierto, para obtener temperatura, lluvia y viento '
-                  'de cualquier punto de Nicaragua en tiempo casi real.',
+                  'Datos meteorológicos de Open-Meteo.com, licencia CC BY 4.0. '
+                  'Tu teléfono los consulta directamente para obtener '
+                  'temperatura, lluvia y viento de cualquier punto de '
+                  'Nicaragua en tiempo casi real.',
             ),
             SizedBox(height: 14),
             _InfoCard(
               icon: Icons.rule_outlined,
               titulo: 'Motor de reglas agroclimáticas',
               detalle:
-                  'Un motor de reglas compara esos datos con umbrales por '
+                  'El motor de reglas corre en tu teléfono (también sin '
+                  'conexión, con el último pronóstico descargado). Compara esos '
+                  'datos con umbrales por '
                   'cultivo, etapa de crecimiento y tipo de suelo para calcular '
                   'el nivel de riesgo (bajo, medio o alto) y las acciones '
                   'recomendadas para la semana, igual que un boletín '

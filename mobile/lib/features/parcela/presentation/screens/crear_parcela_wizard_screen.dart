@@ -354,9 +354,8 @@ class _CrearParcelaWizardScreenState extends State<CrearParcelaWizardScreen> {
 
   void _mostrarSnack(String mensaje) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(mensaje)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(mensaje)));
   }
 
   @override
@@ -703,8 +702,7 @@ class _CropStep extends StatelessWidget {
       children: [
         const _StepHeader(
           title: '¿Qué sembraste?',
-          subtitle:
-              'Seleccioná el cultivo principal para recibir alertas según sus necesidades hídricas.',
+          subtitle: 'Seleccioná el cultivo principal para recibir alertas según sus necesidades hídricas.',
         ),
         _ChoiceGrid(
           children: cultivos.asMap().entries.map((entry) {
@@ -1030,8 +1028,7 @@ class _DateStep extends StatelessWidget {
       children: [
         const _StepHeader(
           title: '¿Cuándo sembraste?',
-          subtitle:
-              'Con esta fecha calculamos automáticamente la etapa: germinación, crecimiento, floración o llenado de grano.',
+          subtitle: 'Con esta fecha calculamos automáticamente la etapa: germinación, crecimiento, floración o llenado de grano.',
         ),
         _ChoiceRowTile(
           title: 'Esta semana',
@@ -1108,8 +1105,7 @@ class _SoilStep extends StatelessWidget {
       children: [
         const _StepHeader(
           title: '¿Qué tipo de suelo tenés?',
-          subtitle:
-              'El suelo cambia el riesgo: el arcilloso se encharca, el arenoso se seca rápido y el franco responde mejor.',
+          subtitle: 'El suelo cambia el riesgo: el arcilloso se encharca, el arenoso se seca rápido y el franco responde mejor.',
         ),
         _ChoiceGrid(
           children: [

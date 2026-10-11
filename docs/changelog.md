@@ -3,6 +3,34 @@
 Todos los cambios notables de este proyecto se documentan en este archivo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionado siguiendo [Semantic Versioning](https://semver.org/).
 
+## [Unreleased] - Plan B: motor en el dispositivo, PostgreSQL y sesiones seguras
+
+Detalle de decisiones y de lo que sigue pendiente en [plan-b-offline-first.md](./plan-b-offline-first.md) y [postgresql.md](./postgresql.md).
+
+### Changed (cambios que rompen compatibilidad)
+- **Base de datos: SQL Server -> PostgreSQL 18.** SQL Server Developer no puede usarse en produccion (solo desarrollo y pruebas) y Express tiene tope de tamano. Acceso con Npgsql y SQL explicito (sin ORM); esquema en `snake_case`, `timestamptz`, `GENERATED ... AS IDENTITY`, `CHECK`, indices en claves foraneas. Migraciones SQL versionadas con checksum que se aplican solas al arrancar (reemplazan `BD-CosechaClima.sql`, `seed.sql` y el contenedor `db-init`). La API usa un rol sin privilegios de superusuario. **No hay migracion automatica de datos**: ver [postgresql.md](./postgresql.md#migrar-datos-desde-sql-server).
+- **Variables de entorno:** `DB_SA_PASSWORD` desaparece; ahora `DB_ADMIN_PASSWORD` y `DB_APP_PASSWORD`; `CONNECTION_STRING` usa el formato de Npgsql.
+- **Access token de 24 h -> 15 min** (`JWT_DURATION_MINUTES=15`) con refresh token rotado. Las apps antiguas no saben renovarlo y pedirian iniciar sesion cada 15 minutos.
+- **Endpoints publicos retirados:** `GET /api/clima/pronostico` y `POST /api/motor/resumen-semanal-anonimo`. Hacian que todos los usuarios compartieran la IP y la cuota diaria del servidor ante Open-Meteo.
+- **Admin Console:** el token ya no se guarda en `localStorage`; sesion por cookie HttpOnly. Login del panel en `POST /api/auth/web/login`.
+- `AplicarContenidoPreliminar` ya **no pisa** las reglas editadas por un admin (antes corria en cada arranque y sobrescribia todo); por defecto solo rellena las que siguen `PENDIENTE`.
+- Los timestamps ahora son UTC (`...Z`). La app envia y muestra la bitacora en hora local.
+
+### Added
+- **Motor de decisiones en el dispositivo** (`MotorLocal`, Dart): semaforo y resumen semanal sin servidor, incluso sin conexion con el ultimo pronostico descargado. La ventana de canicula usa los dias pasados de Open-Meteo.
+- **Reglas embebidas en la app** + actualizacion automatica con `GET /api/reglas/paquete` (ETag; 304 si no cambio). La app funciona sin internet desde el primer uso (tambien los catalogos).
+- **Consulta directa a Open-Meteo** desde el telefono, con copia local y atribucion CC BY 4.0 visible.
+- `PUT /api/alertas/parcela/{id}`: la app reporta el evento detectado para mantener la auditoria del Admin Console; el servidor pone el texto desde sus reglas.
+- `POST /api/auth/refresh`, `/logout` y `/web/*` (refresh tokens de un solo uso con deteccion de reutilizacion).
+- `UseForwardedHeaders` configurable (`PROXY_KNOWN_PROXY` / `PROXY_KNOWN_NETWORK`) para que el rate limiting por IP funcione detras de un proxy.
+- Cache en memoria de las reglas activas (antes cada busqueda abria una conexion SQL).
+- Cabeceras de seguridad en API y panel (CSP, HSTS, nosniff...), limite de cuerpo de 256 KB.
+
+### Not included (pendiente)
+- Escritura sin conexion con cola de sincronizacion para parcelas y bitacora (hoy se leen offline pero se crean con conexion).
+- Notificaciones push con FCM (las alertas siguen siendo notificaciones locales al abrir la app).
+
+
 ## [Unreleased] - Modo offline completo y flujo unificado de invitado
 
 Motivado por pruebas en un teléfono real sin datos móviles: la app debía seguir

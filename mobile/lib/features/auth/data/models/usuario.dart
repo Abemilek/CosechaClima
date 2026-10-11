@@ -1,5 +1,6 @@
 class LoginResponse {
   final String token;
+  final String? refreshToken;
   final String nombre;
   final String email;
   final String? fotoUrl;
@@ -7,6 +8,7 @@ class LoginResponse {
 
   LoginResponse({
     required this.token,
+    this.refreshToken,
     required this.nombre,
     required this.email,
     this.fotoUrl,
@@ -15,6 +17,7 @@ class LoginResponse {
 
   factory LoginResponse.fromJson(Map<String, dynamic> json) => LoginResponse(
     token: json['token'] as String,
+    refreshToken: json['refreshToken'] as String?,
     nombre: json['nombre'] as String,
     email: json['email'] as String? ?? '',
     fotoUrl: json['fotoUrl'] as String?,

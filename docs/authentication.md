@@ -19,8 +19,8 @@ Los tres endpoints devuelven la misma estructura ([respuesta de login](#respuest
 
 | Area | Endpoints | Acceso |
 |---|---|---|
-| Autenticacion | `POST /api/auth/register`, `/login`, `/google` | Publico (con rate limit) |
-| Pronostico por coordenadas | `GET /api/clima/pronostico` | Publico |
+| Autenticacion y sesion | `POST /api/auth/register`, `/login`, `/google`, `/refresh`, `/logout`, `/web/*` | Publico (con rate limit) |
+| Paquete de reglas para calcular en el dispositivo | `GET /api/reglas/paquete` | Publico |
 | Catalogos | `GET /api/catalogos/*` | Publico |
 | Health check | `GET /health` | Publico |
 | Parcelas, umbrales, clima de una parcela, semaforo, bitacora | `/api/parcelas`, `/api/umbrales`, `/api/clima/actualizar/{id}`, `/api/motor`, `/api/logs` | JWT |
@@ -133,7 +133,9 @@ Todo endpoint protegido requiere el header:
 Authorization: Bearer <token>
 ```
 
-El token expira a las **24 horas** (configurable via `JWT_DURATION_MINUTES`). Vencido o ausente, cualquier endpoint protegido responde `401 Unauthorized`. La app movil reacciona a ese `401` cerrando la sesion y volviendo al modo publico.
+El **access token** expira a los **15 minutos** (configurable con `JWT_DURATION_MINUTES`; la API avisa si lo pones por encima de 60). Cuando un endpoint protegido responde `401`, el cliente llama a `POST /api/auth/refresh` con su **refresh token** y repite la peticion: la app movil lo hace sola y solo cierra la sesion si el servidor rechaza el refresh token (si no hay conexion, la sesion se conserva).
+
+**Refresh tokens:** opacos (256 bits aleatorios), de un solo uso y rotados en cada canje; en la base solo se guarda su SHA-256. Duran 30 dias deslizantes con tope absoluto de 180 dias por inicio de sesion. Reutilizar un token ya canjeado (senal de robo) revoca toda la familia. Desactivar una cuenta revoca sus refresh tokens. En el panel web el refresh token vive en una cookie `HttpOnly` y el access token solo en memoria.
 
 ## Que contiene el token (claims)
 

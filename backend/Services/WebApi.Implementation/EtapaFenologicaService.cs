@@ -1,4 +1,4 @@
-using Microsoft.Data.SqlClient;
+using Npgsql;
 using WebApi.Implementation.Connection;
 using WebApi.Interface;
 using WebApi.Models;
@@ -19,9 +19,10 @@ public class EtapaFenologicaService : IEtapaFenologicaService
         var lista = new List<EtapaFenologica>();
 
         using var connection = _connectionBD.CrearConexion();
-        using var command = new SqlCommand(
-            "SELECT Id, Nombre, Descripcion, DiasDesdeSiembra FROM EtapaFenologica " +
-            "ORDER BY DiasDesdeSiembra ASC", connection);
+        // NULLS FIRST conserva el comportamiento de SQL Server (los NULL se ordenaban primero en ASC).
+        using var command = new NpgsqlCommand(
+            "SELECT id, nombre, descripcion, dias_desde_siembra FROM etapas_fenologicas " +
+            "ORDER BY dias_desde_siembra ASC NULLS FIRST, id", connection);
 
         await connection.OpenAsync();
         using var reader = await command.ExecuteReaderAsync();
@@ -47,7 +48,7 @@ public class EtapaFenologicaService : IEtapaFenologicaService
         if (etapas.Count == 0)
             throw new InvalidOperationException("no hay etapas fenologicas configuradas en el catalogo");
 
-        var diasTranscurridos = (DateTime.Today - fechaSiembra.Date).Days;
+        var diasTranscurridos = (FechasUtc.HoyNicaragua() - fechaSiembra.Date).Days;
 
         var etapaCalculada = etapas
             .Where(e => e.DiasDesdeSiembra is not null && e.DiasDesdeSiembra <= diasTranscurridos)

@@ -11,7 +11,11 @@ services:
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
       Jwt__SecretKey: ${JWT_SECRET_KEY}
-      Jwt__DurationMinutes: ${JWT_DURATION_MINUTES}
+      Jwt__DurationMinutes: ${JWT_DURATION_MINUTES:-15}
+      Jwt__RefreshDays: ${JWT_REFRESH_DAYS:-30}
+      Auth__CookieSecure: ${AUTH_COOKIE_SECURE:-true}
+      Proxy__KnownProxies__0: ${PROXY_KNOWN_PROXY:-}
+      Proxy__KnownNetworks__0: ${PROXY_KNOWN_NETWORK:-}
       AdminSeed__Email: ${ADMIN_SEED_EMAIL}
       AdminSeed__Password: ${ADMIN_SEED_PASSWORD}
       AdminSeed__Nombre: ${ADMIN_SEED_NOMBRE}
@@ -19,13 +23,11 @@ services:
       GoogleAuth__ClientIds__1: ${GOOGLE_CLIENT_ID_IOS}
       GoogleAuth__ClientIds__2: ${GOOGLE_CLIENT_ID_WEB}
       Cors__AllowedOrigins__0: ${CORS_ALLOWED_ORIGIN}
-      Cors__AllowedOrigins__1: ${ADMIN_PANEL_ORIGIN:-http://localhost:5174}
+      Cors__AllowedOrigins__1: ${ADMIN_CONSOLE_ORIGIN:-http://localhost:5174}
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
     depends_on:
       db:
         condition: service_healthy
-      db-init:
-        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
       interval: 15s
@@ -35,13 +37,16 @@ services:
     networks:
       - cosechaclima-net
 
-  admin-panel:
+  adminconsole:
     build:
-      context: ./admin-panel
+      context: ./adminconsole
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${ADMIN_PANEL_API_URL:-http://localhost:8080}
-    container_name: cosechaclima-admin-panel
+        VITE_API_URL: ${ADMIN_CONSOLE_API_URL:-http://localhost:8080}
+    container_name: cosechaclima-adminconsole
+    environment:
+      # origen de la API: se inserta en el Content-Security-Policy (connect-src) del nginx
+      API_ORIGIN: ${ADMIN_CONSOLE_API_URL:-http://localhost:8080}
     ports:
       - "5174:80"
     depends_on:
@@ -51,37 +56,34 @@ services:
       - cosechaclima-net
 
   db:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    # PostgreSQL 18 (version mayor vigente). Licencia PostgreSQL: libre, uso comercial permitido.
+    image: postgres:18
     container_name: cosechaclima-db
     environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: ${DB_SA_PASSWORD}
-      MSSQL_PID: "Developer"
+      # "postgres" es el superusuario, reservado para administracion.
+      # La API NO lo usa: se conecta con un rol propio sin privilegios de superusuario
+      # que crea backend/Scripts/db-init/01-roles.sh la primera vez que arranca el volumen.
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_ADMIN_PASSWORD}
+      APP_DB_PASSWORD: ${DB_APP_PASSWORD}
+      APP_DB_NAME: ${DB_NAME:-cosechaclima}
+      APP_DB_USER: ${DB_APP_USER:-cosechaclima_app}
     ports:
-      - "127.0.0.1:1433:1433"
+      # solo accesible desde tu propia maquina (no expuesto a la red)
+      - "127.0.0.1:5432:5432"
     volumes:
-      - cosechaclima-db-data:/var/opt/mssql
-      - ./backend/Scripts:/scripts
+      # postgres:18 guarda los datos en /var/lib/postgresql/<version> y espera el volumen en
+      # /var/lib/postgresql (no en .../data como las versiones anteriores).
+      - cosechaclima-db-data:/var/lib/postgresql
+      - ./backend/Scripts/db-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' || exit 1"]
+      # -h 127.0.0.1 fuerza TCP: durante la inicializacion el servidor temporal solo escucha por
+      # socket unix, asi el healthcheck solo pasa cuando el servidor definitivo ya esta listo.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 30s
-    networks:
-      - cosechaclima-net
-
-  db-init:
-    image: mcr.microsoft.com/mssql-tools
-    container_name: cosechaclima-db-init
-    depends_on:
-      db:
-        condition: service_healthy
-    volumes:
-      - ./backend/Scripts:/scripts
-    entrypoint: /bin/bash -c "/opt/mssql-tools/bin/sqlcmd -S db -U sa -P \"$$MSSQL_SA_PASSWORD\" -i /scripts/BD-CosechaClima.sql && /opt/mssql-tools/bin/sqlcmd -S db -U sa -P \"$$MSSQL_SA_PASSWORD\" -i /scripts/seed.sql"
-    environment:
-      MSSQL_SA_PASSWORD: ${DB_SA_PASSWORD}
+      start_period: 20s
     networks:
       - cosechaclima-net
 

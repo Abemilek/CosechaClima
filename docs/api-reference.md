@@ -19,9 +19,9 @@ Todos los endpoints, salvo los marcados como **Publico**, requieren el header:
 Authorization: Bearer <token>
 ```
 
-El token se obtiene de `POST /api/auth/register`, `POST /api/auth/login` o `POST /api/auth/google`, expira en 24 horas (configurable) y contiene un claim `Jti` para unicidad. Si falta o expiro, el endpoint devuelve `401`.
+El token se obtiene de `POST /api/auth/register`, `POST /api/auth/login` o `POST /api/auth/google`, expira en 15 minutos (configurable) y se renueva con un refresh token (ver `POST /api/auth/refresh`) y contiene un claim `Jti` para unicidad. Si falta o expiro, el endpoint devuelve `401`.
 
-Endpoints **Publicos** (no piden token): `/api/auth/*`, `GET /api/clima/pronostico`, `GET /api/catalogos/*` y `/health`. Todo lo demas es protegido por defecto.
+Endpoints **Publicos** (no piden token): `/api/auth/*`, `GET /api/reglas/paquete`, `GET /api/catalogos/*` y `/health`. Todo lo demas es protegido por defecto.
 
 ### Formato de errores
 
@@ -31,7 +31,7 @@ Todos los errores siguen el estandar RFC 7807 (`ProblemDetails`):
 { "status": 400, "title": "Descripcion del error", "instance": "/api/ruta" }
 ```
 
-Excepcion: los endpoints de autenticacion y el pronostico publico responden sus errores `401`, `409`, `400` (coordenadas) y `503` como `{ "mensaje": "..." }`. Un cliente debe leer `title` y, si no existe, `mensaje` (el `ApiClient` de la app ya lo hace). Los `400` de validacion de DTOs (correo invalido, contrasena corta) siguen el formato estandar de validacion de ASP.NET Core.
+Excepcion: los endpoints de autenticacion responden sus errores `401`, `409` y `403` como `{ "mensaje": "..." }`. Un cliente debe leer `title` y, si no existe, `mensaje` (el `ApiClient` de la app ya lo hace). Los `400` de validacion de DTOs (correo invalido, contrasena corta) siguen el formato estandar de validacion de ASP.NET Core.
 
 ### Codigos de estado
 
@@ -257,45 +257,48 @@ Crea o actualiza (upsert) los umbrales de riesgo del usuario. Cada usuario tiene
 
 ---
 
-## 4. Clima
+## Sesion: refresh, logout y panel web
 
-**Controlador:** `ClimaController` -- **Ruta base:** `/api/clima` -- **Acceso:** JWT requerido, salvo `GET /api/clima/pronostico` (Publico)
+### POST /api/auth/refresh  *(Publico, rate limit `refresh`)*
 
-### GET /api/clima/pronostico
+Canjea un refresh token por un access token nuevo **y un refresh token nuevo** (rotacion de un solo uso).
 
-**Acceso: Publico.** Pronostico de 5 dias por coordenadas para el modo invitado de la app: el productor ve el clima de su zona sin tener cuenta. **No guarda nada** ni se asocia a ninguna parcela; consulta Open-Meteo en cada llamada y, si esta no responde, no hay dato de respaldo.
-
-**Query params:**
-
-| Parametro | Tipo | Requerido | Validacion |
-|---|---|---|---|
-| `latitud` | decimal | Si | -90 a 90 |
-| `longitud` | decimal | Si | -180 a 180 |
-
+```json
+{ "refreshToken": "<token>" }
 ```
-GET /api/clima/pronostico?latitud=11.85&longitud=-86.199
-```
-
-**Respuestas:**
 
 | Codigo | Significado |
 |---|---|
-| `200` | Array de `PronosticoPublico` (un elemento por dia) |
-| `400` | `{ "mensaje": "coordenadas fuera de rango" }` |
-| `503` | `{ "mensaje": "el servicio de clima no esta disponible por el momento" }` -- Open-Meteo no respondio |
+| `200` | `LoginResponse` con `token`, `refreshToken` y `expiraEnSegundos` |
+| `401` | Token desconocido, vencido, revocado, cuenta desactivada o **reutilizado** (en ese caso se revoca toda la sesion) |
 
-**Modelo `PronosticoPublico`:**
+Si la respuesta se pierde por mala conexion, el cliente puede reintentar con el mismo token mientras el token nuevo no se haya usado.
 
-| Campo | Tipo |
-|---|---|
-| `fecha` | datetime (solo fecha) |
-| `temperaturaMax` | decimal? |
-| `temperaturaMin` | decimal? |
-| `precipitacion` | decimal? |
-| `vientoVelocidad` | decimal? |
+### POST /api/auth/logout  *(Publico, rate limit `refresh`)*
 
-> [!NOTE]
-> A diferencia de `DatosClimaticos`, este modelo no tiene `id`, `parcelaId` ni `humedadRelativa`/`radiacionSolar`: es informacion publica de consulta. El semaforo de riesgo **no** usa este endpoint; requiere una parcela y sesion.
+Cuerpo `{ "refreshToken": "..." }`. Revoca toda la familia de tokens. Responde `204`.
+
+### Admin Console (cookie HttpOnly)
+
+`POST /api/auth/web/login` (solo cuentas Admin), `POST /api/auth/web/refresh` y `POST /api/auth/web/logout`. El refresh token viaja en la cookie `cc_refresh` (`HttpOnly`, `Secure`, `SameSite=Strict`, ruta `/api/auth/web`) y **no** aparece en el cuerpo. `refresh` y `logout` exigen la cabecera `X-Requested-With: cosechaclima-admin` (defensa CSRF) y CORS con credenciales.
+
+## Reglas y alertas para el dispositivo
+
+### GET /api/reglas/paquete  *(Publico, rate limit `publico`)*
+
+Catalogos + todas las reglas activas, con una `version` (hash del contenido). Soporta `If-None-Match`: si la version no cambio responde `304` sin cuerpo. La app embebe una copia y solo descarga cuando un admin cambia algo.
+
+### PUT /api/alertas/parcela/{parcelaId}  *(JWT, rate limit `motor`)*
+
+La app avisa que evento detecto en el dispositivo: `{ "eventoClimaticoId": 1, "fecha": "2026-10-09" }`. El servidor valida que la parcela sea del usuario, que la fecha este a +-2 dias de hoy (hora de Nicaragua) y toma nivel, acciones y descripcion de **su propia** regla (el cliente no puede inyectar texto). Idempotente por (parcela, fecha). Alimenta el panel de auditoria.
+
+---
+
+## 4. Clima
+
+**Controlador:** `ClimaController` -- **Ruta base:** `/api/clima` -- **Acceso:** JWT requerido
+
+> **Retirado:** `GET /api/clima/pronostico` (publico) y `POST /api/motor/resumen-semanal-anonimo` ya no existen. La app consulta Open-Meteo directamente desde el telefono y calcula el resumen en el dispositivo; esos endpoints hacian que todos los usuarios compartieran la IP y la cuota diaria del servidor ante Open-Meteo.
 
 ### POST /api/clima/actualizar/{parcelaId}
 

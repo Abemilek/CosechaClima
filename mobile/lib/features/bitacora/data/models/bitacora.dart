@@ -30,7 +30,7 @@ class BitacoraEntry {
   factory BitacoraEntry.fromJson(Map<String, dynamic> json) => BitacoraEntry(
     id: json['id'] as int,
     parcelaId: json['parcelaId'] as int,
-    fecha: DateTime.parse(json['fecha'] as String),
+    fecha: DateTime.parse(json['fecha'] as String).toLocal(),
     eventoClimaticoId: json['eventoClimaticoId'] as int,
     nivelRiesgo: json['nivelRiesgo'] as String,
     accion1Texto: json['accion1Texto'] as String? ?? '',
@@ -66,7 +66,7 @@ class BitacoraRequest {
 
   Map<String, dynamic> toJson() => {
     'parcelaId': parcelaId,
-    'fecha': fecha.toIso8601String(),
+    'fecha': fecha.toUtc().toIso8601String(),
     'eventoClimaticoId': eventoClimaticoId,
     'nivelRiesgo': nivelRiesgo,
     'accion1Texto': accion1Texto,

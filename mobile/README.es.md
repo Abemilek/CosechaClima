@@ -218,7 +218,7 @@ La app **no obliga a tener cuenta**. El onboarding se muestra una sola vez (prim
 | Onboarding | Si | Si |
 | Pronostico de la zona (Carazo aproximado, o "Usar mi ubicacion") | Si | Si |
 | Parcelas, umbrales, clima de parcela, semaforo, bitacora | No, pide iniciar sesion | Si |
-| Panel de administracion | No | Solo rol Admin |
+| Admin Console | No | Solo rol Admin |
 
 **La sesion se pide en un unico punto.** Al tocar "Mis parcelas" en el inicio publico se abre un login contextual (`mostrarLoginContextual`) que explica el motivo. Si sale bien, la app continua a lo que el usuario queria hacer; si cancela, se queda donde estaba.
 
@@ -258,12 +258,14 @@ La clase `ApiClient` gestiona:
 
 ## Integracion con la API
 
-La app se comunica con el backend via endpoints REST. Sin cuenta usa solo `GET /api/clima/pronostico` (publico). Con cuenta, el flujo tipico para ver el estado de riesgo de una parcela:
+El semaforo de riesgo y el plan semanal se calculan **en el dispositivo**; el backend solo se usa para cuentas, parcelas, bitacora y actualizacion de reglas.
 
-1. `POST /api/clima/actualizar/{parcelaId}` -- obtener datos climaticos mas recientes
-2. `POST /api/motor/semaforo` -- calcular semaforo de riesgo
-3. Mostrar tarjeta de riesgo con severidad codificada por color y 3 acciones
-4. `POST /api/logs` -- guardar en bitacora de campo cuando el usuario confirma
+- **Clima:** la app consulta Open-Meteo directamente (`api.open-meteo.com`), guarda una copia local (fresca 2 h, usable sin conexion hasta 3 dias) y muestra la atribucion CC BY 4.0 que exige su licencia.
+- **Reglas:** `assets/reglas/paquete_reglas.json` viaja dentro de la app (catalogos + 540 reglas). Al arrancar (como maximo cada 6 h) pregunta a `GET /api/reglas/paquete` con `If-None-Match`; si un admin cambio algo descarga el paquete nuevo, si no recibe `304`.
+- **Motor:** `lib/core/motor/motor_local.dart` (Dart puro, con pruebas unitarias en `test/core/motor`).
+- **Sesion:** access token de 15 min + refresh token rotado, ambos en `flutter_secure_storage`; `ApiClient` renueva solo ante un `401` y unicamente cierra la sesion si el servidor rechaza el refresh token.
+- **Con cuenta**, flujo tipico de una parcela: `GET /api/parcelas/{id}` (si hay red) -> calculo local -> `PUT /api/alertas/parcela/{id}` (mejor esfuerzo, mantiene la auditoria del panel) -> `POST /api/logs` cuando el usuario confirma una accion.
+- **Cero animaciones** sigue siendo regla estricta: nada de lo agregado en este cambio usa widgets de animacion.
 
 Ver [Referencia de API](../docs/api-reference.md) para documentacion completa de endpoints.
 

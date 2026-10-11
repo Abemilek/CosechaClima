@@ -1,4 +1,4 @@
-# CosechaClima -- Panel administrativo
+# CosechaClima -- Admin Console
 
 Panel web de administración de CosechaClima. La app móvil de Flutter es **exclusivamente para productores**: aunque una cuenta tenga el rol `Admin`, la app no muestra pantallas administrativas (muestra una pantalla de redirección). Toda la gestión del sistema —usuarios, reglas de alerta y auditoría de alertas— vive acá y en los endpoints protegidos con `[Authorize(Roles = "Admin")]` del backend.
 
@@ -42,7 +42,7 @@ cp .env.example .env
 docker compose up --build -d
 ```
 
-Levanta tres servicios: `db` (SQL Server + schema/seed), `api` (el backend, puerto 8080) y `admin-panel` (este panel, puerto 8080 interno → **5174** en el host).
+Levanta tres servicios: `db` (PostgreSQL 18), `api` (el backend, puerto 8080) y `adminconsole` (este panel, puerto 8080 interno → **5174** en el host).
 
 - Panel: <http://localhost:5174>
 - Verificación de que la API está sana: `curl http://localhost:8080/health`
@@ -53,14 +53,14 @@ Levanta tres servicios: `db` (SQL Server + schema/seed), `api` (el backend, puer
 docker compose logs api | grep -i admin
 ```
 
-**Si la API no está en `http://localhost:8080`**, cambiá `ADMIN_PANEL_API_URL` en el `.env` raíz y **reconstruí** la imagen: la URL se hornea en el build porque el panel es estático.
+**Si la API no está en `http://localhost:8080`**, cambiá `ADMIN_CONSOLE_API_URL` en el `.env` raíz y **reconstruí** la imagen: la URL se hornea en el build porque el panel es estático.
 
 ```bash
-docker compose build admin-panel
-docker compose up -d admin-panel
+docker compose build adminconsole
+docker compose up -d adminconsole
 ```
 
-Para ver los logs del panel: `docker compose logs admin-panel`.
+Para ver los logs del panel: `docker compose logs adminconsole`.
 
 ---
 
@@ -69,7 +69,7 @@ Para ver los logs del panel: `docker compose logs admin-panel`.
 Requiere Node 20+ y la API corriendo en `http://localhost:8080` (podés levantarla sola con Docker, o con `dotnet run` siguiendo [`backend/README.md`](../backend/README.md)).
 
 ```bash
-cd admin-panel
+cd adminconsole
 npm install
 cp .env.example .env      # VITE_API_URL=http://localhost:8080
 npm run dev
@@ -80,7 +80,7 @@ npm run dev
 **CORS:** el backend solo acepta orígenes de la lista `Cors__AllowedOrigins`. El puerto 5173 es el que usa Vite, distinto del 5174 de Docker, así que agregalo en el `.env` raíz y reiniciá la API:
 
 ```bash
-ADMIN_PANEL_ORIGIN=http://localhost:5173
+ADMIN_CONSOLE_ORIGIN=http://localhost:5173
 # o, si CORS_ALLOWED_ORIGIN está vacío:
 CORS_ALLOWED_ORIGIN=http://localhost:5173
 ```
@@ -106,9 +106,9 @@ Solo una, y se lee **en tiempo de build** (Vite las incrusta en el bundle):
 
 | Variable | Default | Para qué |
 |---|---|---|
-| `VITE_API_URL` | `http://localhost:8080` | URL base de la API. Sin barra final. Con Docker la inyecta `compose.yaml` desde `ADMIN_PANEL_API_URL`. |
+| `VITE_API_URL` | `http://localhost:8080` | URL base de la API. Sin barra final. Con Docker la inyecta `compose.yaml` desde `ADMIN_CONSOLE_API_URL`. |
 
-`admin-panel/.env` está en `.gitignore`: nunca se commitea.
+`adminconsole/.env` está en `.gitignore`: nunca se commitea.
 
 ---
 
@@ -146,21 +146,22 @@ Todos del backend (`docs/api-reference.md` tiene el detalle completo). Los marca
 
 - **El backend es la autoridad.** Todos los endpoints administrativos requieren rol `Admin` en el token; ocultar botones en el panel no es la protección.
 - **El rol `Admin` no se puede conseguir desde afuera.** Ni el registro público ni Google Sign-In lo otorgan: llega por el seed del primer arranque o por otro administrador desde este panel.
-- **Sesión.** Solo se guarda el JWT en `localStorage` (clave `cosechaclima_admin_token`) y el nombre/correo de la sesión. Si cualquier pedido devuelve `401`, el token se borra y se vuelve al login.
+- **Sesión.** El access token (15 min) vive **solo en memoria**: no se guarda en `localStorage` ni `sessionStorage`, así que un XSS no puede leerlo del almacenamiento. La sesión larga la mantiene la cookie `cc_refresh` (`HttpOnly`, `SameSite=Strict`, `Secure`), que JavaScript no puede leer. Al recargar, el panel recupera la sesión con `POST /api/auth/web/refresh`; si el refresh falla, se vuelve al login. Las cookies exigen que panel y API sean del mismo *sitio* (p. ej. `admin.midominio.com` y `api.midominio.com`) y que la API tenga el origen del panel en `Cors:AllowedOrigins`.
+- **Cabeceras.** nginx añade `Content-Security-Policy` (scripts solo propios, `connect-src` limitado a este origen y a la API: variable `API_ORIGIN`), `X-Frame-Options`, `nosniff` y `Referrer-Policy`.
 - **Errores.** `api.ts` transforma errores de red y respuestas no-OK en mensajes legibles; nunca se muestran tokens ni contraseñas.
 
 ---
 
 ## CI
 
-[`Admin Panel CI`](../../.github/workflows/admin-panel-ci.yml) corre en cada push y PR a `main` que toquen `admin-panel/`: `npm ci` con caché de npm y `npm run build` (typecheck + build de Vite), verificando que se genere `dist/index.html`. Equivale a lo que hace `Mobile CI` con `flutter analyze`.
+[`Admin Console CI`](../../.github/workflows/adminconsole-ci.yml) corre en cada push y PR a `main` que toquen `adminconsole/`: `npm ci` con caché de npm y `npm run build` (typecheck + build de Vite), verificando que se genere `dist/index.html`. Equivale a lo que hace `Mobile CI` con `flutter analyze`.
 
 ---
 
 ## Estructura del proyecto
 
 ```
-admin-panel/
+adminconsole/
 |-- src/
 |   |-- main.tsx           # punto de entrada
 |   |-- App.tsx            # shell: login o sidebar + vista activa

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -81,6 +83,10 @@ class AuthService {
 
   Future<void> _guardarSesion(LoginResponse response) async {
     await SecureStorage.write(SecureStorageKeys.token, response.token);
+    final refresh = response.refreshToken;
+    if (refresh != null && refresh.isNotEmpty) {
+      await SecureStorage.write(SecureStorageKeys.refreshToken, refresh);
+    }
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(StorageKeys.nombreUsuario, response.nombre);
@@ -97,7 +103,13 @@ class AuthService {
       await _construirGoogleSignIn().signOut();
     } catch (_) {}
 
+    final refresh = await SecureStorage.read(SecureStorageKeys.refreshToken);
+    if (refresh != null && refresh.isNotEmpty) {
+      unawaited(_revocarEnServidor(refresh));
+    }
+
     await SecureStorage.delete(SecureStorageKeys.token);
+    await SecureStorage.delete(SecureStorageKeys.refreshToken);
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(StorageKeys.nombreUsuario);
@@ -105,9 +117,21 @@ class AuthService {
     await prefs.remove(StorageKeys.fotoUsuario);
   }
 
+  Future<void> _revocarEnServidor(String refreshToken) async {
+    try {
+      await _client.post(
+        '/auth/logout',
+        auth: false,
+        body: {'refreshToken': refreshToken},
+      );
+    } catch (_) {}
+  }
+
   Future<bool> haySesionActiva() async {
     final token = await SecureStorage.read(SecureStorageKeys.token);
-    return token != null && token.isNotEmpty;
+    if (token != null && token.isNotEmpty) return true;
+    final refresh = await SecureStorage.read(SecureStorageKeys.refreshToken);
+    return refresh != null && refresh.isNotEmpty;
   }
 
   Future<String?> tokenActual() => SecureStorage.read(SecureStorageKeys.token);

@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/cache/clima_publico_cache.dart';
-import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/location_service.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -13,7 +12,7 @@ import '../../../../routing/no_animation_route.dart';
 import '../../../auth/presentation/screens/login_sheet.dart';
 import '../../../auth/presentation/view_models/auth_view_model.dart';
 import '../../../clima/data/models/clima.dart';
-import '../../../clima/data/services/clima_service.dart';
+import '../../../clima/data/services/motor_local_service.dart';
 import '../../../parcela/presentation/screens/parcela_list_screen.dart';
 
 class PublicHomeScreen extends StatefulWidget {
@@ -27,7 +26,7 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
   static const _latPorDefecto = 11.8500;
   static const _lonPorDefecto = -86.1990;
 
-  late final ClimaService _climaService;
+  final _motorLocal = MotorLocalService();
   final _cache = ClimaPublicoCache();
 
   List<PronosticoPublico> _pronostico = [];
@@ -39,7 +38,6 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
   @override
   void initState() {
     super.initState();
-    _climaService = ClimaService(ApiClient());
     unawaited(_cargarPronostico());
   }
 
@@ -68,9 +66,8 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
         textoUbicacion = 'Tu ubicación actual';
       } on LocationException catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(e.message)));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(e.message)));
         }
       }
     }
@@ -90,7 +87,7 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
     }
 
     try {
-      final descargado = await _climaService.obtenerPronosticoPublico(
+      final descargado = await _motorLocal.pronosticoPublico(
         latitud: lat,
         longitud: lon,
       );
@@ -109,9 +106,6 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
     } on TimeoutApiException catch (e) {
       await usarCache();
       if (resultado == null) error = e.message;
-    } on ApiException catch (e) {
-      if (e.esErrorDeServidor) await usarCache();
-      if (resultado == null) error = e.message;
     }
 
     if (!mounted) return;
@@ -127,9 +121,8 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
 
   Future<void> _irAMisParcelas() async {
     if (!mounted) return;
-    await Navigator.of(
-      context,
-    ).push<void>(noAnimationRoute<void>((_) => const ParcelaListScreen()));
+    await Navigator.of(context)
+        .push<void>(noAnimationRoute<void>((_) => const ParcelaListScreen()));
   }
 
   @override

@@ -5,8 +5,10 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/cache/parcela_cache.dart';
+import '../../../../core/motor/motor_local.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/services/alerta_reporter.dart';
 import '../../../../core/services/notificacion_riesgo_service.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../routing/no_animation_route.dart';
@@ -20,10 +22,10 @@ import '../../../bitacora/data/services/bitacora_service.dart';
 import '../../../bitacora/presentation/screens/bitacora_screen.dart';
 import '../../../catalogo/data/models/catalogo.dart';
 import '../../../clima/data/models/clima.dart';
-import '../../../clima/data/services/clima_service.dart';
-import '../../../clima/data/services/motor_service.dart';
+import '../../../clima/data/services/motor_local_service.dart';
 import '../../../clima/presentation/screens/resumen_semanal_tab.dart';
 import '../../../onboarding/presentation/screens/acerca_de_screen.dart';
+import '../../../umbral/data/services/umbral_service.dart';
 import '../../../umbral/presentation/screens/umbrales_screen.dart';
 import '../../data/models/parcela.dart';
 import '../../data/services/parcela_service.dart';
@@ -40,8 +42,9 @@ class DetalleParcelaScreen extends StatefulWidget {
 }
 
 class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
-  late final ClimaService _climaService;
-  late final MotorService _motorService;
+  late final MotorLocalService _motorLocal;
+  late final UmbralService _umbralService;
+  late final AlertaReporter _alertaReporter;
   late final BitacoraService _bitacoraService;
   late final ParcelaService _parcelaService;
   late final ParcelaCache _parcelaCache;
@@ -63,8 +66,9 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
   void initState() {
     super.initState();
     final client = ApiClient();
-    _climaService = ClimaService(client);
-    _motorService = MotorService(client);
+    _motorLocal = MotorLocalService();
+    _umbralService = UmbralService(client);
+    _alertaReporter = AlertaReporter(client);
     _bitacoraService = BitacoraService(client);
     _parcelaService = ParcelaService(client);
     _parcelaCache = ParcelaCache();
@@ -84,11 +88,21 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
     });
 
     try {
-      final parcela = await _parcelaService.obtenerPorId(_parcelaActual.id);
-      if (!mounted) return;
-      setState(() => _parcelaActual = parcela);
+      // Los datos de la parcela se refrescan si hay red, pero NO son imprescindibles:
+      // el cálculo es local, así que sin conexión se usa la parcela que ya tenemos.
+      var parcela = _parcelaActual;
+      try {
+        parcela = await _parcelaService.obtenerPorId(_parcelaActual.id);
+        if (!mounted) return;
+        setState(() => _parcelaActual = parcela);
+      } on NetworkException {
+        // Sin conexión: se sigue con la parcela local.
+      } on TimeoutApiException {
+        // Conexión lenta: igual.
+      }
 
-      if (!parcela.puedeConsultarClima) {
+      final entrada = EntradaMotor.deParcela(parcela);
+      if (entrada == null) {
         setState(() {
           _error =
               'Esta parcela no tiene coordenadas GPS ni municipio registrado.\n'
@@ -97,22 +111,22 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
         return;
       }
 
-      final clima = await _climaService.actualizar(parcela.id);
+      final umbrales = await _umbralService.obtenerParaMotor();
       if (!mounted) return;
-      final semaforo = await _motorService.obtenerSemaforo(parcela.id);
+      final evaluacion = await _motorLocal.evaluar(entrada, umbrales: umbrales);
       if (!mounted) return;
-      ResumenSemanal? resumenSemanal;
-      try {
-        resumenSemanal = await _motorService.obtenerResumenSemanal(parcela.id);
-      } catch (_) {
-        resumenSemanal = null;
-      }
-      if (!mounted) return;
+
+      final semaforo = evaluacion.semaforo;
+      final clima = evaluacion.datosHoy;
+      final resumenSemanal = evaluacion.resumen;
+
       setState(() {
         _clima = clima;
         _semaforo = semaforo;
         _resumenSemanal = resumenSemanal;
-        _climaGuardadoEn = null;
+        _climaGuardadoEn = evaluacion.desdeCache
+            ? evaluacion.descargadaEn
+            : null;
       });
       unawaited(
         _parcelaCache.guardar(
@@ -123,6 +137,13 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
         ),
       );
       unawaited(
+        _alertaReporter.reportarSiCambio(
+          parcelaId: parcela.id,
+          eventoClimaticoId: semaforo.eventoClimaticoId,
+          fecha: semaforo.fecha,
+        ),
+      );
+      unawaited(
         NotificacionRiesgoService.instancia.evaluarCambioDeRiesgo(
           parcelaId: parcela.id,
           parcelaNombre: parcela.comunidad ?? parcela.municipio ?? 'tu parcela',
@@ -130,6 +151,9 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
           descripcionAlerta: semaforo.descripcionAlerta,
         ),
       );
+    } on MotorLocalException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.mensaje);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -301,9 +325,8 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
 
   void _mostrarError(String mensaje) {
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(mensaje)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(mensaje)));
     }
   }
 
@@ -474,8 +497,11 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
                   ),
                   BitacoraScreen(parcelaId: parcela.id, mostrarAppBar: false),
                   ResumenSemanalTab(
-                    parcelaId: parcela.id,
-                    sinCoordenadas: !parcela.tieneCoordenadas,
+                    resumenSemanal: _resumenSemanal,
+                    cargando: _cargando,
+                    error: _error,
+                    sinCoordenadas: !parcela.puedeConsultarClima,
+                    onRefrescar: _cargarTodo,
                   ),
                 ],
               ),
