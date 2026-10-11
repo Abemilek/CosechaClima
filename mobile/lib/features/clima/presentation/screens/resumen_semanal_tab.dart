@@ -31,7 +31,8 @@ class ResumenSemanalTab extends StatelessWidget {
     if (sinCoordenadas) {
       return const _MensajeCentrado(
         icono: Icons.location_off_outlined,
-        texto: 'Agregá la ubicación de tu parcela para ver el resumen de la semana.',
+        texto:
+            'Agregá la ubicación de tu parcela para ver el resumen de la semana.',
       );
     }
     if (cargando) {

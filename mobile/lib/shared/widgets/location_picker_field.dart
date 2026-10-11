@@ -137,7 +137,9 @@ class _LocationCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            tieneCoordenadas ? 'Lat $latitud, Lon $longitud' : 'El clima cambia por zona. Detectar la parcela ayuda a calcular alertas más útiles.',
+            tieneCoordenadas
+                ? 'Lat $latitud, Lon $longitud'
+                : 'El clima cambia por zona. Detectar la parcela ayuda a calcular alertas más útiles.',
             style: const TextStyle(color: AppColors.muted, fontSize: 13),
           ),
           const SizedBox(height: 14),

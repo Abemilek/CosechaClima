@@ -97,7 +97,8 @@ class _GuestParcelaDetailScreenState extends State<GuestParcelaDetailScreen> {
   Future<void> _iniciarSesionYGuardar() async {
     final autenticado = await mostrarLoginContextual(
       context,
-      motivo: 'Iniciá sesión para no perder esta parcela y recibir tu plan cada semana.',
+      motivo:
+          'Iniciá sesión para no perder esta parcela y recibir tu plan cada semana.',
     );
     if (autenticado != true || !mounted) return;
 

@@ -22,25 +22,21 @@ class CatalogoCache {
   Future<void> guardarEventos(List<EventoClimatico> eventos) =>
       _guardar(_claveEventos, eventos.map((e) => e.toJson()).toList());
 
-  Future<List<Cultivo>?> obtenerCultivos() async =>
-      (await _obtener(_claveCultivos))
-          ?.map((e) => Cultivo.fromJson(e))
-          .toList();
+  Future<List<Cultivo>?> obtenerCultivos() async => (await _obtener(
+    _claveCultivos,
+  ))?.map((e) => Cultivo.fromJson(e)).toList();
 
-  Future<List<TipoSuelo>?> obtenerTiposSuelo() async =>
-      (await _obtener(_claveSuelos))
-          ?.map((e) => TipoSuelo.fromJson(e))
-          .toList();
+  Future<List<TipoSuelo>?> obtenerTiposSuelo() async => (await _obtener(
+    _claveSuelos,
+  ))?.map((e) => TipoSuelo.fromJson(e)).toList();
 
-  Future<List<EtapaFenologica>?> obtenerEtapas() async =>
-      (await _obtener(_claveEtapas))
-          ?.map((e) => EtapaFenologica.fromJson(e))
-          .toList();
+  Future<List<EtapaFenologica>?> obtenerEtapas() async => (await _obtener(
+    _claveEtapas,
+  ))?.map((e) => EtapaFenologica.fromJson(e)).toList();
 
-  Future<List<EventoClimatico>?> obtenerEventos() async =>
-      (await _obtener(_claveEventos))
-          ?.map((e) => EventoClimatico.fromJson(e))
-          .toList();
+  Future<List<EventoClimatico>?> obtenerEventos() async => (await _obtener(
+    _claveEventos,
+  ))?.map((e) => EventoClimatico.fromJson(e)).toList();
 
   Future<void> limpiar() async {
     try {

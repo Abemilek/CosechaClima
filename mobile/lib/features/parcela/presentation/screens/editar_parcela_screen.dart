@@ -76,12 +76,14 @@ class _EditarParcelaScreenState extends State<EditarParcelaScreen> {
     );
     if (!mounted) return;
     if (ok) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Parcela actualizada')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Parcela actualizada')));
       Navigator.of(context).pop(true);
     } else if (provider.error != null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(provider.error!)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(provider.error!)));
     }
   }
 

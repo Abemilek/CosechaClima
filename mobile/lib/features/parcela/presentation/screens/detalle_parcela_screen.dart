@@ -325,8 +325,9 @@ class _DetalleParcelaScreenState extends State<DetalleParcelaScreen> {
 
   void _mostrarError(String mensaje) {
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(mensaje)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(mensaje)));
     }
   }
 

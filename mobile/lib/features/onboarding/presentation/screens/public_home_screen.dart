@@ -66,8 +66,9 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
         textoUbicacion = 'Tu ubicación actual';
       } on LocationException catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(e.message)));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(e.message)));
         }
       }
     }
@@ -121,8 +122,9 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
 
   Future<void> _irAMisParcelas() async {
     if (!mounted) return;
-    await Navigator.of(context)
-        .push<void>(noAnimationRoute<void>((_) => const ParcelaListScreen()));
+    await Navigator.of(
+      context,
+    ).push<void>(noAnimationRoute<void>((_) => const ParcelaListScreen()));
   }
 
   @override

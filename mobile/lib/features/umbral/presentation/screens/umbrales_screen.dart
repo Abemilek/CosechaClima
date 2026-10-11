@@ -252,7 +252,8 @@ class _UmbralesScreenState extends State<UmbralesScreen> {
                   const SizedBox(height: 14),
                   _ToggleCard(
                     titulo: 'Avisarme si el riesgo sube',
-                    subtitulo: 'Notificación en el teléfono cuando el riesgo de tu parcela suba de nivel.',
+                    subtitulo:
+                        'Notificación en el teléfono cuando el riesgo de tu parcela suba de nivel.',
                     valor: _notificacionesActivas,
                     onChanged: _alternarNotificaciones,
                   ),
