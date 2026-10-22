@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/app/app_state.dart';
+import '../../../../core/config/environment.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../routing/no_animation_route.dart';
-import '../../../../routing/role_home_screen.dart';
 import '../../../../shared/widgets/progress_dots.dart';
-import '../../../auth/presentation/screens/login_sheet.dart';
-import '../../../auth/presentation/view_models/auth_view_model.dart';
+import '../../../parcela/presentation/screens/parcela_list_screen.dart';
 
 class _TutorialStep {
   final IconData icon;
@@ -41,8 +41,8 @@ const _steps = [
     icon: Icons.menu_book_outlined,
     title: 'Tu cuaderno de campo',
     body:
-        'Marcá lo que ya hiciste y quedate con el historial de tu parcela, '
-        'aunque pase el tiempo o no tengas internet.',
+        'Marcá lo que ya hiciste y quedate con el historial de tu parcela. '
+        'Todo se guarda en tu teléfono, sin cuentas ni servidores.',
   ),
 ];
 
@@ -64,33 +64,14 @@ class _TutorialScreenState extends State<TutorialScreen> {
   }
 
   Future<void> _terminarOnboarding() async {
-    await context.read<AuthViewModel>().marcarOnboardingVisto();
+    await context.read<AppState>().marcarOnboardingVisto();
     if (!mounted) return;
 
     unawaited(
       Navigator.of(context).pushReplacement<void, void>(
-        noAnimationRoute<void>((_) => const RoleHomeScreen()),
+        noAnimationRoute<void>((_) => const ParcelaListScreen()),
       ),
     );
-  }
-
-  Future<void> _irAIniciarSesion() async {
-    await context.read<AuthViewModel>().marcarOnboardingVisto();
-    if (!mounted) return;
-
-    final autenticado = await mostrarLoginContextual(
-      context,
-      motivo: 'Iniciá sesión para ver tus parcelas y alertas.',
-    );
-    if (!mounted) return;
-
-    if (autenticado == true) {
-      unawaited(
-        Navigator.of(context).pushReplacement<void, void>(
-          noAnimationRoute<void>((_) => const RoleHomeScreen()),
-        ),
-      );
-    }
   }
 
   void _next() {
@@ -103,7 +84,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
 
   void _back() {
     if (_index == 0) {
-      Navigator.of(context).pop();
+      Navigator.of(context).maybePop();
       return;
     }
     _pageController.jumpToPage(_index - 1);
@@ -162,9 +143,11 @@ class _TutorialScreenState extends State<TutorialScreen> {
                 onPressed: () => unawaited(_terminarOnboarding()),
                 child: const Text('Omitir tutorial'),
               ),
-              TextButton(
-                onPressed: () => unawaited(_irAIniciarSesion()),
-                child: const Text('¿Ya tenés una cuenta? Iniciar sesión'),
+              const SizedBox(height: 6),
+              const Text(
+                Environment.atribucionClima,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10.5, color: AppColors.muted),
               ),
             ],
           ),

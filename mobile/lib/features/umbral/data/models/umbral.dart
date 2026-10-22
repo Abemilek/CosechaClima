@@ -1,5 +1,7 @@
-class Umbral {
-  final int id;
+import '../../../../core/motor/motor_local.dart';
+
+/// Preferencias de alerta del productor. Se guardan en el teléfono.
+class UmbralConfig {
   final int lluviaIntensaMm;
   final int vientoFuerteKmh;
   final int caniculaDias;
@@ -7,43 +9,38 @@ class Umbral {
   final bool tieneRiego;
   final String horarioSms;
 
-  Umbral({
-    required this.id,
-    required this.lluviaIntensaMm,
-    required this.vientoFuerteKmh,
-    required this.caniculaDias,
-    required this.variedadCultivo,
-    required this.tieneRiego,
-    required this.horarioSms,
-  });
-
-  factory Umbral.fromJson(Map<String, dynamic> json) => Umbral(
-    id: json['id'] as int,
-    lluviaIntensaMm: json['lluviaIntensaMm'] as int,
-    vientoFuerteKmh: json['vientoFuerteKmh'] as int,
-    caniculaDias: json['caniculaDias'] as int,
-    variedadCultivo: json['variedadCultivo'] as String? ?? 'Criollo',
-    tieneRiego: json['tieneRiego'] as bool? ?? false,
-    horarioSms: (json['horarioSms'] as String).substring(0, 5),
-  );
-}
-
-class UmbralRequest {
-  final int lluviaIntensaMm;
-  final int vientoFuerteKmh;
-  final int caniculaDias;
-  final String variedadCultivo;
-  final bool tieneRiego;
-  final String horarioSms;
-
-  UmbralRequest({
+  const UmbralConfig({
     this.lluviaIntensaMm = 100,
     this.vientoFuerteKmh = 40,
     this.caniculaDias = 7,
     this.variedadCultivo = 'Criollo',
     this.tieneRiego = false,
-    required this.horarioSms,
+    this.horarioSms = '06:00',
   });
+
+  static const recomendado = UmbralConfig();
+
+  UmbralesMotor aMotor() => UmbralesMotor(
+    lluviaIntensaMm: lluviaIntensaMm,
+    vientoFuerteKmh: vientoFuerteKmh,
+    caniculaDias: caniculaDias,
+  );
+
+  UmbralConfig copyWith({
+    int? lluviaIntensaMm,
+    int? vientoFuerteKmh,
+    int? caniculaDias,
+    String? variedadCultivo,
+    bool? tieneRiego,
+    String? horarioSms,
+  }) => UmbralConfig(
+    lluviaIntensaMm: lluviaIntensaMm ?? this.lluviaIntensaMm,
+    vientoFuerteKmh: vientoFuerteKmh ?? this.vientoFuerteKmh,
+    caniculaDias: caniculaDias ?? this.caniculaDias,
+    variedadCultivo: variedadCultivo ?? this.variedadCultivo,
+    tieneRiego: tieneRiego ?? this.tieneRiego,
+    horarioSms: horarioSms ?? this.horarioSms,
+  );
 
   Map<String, dynamic> toJson() => {
     'lluviaIntensaMm': lluviaIntensaMm,
@@ -54,10 +51,10 @@ class UmbralRequest {
     'horarioSms': horarioSms,
   };
 
-  factory UmbralRequest.fromJson(Map<String, dynamic> json) => UmbralRequest(
-    lluviaIntensaMm: json['lluviaIntensaMm'] as int? ?? 100,
-    vientoFuerteKmh: json['vientoFuerteKmh'] as int? ?? 40,
-    caniculaDias: json['caniculaDias'] as int? ?? 7,
+  factory UmbralConfig.fromJson(Map<String, dynamic> json) => UmbralConfig(
+    lluviaIntensaMm: (json['lluviaIntensaMm'] as num?)?.toInt() ?? 100,
+    vientoFuerteKmh: (json['vientoFuerteKmh'] as num?)?.toInt() ?? 40,
+    caniculaDias: (json['caniculaDias'] as num?)?.toInt() ?? 7,
     variedadCultivo: json['variedadCultivo'] as String? ?? 'Criollo',
     tieneRiego: json['tieneRiego'] as bool? ?? false,
     horarioSms: json['horarioSms'] as String? ?? '06:00',

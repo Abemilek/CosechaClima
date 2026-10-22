@@ -2,17 +2,14 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import '../../../../core/cache/forecast_cache.dart';
-import '../../../../core/cache/guest_parcela_store.dart';
 import '../../../../core/clima/open_meteo_client.dart';
-import '../../../../core/config/municipio_centroide.dart';
 import '../../../../core/motor/motor_local.dart';
 import '../../../../core/motor/reglas_repository.dart';
-import '../../../../core/network/api_exception.dart';
-import '../../../parcela/data/models/parcela.dart';
+import '../../../../core/network/network_exception.dart';
+import '../../../parcela/data/models/parcela_local.dart';
 import '../models/clima.dart';
 
-/// Lo mínimo que el motor necesita saber de una parcela (sirve para parcelas
-/// con cuenta y para las de invitado).
+/// Lo mínimo que el motor necesita saber de una parcela local.
 class EntradaMotor {
   final int cultivoId;
   final int? etapaFenologicaId;
@@ -30,30 +27,7 @@ class EntradaMotor {
     required this.longitud,
   });
 
-  /// null si la parcela no tiene GPS ni un municipio reconocido para estimar la ubicación.
-  static EntradaMotor? deParcela(Parcela parcela) {
-    final double? lat;
-    final double? lon;
-    if (parcela.tieneCoordenadas) {
-      lat = parcela.latitud;
-      lon = parcela.longitud;
-    } else {
-      lat = MunicipioCentroide.latitud(parcela.municipio);
-      lon = MunicipioCentroide.longitud(parcela.municipio);
-    }
-    if (lat == null || lon == null) return null;
-
-    return EntradaMotor(
-      cultivoId: parcela.cultivoId,
-      etapaFenologicaId: parcela.etapaFenologicaId,
-      tipoSueloId: parcela.tipoSueloId,
-      fechaSiembra: parcela.fechaSiembra,
-      latitud: lat,
-      longitud: lon,
-    );
-  }
-
-  factory EntradaMotor.deInvitado(GuestParcela parcela) => EntradaMotor(
+  factory EntradaMotor.deParcelaLocal(ParcelaLocal parcela) => EntradaMotor(
     cultivoId: parcela.cultivoId,
     etapaFenologicaId: parcela.etapaFenologicaId,
     tipoSueloId: parcela.tipoSueloId,
@@ -69,7 +43,7 @@ class EvaluacionLocal {
   final DatosClimaticos datosHoy;
   final DateTime descargadaEn;
 
-  /// true si el clima salió de la copia guardada porque no hubo conexión.
+  /// true si la serie salió de una copia guardada (puede ser reciente).
   final bool desdeCache;
 
   const EvaluacionLocal({
@@ -157,7 +131,7 @@ class MotorLocalService {
     );
   }
 
-  /// Solo el resumen semanal (modo invitado: umbrales por defecto).
+  /// Solo el resumen semanal, con los umbrales que reciba.
   Future<({ResumenSemanal resumen, DateTime descargadaEn, bool desdeCache})>
   resumenSemanal(
     EntradaMotor entrada, {
@@ -261,7 +235,7 @@ class MotorLocalService {
       final respaldo = usable();
       if (respaldo != null) return respaldo;
       rethrow;
-    } on TimeoutApiException {
+    } on NetworkTimeoutException {
       final respaldo = usable();
       if (respaldo != null) return respaldo;
       rethrow;

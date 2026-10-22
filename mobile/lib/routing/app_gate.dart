@@ -1,26 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../features/auth/presentation/view_models/auth_view_model.dart';
+import '../core/app/app_state.dart';
 import '../features/onboarding/presentation/screens/splash_screen.dart';
+import '../features/parcela/presentation/screens/parcela_list_screen.dart';
 import '../shared/widgets/app_loading_message.dart';
-import 'role_home_screen.dart';
 
-class AuthGate extends StatelessWidget {
-  const AuthGate({super.key});
+class AppGate extends StatelessWidget {
+  const AppGate({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthViewModel>();
+    final app = context.watch<AppState>();
 
-    if (auth.estado == EstadoSesion.desconocido) {
+    if (app.cargando) {
       return const Scaffold(
         body: AppLoadingMessage(message: 'Preparando la app...'),
       );
     }
 
-    if (!auth.onboardingVisto) return const SplashScreen();
+    if (!app.onboardingVisto) return const SplashScreen();
 
-    return const RoleHomeScreen();
+    return const ParcelaListScreen();
   }
 }

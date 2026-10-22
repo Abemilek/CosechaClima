@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../core/cache/guest_parcela_store.dart';
 import '../../../../core/cache/ubicacion_preferida_store.dart';
 import '../../../../core/config/municipio_centroide.dart';
 import '../../../../core/config/zona_cobertura.dart';
@@ -13,13 +12,11 @@ import '../../../../shared/widgets/app_avatar.dart';
 import '../../../../shared/widgets/app_loading_message.dart';
 import '../../../../shared/widgets/location_picker_field.dart';
 import '../../../catalogo/data/models/catalogo.dart';
-import '../../data/models/parcela.dart';
-import '../view_models/parcela_view_model.dart';
+import '../../../catalogo/presentation/view_models/catalogo_view_model.dart';
+import '../../data/services/parcela_local_store.dart';
 
 class CrearParcelaWizardScreen extends StatefulWidget {
-  final bool esInvitado;
-
-  const CrearParcelaWizardScreen({super.key, this.esInvitado = false});
+  const CrearParcelaWizardScreen({super.key});
 
   @override
   State<CrearParcelaWizardScreen> createState() =>
@@ -32,6 +29,9 @@ class _CrearParcelaWizardScreenState extends State<CrearParcelaWizardScreen> {
   final _comunidadCtrl = TextEditingController();
   final _latitudCtrl = TextEditingController();
   final _longitudCtrl = TextEditingController();
+  final _fechaCtrl = TextEditingController(
+    text: DateFormat('yyyy-MM-dd').format(DateTime.now()),
+  );
   final _ubicacionPreferida = UbicacionPreferidaStore();
 
   int _step = 0;
@@ -174,7 +174,7 @@ class _CrearParcelaWizardScreenState extends State<CrearParcelaWizardScreen> {
   @override
   void initState() {
     super.initState();
-    unawaited(context.read<ParcelaViewModel>().cargarCatalogos());
+    unawaited(context.read<CatalogoViewModel>().cargarCatalogos());
     unawaited(_cargarUbicacionPreferida());
   }
 
@@ -185,6 +185,7 @@ class _CrearParcelaWizardScreenState extends State<CrearParcelaWizardScreen> {
     _comunidadCtrl.dispose();
     _latitudCtrl.dispose();
     _longitudCtrl.dispose();
+    _fechaCtrl.dispose();
     super.dispose();
   }
 
@@ -224,7 +225,8 @@ class _CrearParcelaWizardScreenState extends State<CrearParcelaWizardScreen> {
       case 3:
         return _tipoSueloId != null;
       case 4:
-        return double.tryParse(_areaCtrl.text.trim()) != null;
+        final area = double.tryParse(_areaCtrl.text.trim());
+        return area != null && area > 0;
       default:
         return false;
     }
@@ -239,6 +241,7 @@ class _CrearParcelaWizardScreenState extends State<CrearParcelaWizardScreen> {
     setState(() {
       _fechaSiembra = fecha;
       _fechaExactaTexto = DateFormat('yyyy-MM-dd').format(fecha);
+      _fechaCtrl.text = _fechaExactaTexto;
       _etapaId = etapaId ?? _etapaId;
     });
   }
@@ -246,110 +249,74 @@ class _CrearParcelaWizardScreenState extends State<CrearParcelaWizardScreen> {
   Future<void> _submit() async {
     setState(() => _guardando = true);
 
-    final request = ParcelaRequest(
-      cultivoId: _cultivoId!,
-      tipoSueloId: _tipoSueloId!,
-      etapaFenologicaId: _etapaId,
-      fechaSiembra: _fechaSiembra,
-      areaMzs: double.parse(_areaCtrl.text.trim()),
-      latitud: _latitudCtrl.text.trim().isEmpty
-          ? null
-          : double.tryParse(_latitudCtrl.text.trim()),
-      longitud: _longitudCtrl.text.trim().isEmpty
-          ? null
-          : double.tryParse(_longitudCtrl.text.trim()),
-      municipio: _municipioSeleccionado,
-      comunidad: _comunidadCtrl.text.trim().isEmpty
-          ? null
-          : _comunidadCtrl.text.trim(),
-    );
-
-    final provider = context.read<ParcelaViewModel>();
-
-    if (widget.esInvitado) {
-      final guardada = await _guardarInvitado(provider, request);
-      if (!mounted) return;
-      setState(() => _guardando = false);
-      if (!guardada) return;
-      await _ubicacionPreferida.guardar(request.municipio ?? '');
-      if (!mounted) return;
-      Navigator.of(context).pop(true);
-      return;
-    }
-
-    final ok = await provider.crearParcela(request);
-    if (!mounted) return;
-
-    if (!ok) {
-      setState(() => _guardando = false);
-      if (provider.error != null) _mostrarSnack(provider.error!);
-      return;
-    }
-
-    setState(() => _guardando = false);
-    if (provider.guardadaLocalmente) {
-      _mostrarSnack(
-        'Guardamos tu parcela en el teléfono. La subimos a tu cuenta '
-        'cuando tengas internet.',
-      );
-    }
-    await _ubicacionPreferida.guardar(request.municipio ?? '');
-    if (!mounted) return;
-    Navigator.of(context).pop(true);
-  }
-
-  Future<bool> _guardarInvitado(
-    ParcelaViewModel provider,
-    ParcelaRequest request,
-  ) async {
-    Cultivo? cultivo;
-    for (final c in provider.cultivos) {
-      if (c.id == request.cultivoId) {
-        cultivo = c;
-        break;
-      }
-    }
-    TipoSuelo? suelo;
-    for (final s in provider.tiposSuelo) {
-      if (s.id == request.tipoSueloId) {
-        suelo = s;
-        break;
-      }
-    }
+    final provider = context.read<CatalogoViewModel>();
+    final cultivo = provider.cultivoPorId(_cultivoId!);
+    final suelo = provider.sueloPorId(_tipoSueloId!);
     if (cultivo == null || suelo == null) {
+      setState(() => _guardando = false);
       _mostrarSnack(
-        'No se pudieron cargar los cultivos. Revisá tu conexión e intentá '
-        'de nuevo.',
+        'No se pudieron cargar los catálogos locales. Reiniciá la app e '
+        'intentá de nuevo.',
       );
-      return false;
+      return;
     }
 
-    final latitud =
-        request.latitud ?? MunicipioCentroide.latitud(request.municipio);
-    final longitud =
-        request.longitud ?? MunicipioCentroide.longitud(request.municipio);
+    final fecha = DateTime.tryParse(_fechaExactaTexto.trim());
+    if (fecha == null) {
+      setState(() => _guardando = false);
+      _mostrarSnack('La fecha de siembra debe tener el formato AAAA-MM-DD.');
+      return;
+    }
+    final hoy = DateTime.now();
+    final fechaSinHora = DateTime(fecha.year, fecha.month, fecha.day);
+    final hoySinHora = DateTime(hoy.year, hoy.month, hoy.day);
+    if (fechaSinHora.isAfter(hoySinHora)) {
+      setState(() => _guardando = false);
+      _mostrarSnack('La fecha de siembra no puede estar en el futuro.');
+      return;
+    }
+
+    var latitud = double.tryParse(_latitudCtrl.text.trim());
+    var longitud = double.tryParse(_longitudCtrl.text.trim());
     if (latitud == null || longitud == null) {
+      latitud = MunicipioCentroide.latitud(_municipioSeleccionado);
+      longitud = MunicipioCentroide.longitud(_municipioSeleccionado);
+    }
+    if (latitud == null || longitud == null) {
+      setState(() => _guardando = false);
       _mostrarSnack(
         'Necesitamos tu ubicación GPS o un municipio de la lista para '
         'calcular el clima.',
       );
-      return false;
+      return;
     }
 
-    await GuestParcelaStore().agregar(
-      cultivoId: cultivo.id,
-      cultivoNombre: cultivo.nombre,
-      tipoSueloId: suelo.id,
-      tipoSueloNombre: suelo.nombre,
-      etapaFenologicaId: request.etapaFenologicaId,
-      latitud: latitud,
-      longitud: longitud,
-      municipio: request.municipio,
-      comunidad: request.comunidad,
-      fechaSiembra: request.fechaSiembra,
-      areaMzs: request.areaMzs,
-    );
-    return true;
+    try {
+      await ParcelaLocalStore().agregar(
+        cultivoId: cultivo.id,
+        cultivoNombre: cultivo.nombre,
+        tipoSueloId: suelo.id,
+        tipoSueloNombre: suelo.nombre,
+        etapaFenologicaId: _etapaId,
+        latitud: latitud,
+        longitud: longitud,
+        municipio: _municipioSeleccionado,
+        comunidad: _comunidadCtrl.text.trim().isEmpty
+            ? null
+            : _comunidadCtrl.text.trim(),
+        fechaSiembra: fecha,
+        areaMzs: double.parse(_areaCtrl.text.trim()),
+      );
+      await _ubicacionPreferida.guardar(_municipioSeleccionado);
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _guardando = false);
+      _mostrarSnack(
+        'No se pudo guardar la parcela en este teléfono. Intentá de nuevo.',
+      );
+    }
   }
 
   void _mostrarSnack(String mensaje) {
@@ -361,11 +328,18 @@ class _CrearParcelaWizardScreenState extends State<CrearParcelaWizardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<ParcelaViewModel>();
+    final provider = context.watch<CatalogoViewModel>();
     final sinCatalogos =
         provider.cultivos.isEmpty && provider.tiposSuelo.isEmpty;
 
-    if (sinCatalogos && !provider.cargando && provider.error != null) {
+    if (provider.cargando && sinCatalogos) {
+      return const Scaffold(
+        backgroundColor: AppColors.cream,
+        body: AppLoadingMessage(message: 'Cargando cultivos y suelos...'),
+      );
+    }
+
+    if (sinCatalogos && provider.error != null) {
       return Scaffold(
         backgroundColor: AppColors.cream,
         appBar: AppBar(
@@ -421,10 +395,8 @@ class _CrearParcelaWizardScreenState extends State<CrearParcelaWizardScreen> {
               ),
               const SizedBox(height: 10),
               _ProgressDots(total: _totalSteps, activeIndex: _step),
-              if (widget.esInvitado) ...[
-                const SizedBox(height: 12),
-                const _AvisoInvitado(),
-              ],
+              const SizedBox(height: 12),
+              const _AvisoLocal(),
               Expanded(
                 child: PageView(
                   controller: _pageController,
@@ -446,7 +418,7 @@ class _CrearParcelaWizardScreenState extends State<CrearParcelaWizardScreen> {
                     ),
                     _DateStep(
                       fecha: _fechaSiembra,
-                      fechaExactaTexto: _fechaExactaTexto,
+                      fechaCtrl: _fechaCtrl,
                       etapas: provider.etapas,
                       etapaId: _etapaId,
                       onFechaChanged: _seleccionarFecha,
@@ -512,8 +484,8 @@ class _PrototypeScreen extends StatelessWidget {
   }
 }
 
-class _AvisoInvitado extends StatelessWidget {
-  const _AvisoInvitado();
+class _AvisoLocal extends StatelessWidget {
+  const _AvisoLocal();
 
   @override
   Widget build(BuildContext context) {
@@ -526,12 +498,12 @@ class _AvisoInvitado extends StatelessWidget {
       ),
       child: const Row(
         children: [
-          Icon(Icons.shield_outlined, size: 16, color: AppColors.greenDark),
+          Icon(Icons.phone_android, size: 16, color: AppColors.greenDark),
           SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Estás sin cuenta: esta parcela queda guardada en este teléfono. '
-              'Iniciá sesión para no perderla.',
+              'Esta parcela queda guardada solo en tu teléfono. Podés hacer '
+              'una copia de seguridad desde Mis parcelas.',
               style: TextStyle(fontSize: 11.5, color: AppColors.greenDark),
             ),
           ),
@@ -999,7 +971,7 @@ class _SinResultadosUbicacion extends StatelessWidget {
 
 class _DateStep extends StatelessWidget {
   final DateTime fecha;
-  final String fechaExactaTexto;
+  final TextEditingController fechaCtrl;
   final List<EtapaFenologica> etapas;
   final int? etapaId;
   final void Function(DateTime fecha, {int? etapaId}) onFechaChanged;
@@ -1007,7 +979,7 @@ class _DateStep extends StatelessWidget {
 
   const _DateStep({
     required this.fecha,
-    required this.fechaExactaTexto,
+    required this.fechaCtrl,
     required this.etapas,
     required this.etapaId,
     required this.onFechaChanged,
@@ -1077,7 +1049,7 @@ class _DateStep extends StatelessWidget {
         ),
         _TextFieldBlock(
           label: 'O selecciona una fecha exacta',
-          controller: TextEditingController(text: fechaExactaTexto),
+          controller: fechaCtrl,
           hintText: '2026-06-10',
           keyboardType: TextInputType.datetime,
           onChanged: onFechaExactaChanged,

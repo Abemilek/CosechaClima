@@ -53,7 +53,7 @@ class NotificacionRiesgoService {
   }
 
   Future<void> evaluarCambioDeRiesgo({
-    required int parcelaId,
+    required String parcelaId,
     required String parcelaNombre,
     required String nivelRiesgoActual,
     required String descripcionAlerta,
@@ -103,10 +103,21 @@ class NotificacionRiesgoService {
     );
 
     await _plugin.show(
-      parcelaId,
+      _idNotificacion(parcelaId),
       'Riesgo $nivelRiesgoActual en $parcelaNombre',
       descripcionAlerta,
       details,
     );
+  }
+
+  /// Hash estable entre reinicios (FNV-1a de 32 bits) para que la notificación
+  /// de una parcela reemplace a la anterior en vez de duplicarse.
+  static int _idNotificacion(String parcelaId) {
+    var hash = 0x811c9dc5;
+    for (final unidad in parcelaId.codeUnits) {
+      hash ^= unidad;
+      hash = (hash * 0x01000193) & 0x7fffffff;
+    }
+    return hash;
   }
 }

@@ -1,5 +1,10 @@
 # Authentication
 
+> [!IMPORTANT]
+> Documento del **backend/stack histórico**. La app móvil v2 es 100 % local y
+> no usa esta API. Para la app vigente ver [local-first.md](./local-first.md).
+
+
 CosechaClima usa autenticacion **JWT Bearer**. Una cuenta se crea con **correo + contrasena** o con **Google**, y ambas terminan en el mismo token. Ademas, parte de la API es **publica** para que un usuario pueda ver el clima de su zona sin cuenta (modo invitado). Este documento explica el flujo completo para cualquiera que necesite consumir la API.
 
 ## Flujo resumido

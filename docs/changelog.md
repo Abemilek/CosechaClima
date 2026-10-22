@@ -3,6 +3,35 @@
 Todos los cambios notables de este proyecto se documentan en este archivo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versionado siguiendo [Semantic Versioning](https://semver.org/).
 
+## [2.0.0] - App móvil 100 % local (Plan A)
+
+La app móvil deja de depender del backend. Todo se guarda y se calcula en el
+teléfono; el backend y el Admin Console quedan como código histórico.
+
+### Added
+- Almacenamiento local de parcelas, umbrales y bitácora.
+- Detalle local con semáforo diario, plan semanal, bitácora y edición/eliminación.
+- Copia de seguridad JSON para exportar y restaurar todos los datos.
+- Migración automática de parcelas del modo invitado, de la caché del servidor
+  y de umbrales antiguos.
+- Pantalla de clima de la zona accesible desde el menú.
+
+### Changed
+- `API_URL` ya no es obligatoria; la app arranca sin configuración.
+- Los catálogos y las 540 reglas se leen solo del paquete embebido.
+- El tutorial y “Acerca de” explican el funcionamiento local y el respaldo.
+- Se retiraron cuentas, JWT, Google Sign-In, Admin Console móvil, llamadas al
+  backend y actualización remota de reglas.
+- Se retiraron dependencias sin uso (`google_sign_in`, `flutter_secure_storage`,
+  `url_launcher`, `device_info_plus`).
+
+### Fixed
+- El respaldo conserva la bitácora y los umbrales, no solo las parcelas.
+- La notificación de riesgo usa un id estable por parcela.
+- La documentación móvil ya no exige `.env` ni `API_URL`.
+
+Ver [local-first.md](./local-first.md).
+
 ## [Unreleased] - Plan B: motor en el dispositivo, PostgreSQL y sesiones seguras
 
 Detalle de decisiones y de lo que sigue pendiente en [plan-b-offline-first.md](./plan-b-offline-first.md) y [postgresql.md](./postgresql.md).

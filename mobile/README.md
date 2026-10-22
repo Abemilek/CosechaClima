@@ -1,4 +1,4 @@
-# CosechaClima -- Mobile App
+# CosechaClima — Mobile App
 
 <!-- README-I18N:START -->
 
@@ -6,349 +6,148 @@
 
 <!-- README-I18N:END -->
 
-Flutter mobile client for the CosechaClima agroclimatic alert system. It consumes the ASP.NET Core 10 backend REST API and presents weather risk alerts with recommended actions for agricultural producers.
+Flutter app for **CosechaClima**, an agroclimatic risk assistant for small producers in Nicaragua. Since v2.0 the app is **100 % local**: it does not need a backend, an account, an API URL, or any environment file to run. Parcels, thresholds, and the field logbook live on the phone.
 
 ---
 
-## Table of Contents
+## What works offline
 
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Environment configuration](#environment-configuration)
-- [Project structure](#project-structure)
-- [Rendering philosophy: Zero Animations](#rendering-philosophy-zero-animations)
-- [Performance optimizations](#performance-optimizations)
-- [State management](#state-management)
-- [Guest mode and authentication](#guest-mode-and-authentication)
-- [Security](#security)
-- [API integration](#api-integration)
-- [Release build](#release-build)
-- [Troubleshooting](#troubleshooting)
+| Feature | Where | Internet needed |
+|---|---|---|
+| Traffic light and weekly plan | Phone (`MotorLocal`, Dart) | No (uses the last forecast, valid up to 3 days) |
+| 540 agronomic rules + catalogs | Embedded asset `assets/reglas/paquete_reglas.json` | No |
+| Parcels, thresholds, logbook | Phone (`SharedPreferences`) | No |
+| Backup / restore | JSON copied to the clipboard | No |
+| Fresh weather forecast | Direct call to Open-Meteo | Yes, only for the first load or a refresh |
+| Accounts, server, Admin Console | Removed from the mobile app | Not used |
 
----
+The forecast is cached for 2 hours and can be shown offline for up to 3 days. The last full evaluation of each parcel is also stored on the phone as a fallback.
 
-## Prerequisites
+> Weather data: [Open-Meteo.com](https://open-meteo.com/), CC BY 4.0. The free plan is for non-commercial use; the attribution is shown inside the app.
+
+## Requirements
 
 - Flutter SDK (stable channel)
-- Dart SDK (bundled with Flutter)
 - Android Studio or VS Code with the Flutter extension
-- Physical device or emulator (Android/iOS)
-- Backend API running (see [../backend/README.md](../backend/README.md) or root `compose.yaml`)
+- Android/iOS device or emulator
 
-## Installation
+No backend, database, `.env`, or `--dart-define` is required.
+
+## Install and run
 
 ```bash
 cd mobile
 flutter pub get
+flutter run
 ```
 
-## Environment configuration
-
-The app injects environment variables at **build time** via `--dart-define-from-file` or `--dart-define`. Configuration is read from `lib/core/config/environment.dart` using `String.fromEnvironment`.
-
-### Step 1 -- Create the `.env` file
+Release build:
 
 ```bash
-cd mobile
-cp .env.example .env
+flutter build apk --release
+# or
+flutter build appbundle --release
+flutter build ios --release
 ```
 
-Edit `.env` with the backend URL for your environment:
+## Local data and backup
 
-```bash
-# Android emulator
-API_URL=http://10.0.2.2:8080
+Everything is stored in the app's private storage:
 
-# Physical device (use the machine's local IP)
-API_URL=http://192.168.1.100:8080
+| Key | Content |
+|---|---|
+| `onboarding_visto` | Whether the tutorial was already shown |
+| `parcelas_invitado` | Local parcels (the historical key is kept to migrate old guest parcels) |
+| `umbral_local` | Risk thresholds |
+| `bitacora_local_v1` | Field logbook entries |
+| `forecast_*` | Cached Open-Meteo forecasts |
+| `evaluacion_local_*` | Last full evaluation of each parcel |
 
-# Production
-API_URL=https://api.cosechaclima.example.com
+Use **Mis parcelas → Copia de seguridad** to:
 
-# Google Sign-In (optional): WEB-type Client ID, not the Android one
-GOOGLE_SERVER_CLIENT_ID=
-```
+1. copy a JSON backup to the clipboard (save it in WhatsApp, email, or a file), and
+2. restore it later on the same or a new phone.
 
-| Variable | Required | Description |
-|---|---|---|
-| `API_URL` | Yes | API base. **Domain and port only, no paths** |
-| `GOOGLE_SERVER_CLIENT_ID` | No | Google Cloud Web Client ID. If empty, the app hides the "Continue with Google" button and only offers email and password. See [../docs/google-sign-in-setup.md](../docs/google-sign-in-setup.md) |
-
-> [!NOTE]
-> `10.0.2.2` is the Android emulator's alias for the host machine's localhost. For physical devices, use the real local IP.
-
-> [!IMPORTANT]
-> `API_URL` **must not include a path**. The app builds each request as `API_URL` + `/api` + the endpoint. A value like `https://host/swagger/index.html` or `https://host/api` makes every screen fail with `Error inesperado (404)`.
-
-> [!NOTE]
-> Android 9+ blocks `http://` by default. The **debug** manifest allows it for local development (e.g. `http://10.0.2.2:8080`); release builds require `https://`.
-
-### Step 2 -- Run with the `.env` file
-
-```bash
-flutter run --dart-define-from-file=.env
-```
-
-**Alternative without a file** (passing the variable directly):
-
-```bash
-flutter run --dart-define=API_URL=http://10.0.2.2:8080
-```
-
-### Behavior when `API_URL` is missing
-
-The app **won't start** if `API_URL` is not defined. On launch, `Environment.validate()` throws an explicit exception:
-
-```
-Exception: API_URL is required.
-Run with: flutter run --dart-define-from-file=.env
-See mobile/.env.example for setup instructions.
-```
-
-Because values are resolved at **compile time**, every `.env` change requires stopping the app and relaunching it; a hot reload or hot restart won't apply it.
-
-> [!WARNING]
-> There is no fallback to any default URL. Always create the `.env` file before running. The `.env` file must not be committed to version control.
+Restoring **replaces** the current parcels, logbook, and thresholds. The app also migrates, on first launch, the old server parcel cache (`cache_lista_parcelas`) and old guest parcels so existing users do not lose their data.
 
 ## Project structure
 
-```
+```text
 mobile/
 |-- lib/
 |   |-- core/
-|   |   |-- config/
-|   |   |   |-- environment.dart          # Variables de entorno via --dart-define (API_URL, GOOGLE_SERVER_CLIENT_ID)
-|   |   |-- network/
-|   |   |   |-- api_client.dart           # Cliente HTTP con interceptor JWT
-|   |   |   |-- api_exception.dart        # Excepciones tipadas de API
-|   |   |-- theme/
-|   |       |-- app_theme.dart            # Colores, radios, tipografia
+|   |   |-- app/                  # Onboarding state
+|   |   |-- backup/               # (feature) JSON backup and restore
+|   |   |-- cache/                # Forecast and last evaluation caches
+|   |   |-- clima/                # Open-Meteo client
+|   |   |-- config/               # Environment constants and municipality centroids
+|   |   |-- local/                # One-time migration from the old server cache
+|   |   |-- motor/                # 540-rule engine and embedded package loader
+|   |   |-- network/              # Network/timeout exceptions
+|   |   |-- services/             # Geolocation and local notifications
 |   |-- features/
-|   |   |-- auth/                         # Google Sign-In, correo y contrasena, login contextual
-|   |   |-- parcela/                      # Gestion de parcelas, pantalla de detalle
-|   |   |-- clima/                        # Datos climaticos, pronostico publico, motor de decisiones
-|   |   |-- umbral/                       # Umbrales de riesgo del usuario
-|   |   |-- bitacora/                     # Bitacora de campo
-|   |   |-- catalogo/                     # Datos de catalogo (cultivos, suelos, etc.)
-|   |   |-- onboarding/                   # Tutorial (una sola vez) e inicio publico
-|   |-- shared/
-|       |-- widgets/                      # Componentes reutilizables (AppAvatar, AppPill)
-|-- pubspec.yaml
+|   |   |-- parcela/              # Local parcel model, store, wizard, detail, edit
+|   |   |-- clima/                # Weekly summary and local engine service
+|   |   |-- catalogo/             # Local catalogs from the embedded rule package
+|   |   |-- umbral/               # Local risk thresholds
+|   |   |-- bitacora/             # Local field logbook
+|   |   |-- onboarding/           # Splash, tutorial, about, area forecast
+|   |-- routing/                  # App gate and no-animation routes
+|   |-- shared/                   # Reusable widgets
+|-- assets/reglas/paquete_reglas.json
+|-- test/
 ```
 
-## Rendering philosophy: Zero Animations
+## Rules engine
 
-This app follows a strict **Zero Animations** policy. The goal is pure performance and straightforward UX for farming users in resource-constrained environments.
+- `lib/core/motor/motor_local.dart` is pure Dart and is covered by `test/core/motor/motor_local_test.dart`.
+- The embedded package contains **540 rules**, 6 climate events, 5 crops, 3 soil types and 6 phenological stages.
+- The engine evaluates all active events for the day and picks the most severe risk level (Alto / Medio / Bajo / Sin riesgo) with three recommended actions.
+- No network call is needed to calculate the traffic light or the weekly plan.
 
-**Forbidden:**
-
-- `AnimatedContainer`, `AnimatedOpacity`, `AnimatedSwitcher`, or any `Animated*` widget
-- `animateToPage` or any animated page transition
-- Dynamic floating alerts or toast animations
-- Opacity transitions or expand animations
-- `CircularProgressIndicator` with an animated appearance
-
-**Required:**
-
-- `jumpToPage` for all PageView navigation (instant, no transition)
-- Static color and text changes for state updates
-- Risk levels (High, Medium, Low) are communicated through solid color blocks (red, amber, green) and bold text, not through visual effects
-- Direct widget replacement with no transition effects
-
-> [!IMPORTANT]
-> Any PR introducing animated widgets will be rejected. Risk levels are communicated exclusively through static color coding and bold text.
-
-## Performance optimizations
-
-### Background JSON parsing with isolates
-
-For services returning large JSON payloads (logbook history, catalog lists), parsing is delegated to background isolates using Dart's `compute` function to avoid blocking the UI thread.
-
-Example from `BitacoraService`:
-
-```dart
-import 'package:flutter/foundation.dart';
-
-// Funcion de alto nivel requerida por compute para el Isolate
-List<BitacoraEntry> _parseBitacoras(List<dynamic> json) {
-  return json
-      .map((e) => BitacoraEntry.fromJson(e as Map<String, dynamic>))
-      .toList();
-}
-
-Future<List<BitacoraEntry>> obtenerMias() async {
-  final json = await _client.get('/logs/mias') as List<dynamic>;
-  return compute(_parseBitacoras, json); // Ejecuta en isolate secundario
-}
-```
-
-> [!NOTE]
-> The parsing function must be a top-level function, not a method or closure, so it can be sent to the isolate.
-
-### Granular state consumption
-
-Avoid root-level `context.watch<ViewModel>()` calls that trigger full widget-tree rebuilds. Use instead:
-
-- `Selector<ViewModel, T>` to observe specific fields
-- `Consumer<ViewModel>` scoped to the smallest possible subtree
-- `context.read<ViewModel>()` for one-off reads (event handlers, initState)
-
-## State management
-
-The app uses `Provider` for state management.
-
-**Principles:**
-
-- ViewModels extend `ChangeNotifier`.
-- Each feature has its own ViewModel (`AuthViewModel`, `ParcelaViewModel`, etc.).
-- State is consumed granularly using `Selector` and `Consumer` to minimize rebuilds.
-- No global state observation in root `build` methods.
-
-## Guest mode and authentication
-
-The app **doesn't require an account**. The onboarding shows only once (first launch) and afterwards you always land on the home screen:
-
-| State | Home screen |
-|---|---|
-| No session (guest) | `PublicHomeScreen`: 5-day area forecast |
-| With session | `ParcelaListScreen` (producer) or `AdminHomeScreen` (Admin role) |
-
-| Area | Guest | With account |
-|---|---|---|
-| Onboarding | Yes | Yes |
-| Area forecast (approximate Carazo, or "Use my location") | Yes | Yes |
-| Plots, thresholds, plot weather, traffic light, logbook | No, asks to sign in | Yes |
-| Admin Console | No | Admin role only |
-
-**Sign-in is requested at a single point.** Tapping "Mis parcelas" on the public home opens a contextual login (`mostrarLoginContextual`) explaining why. On success, the app continues to what the user wanted to do; on cancel, it stays where it was.
-
-**Sign-in methods:**
-
-- **Continue with Google** (`AuthService.loginConGoogle`): the SDK returns an `idToken` and the app sends it to `POST /api/auth/google`. Requires `GOOGLE_SERVER_CLIENT_ID` and the package plus SHA-1 fingerprint registered in Google Cloud.
-- **Email and password** (`EmailAuthScreen`): "Soy nuevo" tabs (`POST /api/auth/register`) and "Ya tengo cuenta" (`POST /api/auth/login`). Valid email format and password of at least 8 characters.
-
-All three responses return `{ token, nombre, email, fotoUrl, esAdmin }`. If the backend answers `401` on a protected endpoint (expired token), `AuthViewModel` signs out and the app returns to the public home with the notice "Tu sesión expiró. Volviste al modo público."
-
-`AuthViewModel` exposes `estado` (`desconocido`, `autenticado`, `invitado`), `estaAutenticado`, `esAdmin` and `onboardingVisto`. See [../docs/mobile-integration-guide.md](../docs/mobile-integration-guide.md) for the flow detail.
-
-## Security
-
-### JWT token storage
-
-JWT tokens are stored using `flutter_secure_storage`, which uses:
-
-- **Android:** EncryptedSharedPreferences (AES-256)
-- **iOS:** Keychain Services
-
-> [!WARNING]
-> Never store tokens in `SharedPreferences` or plain-text variables. Always use `flutter_secure_storage`.
-
-`SharedPreferences` only keeps **non-sensitive** data for rendering the UI: name, email, photo URL and the onboarding-seen flag. On sign-out the token and that data are wiped, and the Google session is closed.
-
-The Google Client ID shipped in the app is not a secret; the *client secret* is never used nor bundled into the app.
-
-### HTTP client and token handling
-
-The `ApiClient` class handles:
-
-- Automatic `Authorization: Bearer <token>` header injection on all authenticated requests.
-- Translation of HTTP errors into typed exceptions (`ApiException`, `NetworkException`, `TimeoutApiException`).
-- Automatic sign-out on 401 responses (expired token): the app returns to public mode.
-- Reading the error message from `title` or `mensaje` depending on the endpoint.
-
-## API integration
-
-The risk traffic light and the weekly plan are computed **on the device**; the backend is only used for accounts, plots, logbook and rule updates.
-
-- **Weather:** the app calls Open-Meteo directly (`api.open-meteo.com`), keeps a local copy (fresh for 2 h, usable offline for up to 3 days) and shows the required CC BY 4.0 attribution.
-- **Rules:** `assets/reglas/paquete_reglas.json` ships inside the app (catalogs + 540 rules). On startup (at most every 6 h) it asks `GET /api/reglas/paquete` with `If-None-Match`; if an admin changed something it downloads the new package, otherwise it gets `304`.
-- **Engine:** `lib/core/motor/motor_local.dart` (pure Dart, unit-tested in `test/core/motor`).
-- **Session:** 15-minute access token + rotated refresh token, both in `flutter_secure_storage`; `ApiClient` renews transparently on `401` and only logs out if the server rejects the refresh token.
-- **With an account**, typical flow for a plot: `GET /api/parcelas/{id}` (if online) -> local calculation -> `PUT /api/alertas/parcela/{id}` (best effort, keeps the admin audit trail) -> `POST /api/logs` when the user confirms an action.
-- **Zero animations** remains a hard rule: nothing added in this change uses animation widgets.
-
-See the [API Reference](../docs/api-reference.md) for full endpoint documentation.
-
-## Release build
-
-> [!WARNING]
-> The `API_URL` variable is **mandatory** in production builds. Without it, the app throws an exception on launch.
-
-**Using a `.env` file** (recommended):
+## Verification
 
 ```bash
-flutter build apk --release --dart-define-from-file=.env
-flutter build appbundle --release --dart-define-from-file=.env
-flutter build ios --release --dart-define-from-file=.env
+cd mobile
+dart format --output=none --set-exit-if-changed lib test
+flutter analyze --fatal-infos
+flutter test
 ```
 
-**Using a direct variable:**
+## Release signing
 
-```bash
-flutter build apk --release --dart-define=API_URL=https://api.cosechaclima.example.com
-```
-
-In release, `API_URL` must be `https://`: `http://` traffic is only allowed in the debug manifest.
-
-### APK signing (mandatory before publishing v1.0)
-
-By default, `flutter build apk --release` signs with the Android SDK's **debug key**.
-That key is public and shared by every SDK installation, so anyone can re-sign the APK and
-impersonate the app. For a published release, generate your own keystore once:
+`flutter build apk --release` signs with the Android SDK debug key by default, which is not valid for publishing. Generate a private keystore once:
 
 ```bash
 keytool -genkey -v -keystore ~/cosechaclima-release.jks \
   -keyalg RSA -keysize 2048 -validity 10000 -alias cosechaclima
 ```
 
-Then create `mobile/android/key.properties` (already in `.gitignore`, not versioned):
+Create `mobile/android/key.properties` (ignored by git):
 
 ```properties
-storePassword=LA_PASSWORD_DEL_KEYSTORE
-keyPassword=LA_PASSWORD_DE_LA_CLAVE
+storePassword=YOUR_STORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
 keyAlias=cosechaclima
-storeFile=/home/TU_USUARIO/cosechaclima-release.jks
+storeFile=/home/YOUR_USER/cosechaclima-release.jks
 ```
 
-`android/app/build.gradle.kts` detects that file automatically: if it
-exists it signs with your keystore, otherwise it falls back to debug keys so
-`flutter run --release` keeps working in development.
+`android/app/build.gradle.kts` picks it up automatically; without it the build falls back to debug keys. Keep the `.jks` and its passwords backed up: losing them prevents publishing updates with the same identity.
 
-> [!CAUTION]
-> Keep the `.jks` and its passwords somewhere safe and backed up.
-> If you lose them, you won't be able to publish app updates
-> signed with the same identity -- Android rejects them as if they were
-> from another developer.
-
-Check which key the APK was signed with:
+Check the signature:
 
 ```bash
 keytool -printcert -jarfile build/app/outputs/flutter-apk/app-release.apk
 ```
 
-If the owner says `CN=Android Debug`, the keystore wasn't picked up.
-
-> [!IMPORTANT]
-> Google Sign-In recognizes the app by its package and the **SHA-1 of the signing keystore**. Each keystore (debug, release and, if published on Google Play with Play App Signing, Play's) needs its own Android-type Client ID in Google Cloud; otherwise Google login fails on that build with `ApiException: 10`. See [../docs/google-sign-in-setup.md](../docs/google-sign-in-setup.md).
-
-### Application ID
-
-The `applicationId` is `ni.edu.unan.cosechaclima`. It used to be
-`com.example.mobile`: the `com.example` prefix is reserved for
-samples and Google Play rejects any APK using it. This value is
-**permanent** once the app is published -- changing it later forces you to
-publish a brand-new app from scratch.
-
-The Google Cloud Android Client ID must use this same package. If you change it, that Client ID must be created or updated.
-
 ## Troubleshooting
 
-| Symptom | Likely cause | Solution |
+| Symptom | Cause | Solution |
 |---|---|---|
-| `Error inesperado (404)` on forecast, login and registration | `API_URL` has an extra path (`/swagger/...`, `/api`) or points to another service | Keep only domain and port, and relaunch the app |
-| The app won't start and throws `API_URL is required` | Empty `mobile/.env` or `--dart-define-from-file=.env` wasn't passed | Fill in `API_URL` and run `flutter run --dart-define-from-file=.env` |
-| I changed `.env` but the app looks the same | Values are resolved at compile time | Stop the app and relaunch it |
-| "Continuar con Google" doesn't show up | Empty `GOOGLE_SERVER_CLIENT_ID` | Fill it with the Web Client ID and relaunch |
-| Google fails with `ApiException: 10` | Package or SHA-1 doesn't match the Android Client ID | See [../docs/google-sign-in-setup.md](../docs/google-sign-in-setup.md) |
-| `Cleartext HTTP traffic not permitted` | Release build against an `http://` URL | Use `https://` in release; in debug the manifest already allows it |
-| Creating an account with a **new** email says "Ya existe un registro con esos mismos datos" | The database was created with a plain `UNIQUE` constraint on `GoogleUid` (only allows one `NULL`) | Recreate the database with the current `BD-CosechaClima.sql` (`docker compose down -v`). If the message is "ya existe una cuenta con este correo", just sign in |
+| No fresh weather | No internet | The app shows the cached forecast (up to 3 days) or the last full evaluation |
+| Weather is stale | Cache expired and no connection | Reconnect and pull to refresh |
+| Data disappeared after changing phones | Local storage is per device | Restore the JSON backup from **Copia de seguridad** |
+| No notifications | Notification permission denied | Enable it in Android/iOS settings and in **Ajustar mis alertas** |
+| Android build fails after updating dependencies | Stale generated plugins | `flutter clean && flutter pub get` |
+
+The old backend and Admin Console remain in the repository as historical/reference code, but the mobile app no longer calls them.

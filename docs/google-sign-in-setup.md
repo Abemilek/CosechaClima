@@ -1,5 +1,10 @@
 # Google Sign-In -- Guia de configuracion
 
+> [!IMPORTANT]
+> Documento del **backend/stack histórico**. La app móvil v2 es 100 % local y
+> no usa esta API. Para la app vigente ver [local-first.md](./local-first.md).
+
+
 Como configurar "Continuar con Google" de punta a punta: Google Cloud Console, el backend y la app Flutter. Google Sign-In es **gratuito** y no requiere Firebase ni ningun plan de pago. El flujo completo de autenticacion esta en [authentication.md](./authentication.md).
 
 > [!NOTE]
@@ -65,42 +70,11 @@ GOOGLE_CLIENT_ID_WEB=<client id web>.apps.googleusercontent.com
 docker compose up -d --force-recreate api
 ```
 
-## Paso 5 -- Configurar la app
+## Paso 5 -- App móvil (histórico)
 
-En `mobile/.env`:
-
-```bash
-API_URL=http://10.0.2.2:8080
-GOOGLE_SERVER_CLIENT_ID=<client id web>.apps.googleusercontent.com
-```
-
-`GOOGLE_SERVER_CLIENT_ID` es el Client ID **Web**, no el de Android. Como se inyecta en tiempo de compilacion, hay que **detener la app y volver a lanzarla** (un hot restart no basta):
-
-```bash
-flutter run --dart-define-from-file=.env
-```
-
-## Paso 6 -- Verificar
-
-1. La pantalla de login muestra el boton **Continuar con Google** (si no aparece, `GOOGLE_SERVER_CLIENT_ID` esta vacio).
-2. Al tocarlo se abre el selector de cuentas de Google y, al elegir una, la app entra con esa cuenta.
-3. En los logs de la API no aparece `ID Token de Google invalido` ni `GoogleAuth:ClientIds no esta configurado`:
-
-```bash
-docker compose logs -f api
-```
-
-## Problemas comunes
-
-| Sintoma | Causa probable | Solucion |
-|---|---|---|
-| No aparece el boton de Google | `GOOGLE_SERVER_CLIENT_ID` vacio, o la app no se recompilo despues de editarlo | Completar `mobile/.env` y relanzar con `--dart-define-from-file=.env` |
-| Error `ApiException: 10` (`DEVELOPER_ERROR`) al elegir la cuenta | El paquete o el SHA-1 del Client ID Android no coinciden con la app instalada | Revisar el paquete y el SHA-1 del keystore que firma ese build (paso 3) |
-| Error `12500` al iniciar sesion | Pantalla de consentimiento incompleta (falta correo de soporte) o cuenta no autorizada | Completar la pantalla de consentimiento; agregar la cuenta como usuario de prueba |
-| "Acceso bloqueado" / app no verificada | La app esta en modo Prueba y la cuenta no esta en la lista | Agregarla como usuario de prueba, o publicar la app |
-| La app dice que Google no devolvio un `idToken` | Falta `serverClientId`, o se uso el Client ID de Android en vez del Web | Usar el Client ID **Web** en `GOOGLE_SERVER_CLIENT_ID` |
-| La API responde `401` "no se pudo validar la cuenta de Google" | El `aud` del token no esta en `GoogleAuth:ClientIds`, el token expiro, o el correo no esta verificado | Verificar que `GOOGLE_CLIENT_ID_WEB` sea el mismo Client ID Web de la app; revisar el log de la API |
-| Funciona en debug pero no en release | El SHA-1 del keystore de release no esta registrado | Crear un Client ID Android con ese SHA-1 (ver [mobile/README.md](../mobile/README.md), "Firma del APK") |
+La app móvil v2 **no usa Google Sign-In**, cuentas ni `mobile/.env`. Este paso
+ya no aplica. La configuración de Google descrita arriba solo sirve si se
+reactiva el backend/Admin Console histórico.
 
 > [!NOTE]
 > Esta guia cubre Android. La configuracion nativa de iOS (URL scheme, `GoogleService-Info` o equivalente) requiere pasos adicionales que no se documentan aqui.

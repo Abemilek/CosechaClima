@@ -321,7 +321,7 @@ backend/
 ---
 
 > [!WARNING]
-> The root `.env` (and `mobile/.env`) hold real credentials and must never be shared or pushed to version control. When zipping the project, exclude them explicitly:
+> The root `.env` holds real credentials and must never be shared or pushed to version control. When zipping the project, exclude them explicitly:
 > ```bash
 > zip -r CosechaClima.zip CosechaClima -x "*.env" -x "*/bin/*" -x "*/obj/*"
 > ```

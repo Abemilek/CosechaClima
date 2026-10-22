@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/config/environment.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/app_pill.dart';
 
@@ -21,7 +22,8 @@ class AcercaDeScreen extends StatelessWidget {
           children: const [
             Text(
               'CosechaClima ayuda a productores de Nicaragua a anticipar riesgos '
-              'climáticos y saber qué hacer en su parcela cada semana.',
+              'climáticos y saber qué hacer en su parcela cada semana. Funciona '
+              'sin cuentas y guarda todo en tu teléfono.',
               style: TextStyle(fontSize: 15, color: AppColors.ink, height: 1.4),
             ),
             SizedBox(height: 24),
@@ -39,13 +41,13 @@ class AcercaDeScreen extends StatelessWidget {
               icon: Icons.rule_outlined,
               titulo: 'Motor de reglas agroclimáticas',
               detalle:
-                  'El motor de reglas corre en tu teléfono (también sin '
-                  'conexión, con el último pronóstico descargado). Compara esos '
-                  'datos con umbrales por '
-                  'cultivo, etapa de crecimiento y tipo de suelo para calcular '
-                  'el nivel de riesgo (bajo, medio o alto) y las acciones '
-                  'recomendadas para la semana, igual que un boletín '
-                  'agrometeorológico del INETER o el INTA.',
+                  'Las 540 reglas agroclimáticas y los catálogos viajan '
+                  'dentro de la app. El motor corre en tu teléfono (también '
+                  'sin conexión, con el último pronóstico descargado). Compara '
+                  'esos datos con umbrales por cultivo, etapa de crecimiento y '
+                  'tipo de suelo para calcular el nivel de riesgo (bajo, medio '
+                  'o alto) y las acciones recomendadas para la semana, igual '
+                  'que un boletín agrometeorológico del INETER o el INTA.',
             ),
             SizedBox(height: 14),
             _InfoCard(
@@ -58,6 +60,15 @@ class AcercaDeScreen extends StatelessWidget {
             ),
             SizedBox(height: 14),
             _InfoCard(
+              icon: Icons.phone_android,
+              titulo: 'Tus datos son tuyos',
+              detalle:
+                  'Las parcelas, la bitácora y los umbrales viven únicamente en '
+                  'este teléfono. No hay servidor ni cuenta. Usá la copia de '
+                  'seguridad para cambiar de teléfono o recuperar tus datos.',
+            ),
+            SizedBox(height: 14),
+            _InfoCard(
               icon: Icons.verified_user_outlined,
               titulo: 'Cobertura',
               detalle:
@@ -67,11 +78,12 @@ class AcercaDeScreen extends StatelessWidget {
             SizedBox(height: 24),
             AppPill(
               icon: Icons.school_outlined,
-              text: 'Proyecto universitario',
+              text: 'Proyecto universitario · 100 % local',
             ),
             SizedBox(height: 8),
             Text(
-              'CosechaClima es un proyecto académico sin fines de lucro.',
+              'CosechaClima es un proyecto académico sin fines de lucro. '
+              'Versión ${Environment.version}.',
               style: TextStyle(fontSize: 12, color: AppColors.muted),
             ),
           ],
