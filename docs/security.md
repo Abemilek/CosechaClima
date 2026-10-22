@@ -1,5 +1,10 @@
 # Security
 
+> [!IMPORTANT]
+> Documento del **backend/stack histórico**. La app móvil v2 es 100 % local y
+> no usa esta API. Para la app vigente ver [local-first.md](./local-first.md).
+
+
 Decisiones de seguridad, hallazgos resueltos y politicas de proteccion de la API CosechaClima. Alineado con [OWASP API Security Top 10 (2023)](https://owasp.org/API-Security/editions/2023/en/0x00-header/).
 
 ## Autenticacion

@@ -2,18 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 
 import '../../../../core/cache/clima_publico_cache.dart';
-import '../../../../core/network/api_exception.dart';
+import '../../../../core/clima/open_meteo_client.dart';
+import '../../../../core/network/network_exception.dart';
 import '../../../../core/services/location_service.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../routing/no_animation_route.dart';
-import '../../../auth/presentation/screens/login_sheet.dart';
-import '../../../auth/presentation/view_models/auth_view_model.dart';
 import '../../../clima/data/models/clima.dart';
 import '../../../clima/data/services/motor_local_service.dart';
-import '../../../parcela/presentation/screens/parcela_list_screen.dart';
 
 class PublicHomeScreen extends StatefulWidget {
   const PublicHomeScreen({super.key});
@@ -39,13 +35,6 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
   void initState() {
     super.initState();
     unawaited(_cargarPronostico());
-  }
-
-  Future<void> _iniciarSesion() async {
-    await mostrarLoginContextual(
-      context,
-      motivo: 'Iniciá sesión para no perder tus parcelas',
-    );
   }
 
   Future<void> _cargarPronostico({bool usarGps = false}) async {
@@ -104,9 +93,14 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
     } on NetworkException catch (e) {
       await usarCache();
       if (resultado == null) error = e.message;
-    } on TimeoutApiException catch (e) {
+    } on NetworkTimeoutException catch (e) {
       await usarCache();
       if (resultado == null) error = e.message;
+    } catch (_) {
+      await usarCache();
+      if (resultado == null) {
+        error = 'No se pudo consultar el clima. Intentá de nuevo.';
+      }
     }
 
     if (!mounted) return;
@@ -120,17 +114,8 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
     });
   }
 
-  Future<void> _irAMisParcelas() async {
-    if (!mounted) return;
-    await Navigator.of(
-      context,
-    ).push<void>(noAnimationRoute<void>((_) => const ParcelaListScreen()));
-  }
-
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthViewModel>();
-
     return Scaffold(
       backgroundColor: AppColors.cream,
       body: SafeArea(
@@ -139,11 +124,7 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
             children: [
-              _Encabezado(
-                nombre: auth.nombre,
-                estaAutenticado: auth.estaAutenticado,
-                onIniciarSesion: _iniciarSesion,
-              ),
+              _Encabezado(onBack: () => Navigator.of(context).pop()),
               const SizedBox(height: 20),
 
               if (_datosGuardadosEn != null) ...[
@@ -173,8 +154,11 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
                 ..._pronostico.map((dia) => _TarjetaDia(dia: dia)),
               ],
 
-              const SizedBox(height: 24),
-              _TarjetaAccionPrivada(onTap: _irAMisParcelas),
+              const SizedBox(height: 18),
+              const Text(
+                OpenMeteoClient.atribucion,
+                style: TextStyle(fontSize: 10.5, color: AppColors.muted),
+              ),
             ],
           ),
         ),
@@ -192,26 +176,27 @@ const _tituloSeccion = TextStyle(
 );
 
 class _Encabezado extends StatelessWidget {
-  final String? nombre;
-  final bool estaAutenticado;
-  final Future<void> Function() onIniciarSesion;
+  final VoidCallback onBack;
 
-  const _Encabezado({
-    required this.nombre,
-    required this.estaAutenticado,
-    required this.onIniciarSesion,
-  });
+  const _Encabezado({required this.onBack});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
+        IconButton(
+          onPressed: onBack,
+          icon: const Icon(Icons.arrow_back),
+          color: AppColors.greenDark,
+          tooltip: 'Volver',
+        ),
+        const SizedBox(width: 4),
+        const Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'COSECHACLIMA',
                 style: TextStyle(
                   color: AppColors.soil,
@@ -220,12 +205,10 @@ class _Encabezado extends StatelessWidget {
                   letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(height: 2),
+              SizedBox(height: 2),
               Text(
-                estaAutenticado && nombre != null
-                    ? 'Hola, $nombre'
-                    : 'El clima de tu zona',
-                style: const TextStyle(
+                'El clima de tu zona',
+                style: TextStyle(
                   fontFamily: 'Georgia',
                   fontFamilyFallback: ['Times New Roman', 'serif'],
                   fontSize: 24,
@@ -236,11 +219,6 @@ class _Encabezado extends StatelessWidget {
             ],
           ),
         ),
-        if (!estaAutenticado)
-          TextButton(
-            onPressed: onIniciarSesion,
-            child: const Text('Iniciar sesión'),
-          ),
       ],
     );
   }
@@ -457,56 +435,6 @@ class _TarjetaError extends StatelessWidget {
             child: const Text('Reintentar'),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _TarjetaAccionPrivada extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _TarjetaAccionPrivada({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.greenDark,
-      borderRadius: BorderRadius.circular(AppRadius.card),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppRadius.card),
-        onTap: onTap,
-        child: const Padding(
-          padding: EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Icon(Icons.agriculture_outlined, color: Colors.white, size: 30),
-              SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Mis parcelas',
-                      style: TextStyle(
-                        fontFamily: 'Georgia',
-                        fontFamilyFallback: ['Times New Roman', 'serif'],
-                        color: Colors.white,
-                        fontSize: 19,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Alertas y recomendaciones para tu cultivo',
-                      style: TextStyle(color: Color(0xCCFFFFFF), fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right, color: Colors.white),
-            ],
-          ),
-        ),
       ),
     );
   }

@@ -13,11 +13,6 @@
 -keep class io.flutter.** { *; }
 -keep class io.flutter.plugins.** { *; }
 
-# ── flutter_secure_storage ───────────────────────────────────────────
-# Usa androidx.security.crypto, que resuelve proveedores por reflexion.
--keep class androidx.security.crypto.** { *; }
--keep class com.google.crypto.tink.** { *; }
-
 # ── geolocator ───────────────────────────────────────────────────────
 -keep class com.baseflow.geolocator.** { *; }
 

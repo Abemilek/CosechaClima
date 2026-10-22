@@ -42,7 +42,7 @@ class ReglaLocal {
 
 /// Catálogos + reglas activas. Es el mismo contenido que sirve
 /// GET /api/reglas/paquete, así que el teléfono puede calcular alertas
-/// sin conexión. [version] identifica el contenido (hash del servidor).
+/// sin conexión. [version] identifica el contenido (hash del paquete).
 class PaqueteReglas {
   final String version;
   final List<EventoClimatico> eventos;

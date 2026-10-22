@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
-import '../network/api_exception.dart';
+import '../network/network_exception.dart';
 
 /// Un día de pronóstico u observación.
 class DiaClima {
@@ -79,9 +79,9 @@ class SerieClima {
 /// Cliente directo de Open-Meteo (api.open-meteo.com).
 ///
 /// Términos de la API gratuita: uso no comercial, atribución CC BY 4.0 y cuota
-/// diaria por IP. Al llamar desde cada teléfono, cada usuario tiene su propia
-/// cuota en vez de compartir la IP del servidor. Si CosechaClima pasa a uso
-/// comercial hay que contratar el plan de pago de Open-Meteo.
+/// diaria por IP. Cada teléfono consulta directamente y usa su propia cuota.
+/// Si CosechaClima pasa a uso comercial hay que contratar el plan de pago de
+/// Open-Meteo.
 class OpenMeteoClient {
   static const atribucion = 'Datos meteorológicos: Open-Meteo.com (CC BY 4.0)';
   static const _host = 'api.open-meteo.com';
@@ -120,7 +120,7 @@ class OpenMeteoClient {
     try {
       respuesta = await _client.get(uri).timeout(timeout);
     } on TimeoutException {
-      throw const TimeoutApiException();
+      throw const NetworkTimeoutException();
     } on SocketException {
       throw const NetworkException();
     } on http.ClientException {

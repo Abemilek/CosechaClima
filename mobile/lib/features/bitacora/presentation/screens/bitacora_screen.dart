@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../core/network/api_client.dart';
-import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/app_loading_message.dart';
 import '../../../../shared/widgets/app_pill.dart';
@@ -12,17 +10,23 @@ import '../../data/models/bitacora.dart';
 import '../../data/services/bitacora_service.dart';
 
 class BitacoraScreen extends StatefulWidget {
-  final int? parcelaId;
+  final String? parcelaId;
   final bool mostrarAppBar;
+  final String? titulo;
 
-  const BitacoraScreen({super.key, this.parcelaId, this.mostrarAppBar = true});
+  const BitacoraScreen({
+    super.key,
+    this.parcelaId,
+    this.mostrarAppBar = true,
+    this.titulo,
+  });
 
   @override
   State<BitacoraScreen> createState() => _BitacoraScreenState();
 }
 
 class _BitacoraScreenState extends State<BitacoraScreen> {
-  late final BitacoraService _service;
+  final _service = BitacoraService();
   List<BitacoraEntry> _entradas = [];
   bool _cargando = true;
   String? _error;
@@ -30,7 +34,6 @@ class _BitacoraScreenState extends State<BitacoraScreen> {
   @override
   void initState() {
     super.initState();
-    _service = BitacoraService(ApiClient());
     unawaited(_cargar());
   }
 
@@ -43,24 +46,17 @@ class _BitacoraScreenState extends State<BitacoraScreen> {
       _cargando = true;
       _error = null;
     });
-    List<BitacoraEntry>? entradas;
-    String? error;
     try {
-      entradas = await _service.obtenerMias();
-    } on ApiException catch (e) {
-      error = e.message;
-    } on NetworkException catch (e) {
-      error = e.message;
-    } on TimeoutApiException catch (e) {
-      error = e.message;
+      final entradas = await _service.obtenerTodas();
+      if (!mounted) return;
+      setState(() => _entradas = entradas);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'No se pudo leer la bitácora guardada en este teléfono.';
+      });
     } finally {
-      if (mounted) {
-        setState(() {
-          _cargando = false;
-          _error = error;
-          if (entradas != null) _entradas = entradas;
-        });
-      }
+      if (mounted) setState(() => _cargando = false);
     }
   }
 
@@ -69,12 +65,8 @@ class _BitacoraScreenState extends State<BitacoraScreen> {
       await _service.marcarAccion(entrada.id, numero);
       if (!mounted) return;
       await _cargar();
-    } on ApiException catch (e) {
-      _mostrarError(e.message);
-    } on NetworkException catch (e) {
-      _mostrarError(e.message);
-    } on TimeoutApiException catch (e) {
-      _mostrarError(e.message);
+    } catch (_) {
+      _mostrarError('No se pudo guardar la acción. Intentá de nuevo.');
     }
   }
 
@@ -88,7 +80,9 @@ class _BitacoraScreenState extends State<BitacoraScreen> {
 
   Future<void> _verResumen() async {
     try {
-      final resumen = await _service.obtenerResumen();
+      final resumen = await _service.obtenerResumen(
+        parcelaId: widget.parcelaId,
+      );
       if (!mounted) return;
       unawaited(
         showDialog<void>(
@@ -105,12 +99,8 @@ class _BitacoraScreenState extends State<BitacoraScreen> {
           ),
         ),
       );
-    } on ApiException catch (e) {
-      _mostrarError(e.message);
-    } on NetworkException catch (e) {
-      _mostrarError(e.message);
-    } on TimeoutApiException catch (e) {
-      _mostrarError(e.message);
+    } catch (_) {
+      _mostrarError('No se pudo generar el resumen.');
     }
   }
 
@@ -122,7 +112,7 @@ class _BitacoraScreenState extends State<BitacoraScreen> {
     return Scaffold(
       backgroundColor: AppColors.cream,
       appBar: AppBar(
-        title: const Text('Mi cuaderno'),
+        title: Text(widget.titulo ?? 'Mi cuaderno'),
         actions: [
           IconButton(
             tooltip: 'Actualizar bitácora',

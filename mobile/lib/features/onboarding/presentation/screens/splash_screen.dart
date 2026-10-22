@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/config/environment.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../routing/no_animation_route.dart';
 import 'tutorial_screen.dart';
@@ -49,7 +50,8 @@ class SplashScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      'Tu semáforo de decisiones climáticas para el campo.',
+                      'Tu semáforo de decisiones climáticas para el campo. '
+                      'Sin cuentas: tus datos se quedan en tu teléfono.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 18,
@@ -112,7 +114,7 @@ class SplashScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 18),
                   Text(
-                    'Versión 1.0 · Ciclo agrícola 2026',
+                    'Versión ${Environment.version} · Ciclo agrícola 2026',
                     style: TextStyle(
                       fontSize: 13,
                       color: Colors.white.withValues(alpha: 0.58),

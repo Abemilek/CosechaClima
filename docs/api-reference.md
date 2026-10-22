@@ -1,5 +1,10 @@
 # CosechaClima API -- Referencia tecnica
 
+> [!IMPORTANT]
+> Documento del **backend/stack histórico**. La app móvil v2 es 100 % local y
+> no usa esta API. Para la app vigente ver [local-first.md](./local-first.md).
+
+
 > Ver tambien: [authentication.md](./authentication.md) para el detalle del flujo de login (correo y Google), [google-sign-in-setup.md](./google-sign-in-setup.md) para configurar Google, y [error-handling.md](./error-handling.md) para el catalogo completo de codigos de error.
 
 Documentacion completa de todos los endpoints. Complementa a Swagger (`/swagger`) -- Swagger es la fuente de verdad en vivo, este documento explica el por que y el flujo interno de cada endpoint.
@@ -376,7 +381,7 @@ La app avisa que evento detecto en el dispositivo: `{ "eventoClimaticoId": 1, "f
 | Canicula | N dias consecutivos sin precipitacion (`umbrales.CaniculaDias`) |
 | Sin riesgo | Ninguno de los anteriores |
 
-6. Para cada evento activo, busca la regla en el arbol de 216 combinaciones (evento x cultivo x etapa x suelo).
+6. Para cada evento activo, busca la regla en el arbol de 540 combinaciones (6 eventos x 5 cultivos x 6 etapas x 3 suelos).
 7. Selecciona la regla con el **nivel de riesgo mas alto** (Alto > Medio > Bajo).
 8. Guarda o actualiza la alerta del dia.
 
@@ -452,13 +457,13 @@ Genera un texto plano con las ultimas entradas de bitacora, pensado para compart
 
 ### GET /api/reglas
 
-Devuelve las 216 reglas del arbol de decision completo.
+Devuelve las 540 reglas del arbol de decision completo.
 
 **Respuesta:** `200` -> array de `ReglaDecision`
 
 ### POST /api/reglas/sembrar
 
-Genera las 216 combinaciones si no existen. Operacion idempotente.
+Genera las 540 combinaciones si no existen. Operacion idempotente.
 
 **Respuesta:** `200` -> `{ "mensaje": "reglas placeholder generadas o ya existian" }`
 

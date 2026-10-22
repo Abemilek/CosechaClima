@@ -1,5 +1,10 @@
 # Error Handling
 
+> [!IMPORTANT]
+> Documento del **backend/stack histórico**. La app móvil v2 es 100 % local y
+> no usa esta API. Para la app vigente ver [local-first.md](./local-first.md).
+
+
 Como interpretar y manejar los errores que devuelve la API.
 
 ## Formato estandar

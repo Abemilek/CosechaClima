@@ -320,7 +320,7 @@ backend/
 ---
 
 > [!WARNING]
-> El `.env` de la raiz (y `mobile/.env`) contienen credenciales reales y nunca deben compartirse ni subirse a control de versiones. Al comprimir el proyecto, excluirlos explicitamente:
+> El `.env` de la raiz contiene credenciales reales y nunca deben compartirse ni subirse a control de versiones. Al comprimir el proyecto, excluirlos explicitamente:
 > ```bash
 > zip -r CosechaClima.zip CosechaClima -x "*.env" -x "*/bin/*" -x "*/obj/*"
 > ```

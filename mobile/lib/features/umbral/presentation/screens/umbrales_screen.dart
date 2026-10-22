@@ -2,8 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/network/api_client.dart';
-import '../../../../core/network/api_exception.dart';
+import '../../../../core/cache/evaluacion_local_cache.dart';
 import '../../../../core/services/notificacion_riesgo_service.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/app_loading_message.dart';
@@ -19,7 +18,7 @@ class UmbralesScreen extends StatefulWidget {
 }
 
 class _UmbralesScreenState extends State<UmbralesScreen> {
-  late final UmbralService _service;
+  final _service = UmbralService();
 
   bool _cargando = true;
   bool _guardando = false;
@@ -51,7 +50,6 @@ class _UmbralesScreenState extends State<UmbralesScreen> {
   @override
   void initState() {
     super.initState();
-    _service = UmbralService(ApiClient());
     unawaited(_cargar());
     unawaited(_cargarEstadoNotificaciones());
   }
@@ -76,36 +74,26 @@ class _UmbralesScreenState extends State<UmbralesScreen> {
       _cargando = true;
       _error = null;
     });
-    String? error;
     try {
-      final umbral = await _service.obtenerMios();
-      if (umbral != null) {
-        _lluviaIntensaMm = umbral.lluviaIntensaMm.toDouble().clamp(50, 150);
-        _vientoFuerteKmh = umbral.vientoFuerteKmh.toDouble().clamp(20, 60);
-        _caniculaDias = umbral.caniculaDias.toDouble().clamp(5, 15);
-        _variedadCultivo = _variedades.contains(umbral.variedadCultivo)
-            ? umbral.variedadCultivo
-            : _variedades.first;
-        _tieneRiego = umbral.tieneRiego;
-        final partes = umbral.horarioSms.split(':');
-        final h = TimeOfDay(
-          hour: int.parse(partes[0]),
-          minute: int.parse(partes[1]),
-        );
-        _horarioSms = _horarios.contains(h) ? h : _horarios[1];
-      }
-    } on ApiException catch (e) {
-      error = e.message;
-    } on NetworkException catch (e) {
-      error = e.message;
-    } on TimeoutApiException catch (e) {
-      error = e.message;
+      final umbral = await _service.obtener();
+      _lluviaIntensaMm = umbral.lluviaIntensaMm.toDouble().clamp(50, 150);
+      _vientoFuerteKmh = umbral.vientoFuerteKmh.toDouble().clamp(20, 60);
+      _caniculaDias = umbral.caniculaDias.toDouble().clamp(5, 15);
+      _variedadCultivo = _variedades.contains(umbral.variedadCultivo)
+          ? umbral.variedadCultivo
+          : _variedades.first;
+      _tieneRiego = umbral.tieneRiego;
+      final partes = umbral.horarioSms.split(':');
+      final h = TimeOfDay(
+        hour: int.tryParse(partes.first) ?? 6,
+        minute: partes.length > 1 ? int.tryParse(partes[1]) ?? 0 : 0,
+      );
+      _horarioSms = _horarios.contains(h) ? h : _horarios[1];
+    } catch (_) {
+      _error = 'No se pudieron leer tus alertas guardadas.';
     } finally {
       if (mounted) {
-        setState(() {
-          _cargando = false;
-          _error = error;
-        });
+        setState(() => _cargando = false);
       }
     }
   }
@@ -120,7 +108,7 @@ class _UmbralesScreenState extends State<UmbralesScreen> {
           '${_horarioSms.hour.toString().padLeft(2, '0')}:'
           '${_horarioSms.minute.toString().padLeft(2, '0')}';
       await _service.guardar(
-        UmbralRequest(
+        UmbralConfig(
           lluviaIntensaMm: _lluviaIntensaMm.round(),
           vientoFuerteKmh: _vientoFuerteKmh.round(),
           caniculaDias: _caniculaDias.round(),
@@ -129,17 +117,18 @@ class _UmbralesScreenState extends State<UmbralesScreen> {
           horarioSms: horario,
         ),
       );
+      await EvaluacionLocalCache().limpiarTodas();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Tus alertas quedaron guardadas')),
       );
       Navigator.of(context).pop(true);
-    } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
-    } on NetworkException catch (e) {
-      if (mounted) setState(() => _error = e.message);
-    } on TimeoutApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _error = 'No se pudieron guardar tus alertas en este teléfono.';
+        });
+      }
     } finally {
       if (mounted) setState(() => _guardando = false);
     }
@@ -290,6 +279,13 @@ class _UmbralesScreenState extends State<UmbralesScreen> {
                     child: Text(
                       _guardando ? 'Guardando...' : 'Guardar mis alertas',
                     ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Estas preferencias se guardan en tu teléfono y se usan '
+                    'para calcular el semáforo, incluso sin internet.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 11.5, color: AppColors.muted),
                   ),
                 ],
               ),

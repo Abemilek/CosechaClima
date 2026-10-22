@@ -1,5 +1,10 @@
 # PostgreSQL
 
+> [!IMPORTANT]
+> Documento del **backend/stack histórico**. La app móvil v2 es 100 % local y
+> no usa esta API. Para la app vigente ver [local-first.md](./local-first.md).
+
+
 Decisiones, convenciones y guía de operación de la base de datos de CosechaClima.
 
 ## Por qué PostgreSQL

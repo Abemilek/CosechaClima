@@ -51,28 +51,23 @@ CosechaClima traduce datos climáticos abiertos en una recomendación accionable
 1. El productor registra su parcela: cultivo, etapa fenológica, tipo de suelo y coordenadas GPS.
 2. Configura sus propios umbrales de riesgo (mm de lluvia, km/h de viento, días de canícula).
 3. El sistema consulta datos climáticos reales de la zona vía Open-Meteo.
-4. El **motor de decisiones** evalúa todos los eventos climáticos activos simultáneamente contra un árbol de **216 reglas agronómicas** (180 de eventos de riesgo + 36 de "sin riesgo") y selecciona la alerta con el nivel de riesgo más severo (Alto / Medio / Bajo / Sin riesgo) con 3 acciones recomendadas.
-5. El productor registra en su bitácora de campo que acciones completó, y puede compartir un resumen de texto simple.
+4. El **motor de decisiones en el teléfono** evalúa todos los eventos climáticos activos simultáneamente contra **540 reglas agronómicas** embebidas en la app y selecciona la alerta con el nivel de riesgo más severo (Alto / Medio / Bajo / Sin riesgo) con 3 acciones recomendadas.
+5. El productor registra en su bitácora local qué acciones completó y puede compartir un resumen de texto simple.
 
-**Sin cuenta también sirve.** La app abre en un inicio público con el pronóstico de 5 días de la zona (o la ubicación del teléfono) y solo pide iniciar sesión al hacer algo privado, como guardar una parcela. Se puede entrar con **Google** (un toque, sin recordar contraseña) o con **correo y contraseña**.
+**La app móvil v2 es 100 % local.** No necesita cuenta, servidor, URL de API ni archivo de entorno. Las parcelas, los umbrales y la bitácora viven en el teléfono y se pueden exportar como respaldo JSON. La única dependencia externa es Open-Meteo para pronósticos frescos; el último pronóstico (hasta 3 días) y la última evaluación completa mantienen la app funcionando sin conexión.
 
 ## Arquitectura
 
 ```mermaid
 flowchart TD
-    A["App Flutter (solo productores)"] -->|"pronostico directo"| E["Open-Meteo API"]
+    A["App Flutter v2 (100 % local)"] -->|"solo pronostico fresco"| E["Open-Meteo API"]
     A --> M["Motor de decisiones en el dispositivo + reglas embebidas (offline)"]
-    A -->|"HTTPS + JWT 15 min + refresh token"| B["ASP.NET Core 10 API (delgada)"]
-    P["Admin Console (Vite + React)"] -->|"HTTPS, rol Admin, cookie HttpOnly"| B
-    M -.->|"paquete de reglas (ETag)"| B
-    B --> F["PostgreSQL 18"]
-    F --> G["Npgsql - SQL explicito, migraciones versionadas"]
-    B --> H["Rate Limiting + JWT con Jti + refresh tokens rotados"]
-    A -->|"Login con Google"| I["Google Sign-In"]
-    B -->|"Valida el ID Token"| I
+    A --> L["Almacenamiento del telefono: parcelas, umbrales, bitacora, respaldo"]
+    B["ASP.NET Core 10 API (historica/referencia)"] --> F["PostgreSQL 18"]
+    P["Admin Console (historica/referencia)"] --> B
 ```
 
-**Offline-first:** el semáforo y el plan semanal se calculan **en el teléfono** con datos de Open-Meteo (con copia local) y 540 reglas agronómicas embebidas en la app, así que siguen funcionando sin conexión. El servidor es delgado: cuentas, parcelas, bitácora, actualización de reglas y Admin Console. Ver [docs/plan-b-offline-first.md](docs/plan-b-offline-first.md).
+**App móvil local-first:** el semáforo y el plan semanal se calculan **en el teléfono** con datos de Open-Meteo (con copia local) y 540 reglas agronómicas embebidas en la app. La app no tiene cuentas, llamadas al backend ni sincronización remota. El backend y el Admin Console quedan en el repositorio como código histórico/de referencia, pero la app móvil no los necesita. Ver [docs/local-first.md](docs/local-first.md).
 
 ## Stack tecnologico
 
@@ -81,7 +76,7 @@ flowchart TD
 | Backend | ASP.NET Core 10 | LTS vigente, tipado fuerte, rendimiento |
 | Base de datos | PostgreSQL 18 (Docker) | Gratuita, uso comercial permitido (SQL Server Developer no tiene licencia para producción) |
 | Acceso a datos | Npgsql, SQL explícito (sin ORM) | Control total sobre consultas, upserts `ON CONFLICT`, migraciones versionadas. Ver [docs/postgresql.md](docs/postgresql.md) |
-| Autenticacion | JWT Bearer de 15 min + refresh token rotado + correo/contraseña (PBKDF2 + salt) + Google Sign-In + Jti | Google Sign-In es gratuito: sin SMS ni servicios de pago |
+| Autenticacion (solo backend) | JWT Bearer de 15 min + refresh token rotado + correo/contraseña (PBKDF2 + salt) + Google Sign-In + Jti | Se conserva para el backend histórico; la app móvil v2 no tiene cuentas |
 | Datos climaticos | [Open-Meteo](https://open-meteo.com) (consultado directo desde la app) | Pronostico real hasta 16 dias, sin API key. Gratuito solo para uso **no comercial**; atribución CC BY 4.0 visible en la app |
 | Notificaciones | `flutter_local_notifications` (en el dispositivo) | Sin Firebase/FCM: costo de infraestructura cero |
 | Contenedorizacion | Docker multi-stage (Alpine / nginx) | Imagen optimizada, usuario no-root |
@@ -101,7 +96,7 @@ CosechaClima/
 |   |   |-- WebApi.Implementation/ # Logica de negocio + ADO.NET
 |   |-- Scripts/                   # Esquema SQL, seed, reglas JSON
 |   |-- Dockerfile                 # Build multi-stage (SDK -> Alpine)
-|-- mobile/                        # App Flutter (solo productores)
+|-- mobile/                        # App Flutter v2 (100 % local, sin backend)
 |-- adminconsole/                   # Admin Console web (Vite + React + nginx)
 |-- docs/                          # Documentacion tecnica
 |-- compose.yaml                   # Docker Compose (raiz del proyecto)
@@ -112,12 +107,26 @@ CosechaClima/
 
 ## Puesta en marcha
 
-Todo el entorno se ejecuta desde la raiz del proyecto con Docker Compose.
+### App móvil (recomendado, sin backend)
+
+**Prerequisitos:** Flutter SDK.
+
+```bash
+git clone https://github.com/Abemilek/CosechaClima.git
+cd CosechaClima/mobile
+flutter pub get
+flutter run
+```
+
+No hace falta `.env`, `API_URL`, base de datos ni servidor. Ver [mobile/README.es.md](mobile/README.es.md) para almacenamiento local, funcionamiento sin conexión y copia de seguridad.
+
+### Backend y Admin Console (histórico/referencia, opcional)
+
+El stack de servidor original sigue disponible como referencia. **No** lo usa la app móvil v2.
 
 **Prerequisitos:** Docker + Docker Compose instalados.
 
 ```bash
-git clone https://github.com/Abemilek/CosechaClima.git
 cd CosechaClima
 cp .env.example .env
 # Editar .env con tus valores (ver comentarios en .env.example)
@@ -153,12 +162,12 @@ docker compose logs api | grep -i "admin"
 > `ASPNETCORE_ENVIRONMENT` es `Production` por defecto (Swagger oculto). Para desarrollo local poner `ASPNETCORE_ENVIRONMENT=Development` en `.env` y abrir `http://localhost:8080/swagger`.
 
 > [!NOTE]
-> **Google Sign-In es opcional.** Sin Client IDs, la app sigue funcionando con correo y contraseña. Para activarlo ver [docs/google-sign-in-setup.md](docs/google-sign-in-setup.md). La app movil tiene su propio `mobile/.env` (`API_URL` y `GOOGLE_SERVER_CLIENT_ID`).
+> **Google Sign-In pertenece solo al backend histórico.** La app móvil v2 no usa cuentas ni Google Sign-In. Las notas antiguas de configuración siguen en [docs/google-sign-in-setup.md](docs/google-sign-in-setup.md) para el backend.
 
 > [!NOTE]
 > `compose.yaml` inicia automaticamente: PostgreSQL, la API (que aplica las migraciones) (Dockerfile multi-stage) y el Admin Console (compilado con Vite, servido por nginx). Ver [backend/README.es.md](backend/README.es.md), [mobile/README.es.md](mobile/README.es.md) y [adminconsole/](adminconsole/) para instrucciones detalladas de cada componente.
 
-## Seguridad
+## Seguridad (backend histórico)
 
 - Access tokens JWT de 15 minutos (claim `Jti`) renovados con refresh tokens de un solo uso y rotados (se guarda su SHA-256; reutilizarlos revoca toda la sesión). Admin Console: access token solo en memoria + cookie `HttpOnly` `SameSite=Strict`.
 - Inicio de sesion con Google: el ID Token se valida siempre en el servidor (firma, audiencia, expiracion y correo verificado).
@@ -177,7 +186,7 @@ Detalle completo en [docs/security.md](docs/security.md).
 
 ## Costo de infraestructura
 
-**$0 para desarrollo y uso no comercial.** PostgreSQL, ASP.NET Core, las notificaciones locales y todo el stack (incluyendo el Admin Console) son gratuitos y el proyecto corre completo en una laptop via Docker Compose. Dos salvedades para producción: la API gratuita de Open-Meteo es **solo para uso no comercial** (para uso comercial hay que contratar su plan de pago) y hace falta un servidor para alojar la API y la base de datos.
+**$0 para la app móvil y uso no comercial.** La app corre completamente en el teléfono; no hace falta servidor. PostgreSQL, ASP.NET Core, las notificaciones locales y el stack histórico opcional son gratuitos. Salvedad: la API gratuita de Open-Meteo es **solo para uso no comercial** (para uso comercial hay que contratar su plan de pago).
 
 ## Como contribuir
 
