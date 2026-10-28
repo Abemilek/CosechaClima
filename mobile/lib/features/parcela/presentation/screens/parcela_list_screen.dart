@@ -58,9 +58,8 @@ class _ParcelaListScreenState extends State<ParcelaListScreen> {
   }
 
   Future<void> _abrir(Widget pantalla) async {
-    final resultado = await Navigator.of(
-      context,
-    ).push<bool>(noAnimationRoute<bool>((_) => pantalla));
+    final resultado = await Navigator.of(context)
+        .push<bool>(noAnimationRoute<bool>((_) => pantalla));
     if (resultado == true) unawaited(_recargar());
   }
 
@@ -81,9 +80,8 @@ class _ParcelaListScreenState extends State<ParcelaListScreen> {
         await _abrir(const CopiaSeguridadScreen());
         break;
       case 'acerca':
-        await Navigator.of(
-          context,
-        ).push<void>(noAnimationRoute<void>((_) => const AcercaDeScreen()));
+        await Navigator.of(context)
+            .push<void>(noAnimationRoute<void>((_) => const AcercaDeScreen()));
         break;
     }
   }

@@ -55,9 +55,8 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
         textoUbicacion = 'Tu ubicación actual';
       } on LocationException catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(e.message)));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(e.message)));
         }
       }
     }

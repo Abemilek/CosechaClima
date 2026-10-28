@@ -149,9 +149,8 @@ class _EditarParcelaLocalScreenState extends State<EditarParcelaLocalScreen> {
     try {
       await ParcelaLocalStore().actualizar(actualizada);
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Parcela actualizada')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Parcela actualizada')));
       Navigator.of(context).pop(true);
     } catch (_) {
       if (!mounted) return;
@@ -162,9 +161,8 @@ class _EditarParcelaLocalScreenState extends State<EditarParcelaLocalScreen> {
 
   void _mostrarError(String mensaje) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(mensaje)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(mensaje)));
   }
 
   @override

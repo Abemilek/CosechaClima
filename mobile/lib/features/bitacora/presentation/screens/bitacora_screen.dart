@@ -72,9 +72,8 @@ class _BitacoraScreenState extends State<BitacoraScreen> {
 
   void _mostrarError(String mensaje) {
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(mensaje)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(mensaje)));
     }
   }
 
