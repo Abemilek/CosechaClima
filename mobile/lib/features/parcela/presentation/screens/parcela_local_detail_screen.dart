@@ -301,8 +301,9 @@ class _ParcelaLocalDetailScreenState extends State<ParcelaLocalDetailScreen> {
   }
 
   Future<void> _ajustarAlertas() async {
-    final guardado = await Navigator.of(context)
-        .push<bool>(noAnimationRoute<bool>((_) => const UmbralesScreen()));
+    final guardado = await Navigator.of(
+      context,
+    ).push<bool>(noAnimationRoute<bool>((_) => const UmbralesScreen()));
     if (guardado != true) return;
     await _cache.limpiarTodas();
     if (!mounted) return;
@@ -311,8 +312,9 @@ class _ParcelaLocalDetailScreenState extends State<ParcelaLocalDetailScreen> {
 
   void _mostrarError(String mensaje) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(mensaje)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(mensaje)));
   }
 
   @override

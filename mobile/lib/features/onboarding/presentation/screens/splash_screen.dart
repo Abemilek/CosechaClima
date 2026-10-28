@@ -96,8 +96,8 @@ class SplashScreen extends StatelessWidget {
                         backgroundColor: AppColors.mint2,
                         foregroundColor: const Color(0xFF07160D),
                       ),
-                      onPressed: () => Navigator.of(context)
-                          .pushReplacement<void, void>(
+                      onPressed: () =>
+                          Navigator.of(context).pushReplacement<void, void>(
                             noAnimationRoute<void>(
                               (_) => const TutorialScreen(),
                             ),
