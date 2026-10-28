@@ -45,7 +45,7 @@ import Layout from '../layouts/Layout.astro';
       <p class="location-tag">📍 Carazo, Nicaragua · Monitoreo Agrícola</p>
       <h2 class="hero-title">Tu semáforo de decisiones climáticas para el campo</h2>
       <p class="hero-subtitle">
-        CosechaClima traduce el clima en 3 acciones concretas para tu parcela — sin necesidad de un técnico agronómico presente todos los días.
+        CosechaClima traduce el clima en 3 acciones concretas para tu parcela. 100% local-first, sin servidor, sin cuenta y tus datos quedan en tu dispositivo.
       </p>
       
       <div class="hero-actions">
@@ -68,7 +68,7 @@ import Layout from '../layouts/Layout.astro';
         <article class="feature-card">
           <div class="card-icon">🚦</div>
           <h3>Semáforo de riesgo</h3>
-          <p>Cruza clima real, cultivo, etapa y tipo de suelo contra un motor de reglas agronómicas y te indica riesgo bajo, medio o alto.</p>
+          <p>Cruza clima, cultivo, etapa y tipo de suelo con un motor de reglas local y te indica riesgo bajo, medio o alto.</p>
         </article>
         
         <article class="feature-card">
@@ -79,14 +79,14 @@ import Layout from '../layouts/Layout.astro';
         
         <article class="feature-card">
           <div class="card-icon">📍</div>
-          <h3>GPS automático</h3>
-          <p>Registra la parcela con un toque; la app detecta la ubicación para consultar el clima exacto de ese punto.</p>
+          <h3>Clima por ubicación</h3>
+          <p>Con la ubicación de tu parcela obtienes el pronóstico diario para generar alertas sin enviar datos a un servidor.</p>
         </article>
-        
+
         <article class="feature-card">
-          <div class="card-icon">📓</div>
-          <h3>Bitácora de campo</h3>
-          <p>Registro de acciones cumplidas e historial de alertas de la parcela consultables en cualquier momento.</p>
+          <div class="card-icon">🔒</div>
+          <h3>Local-first y offline</h3>
+          <p>Tus parcelas, bitácora y configuración se guardan en el dispositivo. Funciona sin cuenta ni backend obligatorio.</p>
         </article>
 
       </div>
@@ -98,8 +98,7 @@ import Layout from '../layouts/Layout.astro';
     <div class="container transparency-content">
       <h2>Transparencia y Open Source</h2>
       <p>
-        CosechaClima es un proyecto <strong>100% de código abierto</strong>, auditado, seguro y diseñado para funcionar de forma ultra eficiente en entornos rurales. 
-        No contiene rastreadores innecesarios ni telemetría invasiva; tus datos de campo te pertenecen.
+        CosechaClima es un proyecto <strong>100% de código abierto</strong> y <strong>local-first</strong>. Todo se guarda en tu dispositivo, sin servidor obligatorio, sin cuenta y sin telemetría invasiva. Tus datos de campo te pertenecen.
       </p>
     </div>
   </section>
@@ -165,7 +164,6 @@ import Layout from '../layouts/Layout.astro';
     position: sticky;
     top: 0;
     z-index: 100;
-    transition: background-color 0.3s ease, border-color 0.3s ease;
   }
 
   .header-content {
