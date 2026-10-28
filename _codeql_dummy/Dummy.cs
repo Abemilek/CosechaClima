@@ -1,1 +1,0 @@
-namespace Dummy { class DummyClass {} }
